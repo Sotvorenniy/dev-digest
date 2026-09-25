@@ -8,6 +8,7 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import { deriveReviewStatus } from './status.js';
+import { sumRunCosts } from '../../platform/run-cost.js';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -129,6 +130,35 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
+    // Total SPEND per PR for the list's cost column — the sum of every agent
+    // run, so a second review adds to the number rather than replacing it.
+    // Same shape as the score pass above: one IN-query + JS grouping. The sum
+    // is done in JS, not SQL, because runs stored before migration 0010 have a
+    // null cost_usd and must be re-priced from their token counts.
+    const costByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          costUsd: t.agentRuns.costUsd,
+          model: t.agentRuns.model,
+          tokensIn: t.agentRuns.tokensIn,
+          tokensOut: t.agentRuns.tokensOut,
+        })
+        .from(t.agentRuns)
+        .where(inArray(t.agentRuns.prId, prIds));
+      const byPr = new Map<string, typeof runRows>();
+      for (const run of runRows) {
+        if (!run.prId) continue;
+        const bucket = byPr.get(run.prId);
+        if (bucket) bucket.push(run);
+        else byPr.set(run.prId, [run]);
+      }
+      const estimate = (model: string, tokensIn: number, tokensOut: number) =>
+        container.priceBook.estimate(model, tokensIn, tokensOut);
+      for (const [prId, runs] of byPr) costByPr.set(prId, sumRunCosts(estimate, runs));
+    }
+
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
@@ -153,6 +183,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        total_cost_usd: costByPr.get(r.id) ?? null,
       };
     });
   });

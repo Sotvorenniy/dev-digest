@@ -6,7 +6,7 @@ import {
   MockGitHubClient,
   MockCodeIndex,
   MockEmbedder,
-} from '../src/adapters/mocks.js';
+} from '../src/adapters';
 import { assemblePrompt } from '../src/platform/prompt.js';
 import { groundFindings } from '../src/platform/grounding.js';
 import { estimateCost } from '../src/adapters/llm/pricing.js';
@@ -103,5 +103,26 @@ describe('pricing / cost discipline', () => {
   it('estimates cost for known models and returns null for unknown', () => {
     expect(estimateCost('gpt-4o-mini', 1_000_000, 0)).toBeCloseTo(0.15, 5);
     expect(estimateCost('some-future-model', 1000, 1000)).toBeNull();
+  });
+
+  // A wrong price is worse than no price: the badge renders it as fact.
+  // These guard the two ways this table has already been wrong.
+  it('never prices a paid model at zero', () => {
+    // `z-ai/glm-4.7-flash` was listed as a 0/0 "free baseline" while actually
+    // costing $0.0605/$0.40 per 1M — a paid run rendered as "$0.00".
+    const cost = estimateCost('z-ai/glm-4.7-flash', 1_000_000, 1_000_000);
+    expect(cost).not.toBeNull();
+    expect(cost!).toBeGreaterThan(0);
+  });
+
+  it('returns null for a slug that does not exist upstream', () => {
+    // `z-ai/glm-4.7-flashx` is not a real OpenRouter model. An absent row
+    // yields null -> the badge shows "—" instead of inventing a number.
+    expect(estimateCost('z-ai/glm-4.7-flashx', 1000, 1000)).toBeNull();
+  });
+
+  it('prices the current Anthropic models (else real runs read "—")', () => {
+    expect(estimateCost('claude-opus-5', 1_000_000, 0)).toBeCloseTo(5.0, 5);
+    expect(estimateCost('claude-sonnet-5', 0, 1_000_000)).toBeCloseTo(10.0, 5);
   });
 });
