@@ -71,6 +71,17 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // Timeline tiles show a severity breakdown, but a RunSummary only carries
+  // aggregate counts — the per-severity split lives on the reviews below. Both
+  // are already in this component, so join them here rather than refetching.
+  const findingsByRun = React.useMemo(
+    () =>
+      new Map(
+        runs.filter((r): r is typeof r & { run_id: string } => !!r.run_id).map((r) => [r.run_id, r.findings]),
+      ),
+    [runs],
+  );
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -134,6 +145,7 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRun={findingsByRun}
           />
         </div>
       )}

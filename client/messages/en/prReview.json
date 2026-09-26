@@ -91,9 +91,13 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "status": "Status",
       "cost": "Cost",
       "updated": "Updated"
+    },
+    "findingsPopover": {
+      "title": "{count} FINDINGS IN THIS RUN"
     },
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",

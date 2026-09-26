@@ -13,6 +13,19 @@ Format — an H3 stating the claim, a dated body, and `path:line` evidence.
 ## What Doesn't Work
 <!-- Dead ends and antipatterns. The most valuable section — never skip it. -->
 
+### An absolutely-positioned popover in the PR table is clipped to ~8px
+`2026-09-26` — `s.tableCard` sets `overflow: hidden` to clip rows to its
+rounded corners, so a `position: absolute` panel inside a row is cut off at the
+card edge — only the popover header showed. Unit tests pass regardless; jsdom
+has no layout. Any hover panel hanging off a PR row must be portaled to
+<body> with `position: fixed` and coordinates from the trigger's
+`getBoundingClientRect()`, re-measured on scroll/resize. Portaling then breaks
+DOM containment, so `onMouseLeave` fires when the cursor crosses the gap into
+the panel — a ~120ms close delay, cleared by the panel's own `onMouseEnter`,
+is required or a scrollable panel can never be reached.
+Evidence: `client/src/app/repos/[repoId]/pulls/styles.ts:90`,
+`client/src/components/findings-popover/`
+
 ### Formatting a cost at fixed 4dp reports cheap real runs as free
 `2026-09-25` — `formatCost` floored at `toFixed(4)`, so a run costing $0.000034
 rendered "$0.00" — identical to a genuinely free run, and ~22 OpenRouter models
@@ -28,6 +41,15 @@ Evidence: `client/src/components/run-cost-badge/helpers.ts:1-40`
 
 ## Tool & Library Notes
 <!-- Quirks of Next 15, React 19, TanStack Query, next-intl, the bundler. -->
+
+### `MonoLink` with no `href` renders a <button>, not a link
+`2026-09-26` — The name reads as a link, but without `href` it returns a
+`<button>`; only the `href` branch renders an `<a>`. That makes it unusable on
+a read-only surface with a "no buttons" requirement (the findings hover
+popover), and it adds a tab stop wherever it appears. Use a plain
+`<span className="mono">` styled to match when the `file:line` must not be
+interactive.
+Evidence: `client/src/vendor/ui/primitives/MonoLink.tsx:44`
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->

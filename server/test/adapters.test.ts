@@ -9,7 +9,7 @@ import {
 } from '../src/adapters';
 import { assemblePrompt } from '../src/platform/prompt.js';
 import { groundFindings } from '../src/platform/grounding.js';
-import { estimateCost } from '../src/adapters/llm/pricing.js';
+import { estimateCost } from '../src/adapters';
 
 describe('mock adapters (no network)', () => {
   it('MockGitClient.diff parses into hunks with new line numbers', async () => {

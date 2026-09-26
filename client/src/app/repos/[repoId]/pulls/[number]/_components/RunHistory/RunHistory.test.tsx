@@ -7,7 +7,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { RunSummary, FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
 
@@ -35,12 +35,33 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(runs: RunSummary[], findingsByRun?: Map<string, FindingRecord[]>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+      <RunHistory runs={runs} onOpenTrace={() => {}} findingsByRun={findingsByRun} />
     </NextIntlClientProvider>,
   );
+}
+
+function finding(o: Partial<FindingRecord> & { id: string }): FindingRecord {
+  return {
+    severity: "CRITICAL",
+    category: "security",
+    title: "Hardcoded secret",
+    file: "src/config.ts",
+    start_line: 12,
+    end_line: 12,
+    rationale: "A secret is committed.",
+    suggestion: null,
+    confidence: 0.98,
+    kind: "finding",
+    trifecta_components: null,
+    evidence: null,
+    review_id: "r1",
+    accepted_at: null,
+    dismissed_at: null,
+    ...o,
+  };
 }
 
 describe("RunHistory — outcome badge", () => {
@@ -72,5 +93,36 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — severity chips", () => {
+  const FINDINGS = [
+    finding({ id: "c1" }),
+    finding({ id: "c2", title: "Exfil path" }),
+    finding({ id: "w1", severity: "WARNING", title: "N+1 query" }),
+  ];
+
+  it("breaks a run's findings down by severity instead of a flat count", () => {
+    renderRuns(
+      [run({ findings_count: 3, blockers: 2, score: 38 })],
+      new Map([["run-1", FINDINGS]]),
+    );
+    expect(screen.queryByText("3 finding(s)")).not.toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument(); // 2 CRITICAL
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+  });
+
+  it("falls back to the count line for a run with no matching review", () => {
+    renderRuns([run({ findings_count: 3, blockers: 2, score: 38 })], new Map());
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+  });
+
+  it("keeps the hover preview closed until the chips are hovered", () => {
+    renderRuns(
+      [run({ findings_count: 3, blockers: 2, score: 38 })],
+      new Map([["run-1", FINDINGS]]),
+    );
+    expect(screen.queryByText("3 FINDINGS IN THIS RUN")).not.toBeInTheDocument();
   });
 });

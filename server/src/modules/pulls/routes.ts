@@ -7,7 +7,8 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { deriveReviewStatus, rollupSeverities, type SeverityCounts } from './status.js';
+import { buildFindingPreviews, type FindingPreviewRow } from './helpers.js';
 import { sumRunCosts } from '../../platform/run-cost.js';
 
 /**
@@ -112,21 +113,58 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Per-PR rollup for the list: the latest review's SCORE for the ring, and
+    // EVERY review's findings for the FINDINGS breakdown + its hover popover.
+    //
+    // The two differ on purpose. A score is one review's verdict, so the newest
+    // one wins. Findings are not: a PR reviewed by three agents in parallel has
+    // findings spread across three reviews, and taking only the newest would
+    // show whichever agent happened to finish last. Summing every review is
+    // also what the PR page's own "Agent runs N" badge counts, so the list and
+    // the detail page can never contradict each other.
+    //
+    // Computed on read from reviews/findings (no FK denorm); the list is small,
+    // so two IN-queries + JS grouping is cheap.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
+    const reviewToPr = new Map<string, string>();
+    const sevByPr = new Map<string, SeverityCounts>();
+    const findingsByPr = new Map<string, FindingPreviewRow[]>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ id: t.reviews.id, prId: t.reviews.prId, score: t.reviews.score })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        reviewToPr.set(rv.id, rv.prId);
+      }
+      if (reviewToPr.size > 0) {
+        const findingRows = await container.db
+          .select({
+            reviewId: t.findings.reviewId,
+            id: t.findings.id,
+            severity: t.findings.severity,
+            category: t.findings.category,
+            title: t.findings.title,
+            file: t.findings.file,
+            startLine: t.findings.startLine,
+            endLine: t.findings.endLine,
+            confidence: t.findings.confidence,
+            rationale: t.findings.rationale,
+          })
+          .from(t.findings)
+          .where(inArray(t.findings.reviewId, [...reviewToPr.keys()]));
+        for (const f of findingRows) {
+          const prId = reviewToPr.get(f.reviewId);
+          if (!prId) continue;
+          const list = findingsByPr.get(prId) ?? [];
+          list.push(f);
+          findingsByPr.set(prId, list);
+        }
+        for (const [prId, fs] of findingsByPr) sevByPr.set(prId, rollupSeverities(fs));
       }
     }
 
@@ -162,6 +200,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
+      const sev = review ? sevByPr.get(r.id) : undefined;
       return {
         id: r.id,
         number: r.number,
@@ -183,6 +222,10 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        findings_critical: review ? (sev?.critical ?? 0) : null,
+        findings_warning: review ? (sev?.warning ?? 0) : null,
+        findings_suggestion: review ? (sev?.suggestion ?? 0) : null,
+        findings_preview: review ? buildFindingPreviews(findingsByPr.get(r.id) ?? []) : null,
         total_cost_usd: costByPr.get(r.id) ?? null,
       };
     });

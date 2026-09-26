@@ -13,6 +13,18 @@ Format — an H3 stating the claim, a dated body, and `path:line` evidence.
 ## What Doesn't Work
 <!-- Dead ends and antipatterns. The most valuable section — never skip it. -->
 
+### A PR-list rollup taken from the LATEST review contradicts the PR page
+`2026-09-26` — `GET /repos/:id/pulls` derives SCORE from the newest review,
+and the restored FINDINGS breakdown originally copied that. It is wrong for
+findings: multi-agent review writes ONE review PER AGENT seconds apart, so the
+newest review is whichever agent finished last. On the seeded PR #482 the list
+showed "—" while the PR page's tab read "Agent runs 2". Findings roll up over
+EVERY review on the PR — that is what the tab badge counts
+(`allFindings = runs.flatMap(r => r.findings)`), so the two screens agree.
+Score stays latest-only: a verdict is one review's, a finding list is not.
+Evidence: `server/src/modules/pulls/routes.ts:115`,
+`client/src/app/repos/[repoId]/pulls/[number]/page.tsx`
+
 ### A contract field added to RunStats must be optional, not just nullable
 `2026-09-25` — `RunStats` is parsed out of the `run_traces.trace` jsonb column,
 so it validates documents written under OLDER schema versions. Adding
