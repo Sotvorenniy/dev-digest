@@ -50,8 +50,29 @@ Evidence: `server/src/vendor/shared/contracts/trace.ts:65`,
 ## Codebase Patterns
 <!-- Conventions and architectural decisions, with the reason. -->
 
+### Agent instructions live in AGENTS.md; CLAUDE.md is a thin `@AGENTS.md` stub
+`2026-09-27` — Root and all four packages now carry BOTH files: `AGENTS.md`
+holds every shared convention, `CLAUDE.md` is `@AGENTS.md` plus a `## Claude
+Code` section for slash-command-only lines. Edit conventions in `AGENTS.md` —
+editing the stub hides them from Codex/Cursor/Copilot. Do NOT add
+`instructionFiles` to a `.claude/settings.json`: the default
+`claude-md-or-agents-md` makes CLAUDE.md shadow AGENTS.md, which is exactly what
+stops the import loading the same file twice; `claude-md-and-agents-md` would
+double-load it. Verified by headless probe — facts from root and from
+`client/AGENTS.md` both resolve.
+Evidence: `CLAUDE.md:1`, `client/CLAUDE.md:1`, `AGENTS.md:75`
+
 ## Tool & Library Notes
 <!-- Dependency quirks: Drizzle, Fastify, Next, pgvector, OpenRouter. -->
+
+### A local edit to a committed skill is reverted by a `skills-lock.json` re-sync
+`2026-09-27` — `.claude/skills/*` is committed but pinned to upstream sources by
+`skills-lock.json`, so hand-edits there survive only until the next sync. The
+AGENTS.md move required repointing `engineering-insights` to promote conventions
+into `<pkg>/AGENTS.md`; a re-sync silently restores `CLAUDE.md`, and new
+conventions then land in the import stub where other tools never see them.
+Re-check that line after any skill update.
+Evidence: `.claude/skills/engineering-insights/SKILL.md:225`, `skills-lock.json`
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->

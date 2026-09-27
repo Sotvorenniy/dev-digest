@@ -6,7 +6,7 @@ and run an agent review on it**. Every later course lesson adds one feature back
 (see [_What you build in the course_](#what-you-build-in-the-course)).
 
 > Working with an AI agent? The short form of the stack, commands and
-> conventions lives in [`CLAUDE.md`](CLAUDE.md). Changing anything here that it
+> conventions lives in [`AGENTS.md`](AGENTS.md). Changing anything here that it
 > also states means updating both.
 
 Several standalone packages (no monorepo workspace — each has its own

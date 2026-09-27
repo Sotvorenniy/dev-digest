@@ -6,7 +6,7 @@ filter. A package's suite runs only when that package (or a package it depends
 on at type-check time) changes.
 
 > The short form — which command runs which suite, and the `*.it.test.ts` naming
-> rule — is repeated for agents in [`CLAUDE.md`](CLAUDE.md). Keep the two in step.
+> rule — is repeated for agents in [`AGENTS.md`](AGENTS.md). Keep the two in step.
 
 ## Philosophy — typological, not exhaustive
 

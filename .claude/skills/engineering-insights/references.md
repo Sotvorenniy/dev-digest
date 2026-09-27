@@ -21,7 +21,7 @@
 ## Design decisions worth remembering
 
 **Why `INSIGHTS.md` and not `LEARNINGS.md`.** The source material names
-`LEARNINGS.md`. This repo already ships `<pkg>/INSIGHTS.md` and every `CLAUDE.md`
+`LEARNINGS.md`. This repo already ships `<pkg>/INSIGHTS.md` and every `AGENTS.md`
 routes to it, so the read side was already wired. Adding a second file would have
 meant two places to look.
 

@@ -91,7 +91,7 @@ line numbers.
 | No related entry | Add under the right section |
 | Related entry, still correct | Enrich it — append detail, never a near-duplicate |
 | Related entry, now wrong | Append a dated correction beneath it |
-| Already stated in a `CLAUDE.md` or `README.md` | Drop the candidate |
+| Already stated in an `AGENTS.md` or `README.md` | Drop the candidate |
 | Overlap is ambiguous | Drop the candidate — the default is silence |
 
 "Drop" always means *discard the new candidate*. It never means remove something
@@ -214,7 +214,7 @@ Hard-wrap at 80 columns, matching the rest of the repo's docs.
 - The user's name or email
 - Absolute paths under `/Users/`
 - Anything learned from `server/clones/**` — git-ignored runtime checkouts
-- Speculation, or anything already stated in a `CLAUDE.md` or `README.md`
+- Speculation, or anything already stated in an `AGENTS.md` or `README.md`
 - Learnings about this skill itself — those belong in the skill, not in
   `INSIGHTS.md`
 
@@ -222,7 +222,7 @@ Hard-wrap at 80 columns, matching the rest of the repo's docs.
 
 - **Append-only.** Supersede with a dated correction; never rewrite.
 - **Promote** — when an insight hardens into a rule binding every change, copy
-  it into that package's `CLAUDE.md` under `## Conventions (not obvious from
+  it into that package's `AGENTS.md` under `## Conventions (not obvious from
   code)` as one line, and append a pointer to the original entry. Do not remove
   the entry; promotion without a pointer is a deletion in disguise.
 - **Soft cap ~40 entries per file.** Phase 0 reads the whole file every session,
