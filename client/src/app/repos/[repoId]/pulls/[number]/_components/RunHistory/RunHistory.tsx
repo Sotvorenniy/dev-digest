@@ -3,7 +3,10 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
+import { RunCostBadge } from "@/components/run-cost-badge";
+import { SeverityChips, countBySeverity } from "@/components/severity-chips";
+import { FindingsPopover } from "@/components/findings-popover";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -90,6 +93,7 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRun,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -98,6 +102,11 @@ export function RunHistory({
   /** Jump to this run's inline review accordion below (clicking the agent name). */
   onGoToReview?: (runId: string) => void;
   onDelete?: (runId: string) => void;
+  /** run_id → that run's findings, for the severity chips and their hover
+   *  preview. A RunSummary carries only aggregate counts, so the breakdown has
+   *  to come from the reviews the parent already loaded. Runs with no entry
+   *  (failed, cancelled, or review since deleted) fall back to the count line. */
+  findingsByRun?: Map<string, FindingRecord[]>;
 }) {
   const t = useTranslations("prReview");
   if (runs.length === 0 && commits.length === 0) return null;
@@ -149,6 +158,7 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const runFindings = findingsByRun?.get(r.run_id);
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -188,15 +198,35 @@ export function RunHistory({
                   {r.error}
                 </div>
               )}
-              {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
-                </div>
-              )}
+              {settled &&
+                (runFindings && runFindings.length > 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+                    <FindingsPopover findings={runFindings}>
+                      <SeverityChips counts={countBySeverity(runFindings)} />
+                    </FindingsPopover>
+                    {(r.blockers ?? 0) > 0 && (
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {t("runStatus.blockers", { count: r.blockers ?? 0 }).replace(/^ · /, "")}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                    {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                  </div>
+                ))}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
+              {settled && (
+                <RunCostBadge
+                  variant="inline"
+                  usd={r.cost_usd}
+                  tokensIn={r.tokens_in}
+                  tokensOut={r.tokens_out}
+                />
+              )}
             </div>
             <button
               type="button"

@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -159,7 +159,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
 
   it('runs a review: map-reduce + grounding drops the hallucinated finding, keeps the valid one', async () => {
     const app = await appWith(REVIEW_FIXTURE);
-    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
 
     const agent = (
       await app.inject({
@@ -208,6 +208,19 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.status).toBe('done');
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
+
+    // COST — the run's spend is persisted, and surfaced on all three read paths
+    // the UI uses (trace stats, run history, PR list total). MockLLMProvider
+    // charges $0.001 per structured call.
+    const spend = run!.costUsd;
+    expect(spend).toBeGreaterThan(0);
+    expect(trace.stats.cost_usd).toBeCloseTo(spend!, 10);
+
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs[0].cost_usd).toBeCloseTo(spend!, 10);
+
+    const listed = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    expect(listed.find((p: { id: string }) => p.id === pr.id).total_cost_usd).toBeCloseTo(spend!, 10);
 
     await app.close();
   });

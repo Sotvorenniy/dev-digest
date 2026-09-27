@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Provider } from './knowledge.js';
+import { Severity, FindingCategory } from './findings.js';
 
 /**
  * Platform / scaffolding DTOs owned by F1:
@@ -154,6 +155,25 @@ export type Repo = z.infer<typeof Repo>;
 export const PrStatus = z.enum(['needs_review', 'reviewed', 'stale', 'open', 'closed', 'merged']);
 export type PrStatus = z.infer<typeof PrStatus>;
 
+/**
+ * One finding as the PR LIST renders it: enough for the read-only hover popover
+ * in the FINDINGS column (severity icon, title, category, file:line, confidence,
+ * short description) and nothing more — no suggestion, no accept/dismiss state.
+ * `rationale` is truncated server-side; the popover clamps it to two lines.
+ */
+export const FindingPreview = z.object({
+  id: z.string(),
+  severity: Severity,
+  category: FindingCategory,
+  title: z.string(),
+  file: z.string(),
+  start_line: z.number().int(),
+  end_line: z.number().int(),
+  confidence: z.number(),
+  rationale: z.string(),
+});
+export type FindingPreview = z.infer<typeof FindingPreview>;
+
 export const PrMeta = z.object({
   id: z.string().nullish(),
   number: z.number().int(),
@@ -168,8 +188,19 @@ export const PrMeta = z.object({
   status: PrStatus,
   opened_at: z.string().nullish(),
   updated_at: z.string().nullish(),
-  // Latest-review score (list endpoint only; null/absent until reviewed).
+  // Latest-review rollup (list endpoint only; null/absent until reviewed).
   score: z.number().int().nullish(),
+  findings_critical: z.number().int().nullish(),
+  findings_warning: z.number().int().nullish(),
+  findings_suggestion: z.number().int().nullish(),
+  // Every finding of that same latest review, for the FINDINGS column's hover
+  // popover. NOT capped: its length is what the popover's "N FINDINGS IN THIS
+  // RUN" header counts, so a shorter array would print a number that disagrees
+  // with the rows under it. Payload stays small because `rationale` is truncated.
+  findings_preview: z.array(FindingPreview).nullish(),
+  // Sum of every agent run's USD cost (list endpoint only). Null/absent
+  // when no run on this PR could be priced.
+  total_cost_usd: z.number().nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

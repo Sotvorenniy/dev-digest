@@ -1,6 +1,19 @@
 /**
  * cost discipline — per-provider/model pricing table (USD per 1M tokens).
  * Unknown models return null cost (explicitly flagged), per spec.
+ *
+ * This table is a hand-maintained SNAPSHOT and the LAST resort. Cost is
+ * resolved in descending order of truth:
+ *   1. `usage.cost` returned by OpenRouter — what was actually charged.
+ *   2. `PriceBook` — live prices from OpenRouter `/models`, refreshed on a TTL.
+ *   3. this table — for OpenAI/Anthropic (whose APIs don't return prices) and
+ *      for a cold/failed PriceBook cache.
+ * A wrong number here is worse than no number, because the UI renders it as
+ * fact. When in doubt, DELETE the row: an absent slug yields null, which the
+ * RunCostBadge renders as "—".
+ *
+ * OpenRouter rows verified against openrouter.ai/api/v1/models on 2026-09-25.
+ * Anthropic rows per the Anthropic pricing table (2026-06-24 snapshot).
  */
 interface Price {
   in: number;
@@ -20,18 +33,28 @@ const PRICING: Record<string, Price> = {
   'gpt-4o': { in: 2.5, out: 10.0 },
   'gpt-4o-mini': { in: 0.15, out: 0.6 },
   'text-embedding-3-small': { in: 0.02, out: 0 },
-  // Anthropic
+  // Anthropic — current generation. Without these a run on the documented
+  // default model prices to null and the badge reads "—".
+  'claude-fable-5-1': { in: 10.0, out: 50.0 },
+  'claude-opus-5-5': { in: 4.0, out: 20.0 },
+  'claude-opus-5': { in: 5.0, out: 25.0 },
+  'claude-opus-4-8': { in: 5.0, out: 25.0 },
+  'claude-sonnet-5': { in: 2.0, out: 10.0 },
+  'claude-sonnet-4-6': { in: 3.0, out: 15.0 },
+  'claude-haiku-4-5': { in: 1.0, out: 5.0 },
+  // Anthropic — legacy `-latest` aliases.
   'claude-3-5-sonnet-latest': { in: 3.0, out: 15.0 },
   'claude-3-5-haiku-latest': { in: 0.8, out: 4.0 },
   'claude-3-opus-latest': { in: 15.0, out: 75.0 },
-  // OpenRouter (CI runner, cheap models). Slugs + prices are APPROXIMATE and
-  // must be confirmed against openrouter.ai/models before relying on cost.
-  // Unknown slugs fall through to null cost (explicitly flagged), which is safe.
-  'z-ai/glm-4.7-flash': { in: 0, out: 0 }, // free baseline for evals
-  'deepseek/deepseek-v4-flash': { in: 0.14, out: 0.28 },
-  'z-ai/glm-4.7-flashx': { in: 0.15, out: 0.4 },
-  'minimax/minimax-m2.5': { in: 0.3, out: 1.2 },
-  'z-ai/glm-5.1': { in: 0.6, out: 2.2 },
+  // OpenRouter (CI runner, cheap models). Prices below are the REAL list
+  // prices read from openrouter.ai/api/v1/models on 2026-09-25 — they drift,
+  // and the live PriceBook supersedes them whenever its cache is warm.
+  // `z-ai/glm-4.7-flashx` is deliberately absent: no such slug exists on
+  // OpenRouter, so it must fall through to null rather than invent a price.
+  'z-ai/glm-4.7-flash': { in: 0.0605, out: 0.4 },
+  'deepseek/deepseek-v4-flash': { in: 0.0476, out: 0.0952 },
+  'minimax/minimax-m2.5': { in: 0.27, out: 1.08 },
+  'z-ai/glm-5.1': { in: 0.9646, out: 3.0316 },
 };
 
 export function estimateCost(model: string, tokensIn: number, tokensOut: number): number | null {

@@ -1,6 +1,7 @@
 import type { Container } from '../../platform/container.js';
 import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
+import { resolveRunCost, type CostEstimator } from '../../platform/run-cost.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
@@ -68,7 +69,7 @@ export class ReviewService {
 
   /** All runs for a PR (any status), newest first — the run history (incl. failures). */
   async listRuns(workspaceId: string, prId: string) {
-    return this.repo.listRunsForPull(workspaceId, prId);
+    return this.repo.listRunsForPull(workspaceId, prId, this.estimateCost);
   }
 
   /** Delete one run from the history (+ its trace). */
@@ -173,7 +174,24 @@ export class ReviewService {
     );
   }
 
+  /**
+   * The stored trace, with `stats.cost_usd` filled in when the document predates
+   * migration 0010. The model and token counts already live inside the document,
+   * so this costs no extra query.
+   */
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {
-    return this.repo.getRunTrace(runId);
+    const trace = await this.repo.getRunTrace(runId);
+    if (!trace || trace.stats.cost_usd != null) return trace;
+    const cost = resolveRunCost(this.estimateCost, {
+      costUsd: null,
+      model: trace.config.model,
+      tokensIn: trace.stats.tokens_in,
+      tokensOut: trace.stats.tokens_out,
+    });
+    return { ...trace, stats: { ...trace.stats, cost_usd: cost } };
   }
+
+  /** Live OpenRouter prices, static table as fallback. Synchronous by design. */
+  private estimateCost: CostEstimator = (model, tokensIn, tokensOut) =>
+    this.container.priceBook.estimate(model, tokensIn, tokensOut);
 }

@@ -7,7 +7,13 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { deriveReviewStatus, rollupSeverities, type SeverityCounts } from './status.js';
+import {
+  buildFindingPreviews,
+  countedReviewIds,
+  type FindingPreviewRow,
+} from './helpers.js';
+import { sumRunCosts } from '../../platform/run-cost.js';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -111,27 +117,105 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Per-PR rollup for the list: the latest review's SCORE for the ring, and
+    // the latest review PER AGENT for the FINDINGS breakdown + its hover popover.
+    //
+    // The two differ on purpose. A score is one review's verdict, so the newest
+    // review wins outright. A finding list is not one review's: a PR reviewed by
+    // three agents in parallel has findings spread across three reviews written
+    // seconds apart, so "newest review" would show whichever agent finished
+    // last — while summing every review double-counts, because a re-run adds an
+    // agent's findings again instead of replacing them. Newest-per-agent is the
+    // PR's current state, and `latestReviewPerAgent` on the PR page applies the
+    // same rule to the "Agent runs N" badge so the two screens agree.
+    //
+    // Computed on read from reviews/findings (no FK denorm); the list is small,
+    // so two IN-queries + JS grouping is cheap.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
+    const reviewToPr = new Map<string, string>();
+    const sevByPr = new Map<string, SeverityCounts>();
+    const findingsByPr = new Map<string, FindingPreviewRow[]>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({
+          id: t.reviews.id,
+          prId: t.reviews.prId,
+          agentId: t.reviews.agentId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
-        .orderBy(desc(t.reviews.createdAt));
+        // `id` breaks the tie: "newest wins" needs a TOTAL order, and two
+        // reviews written in the same millisecond would otherwise pick a
+        // different winner per request.
+        .orderBy(desc(t.reviews.createdAt), desc(t.reviews.id));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        reviewToPr.set(rv.id, rv.prId);
       }
+      const counted = countedReviewIds(reviewRows);
+      if (counted.size > 0) {
+        const findingRows = await container.db
+          .select({
+            reviewId: t.findings.reviewId,
+            id: t.findings.id,
+            severity: t.findings.severity,
+            category: t.findings.category,
+            title: t.findings.title,
+            file: t.findings.file,
+            startLine: t.findings.startLine,
+            endLine: t.findings.endLine,
+            confidence: t.findings.confidence,
+            rationale: t.findings.rationale,
+          })
+          .from(t.findings)
+          .where(inArray(t.findings.reviewId, [...counted]));
+        for (const f of findingRows) {
+          const prId = reviewToPr.get(f.reviewId);
+          if (!prId) continue;
+          const list = findingsByPr.get(prId) ?? [];
+          list.push(f);
+          findingsByPr.set(prId, list);
+        }
+        for (const [prId, fs] of findingsByPr) sevByPr.set(prId, rollupSeverities(fs));
+      }
+    }
+
+    // Total SPEND per PR for the list's cost column — the sum of every agent
+    // run, so a second review adds to the number rather than replacing it.
+    // Same shape as the score pass above: one IN-query + JS grouping. The sum
+    // is done in JS, not SQL, because runs stored before migration 0010 have a
+    // null cost_usd and must be re-priced from their token counts.
+    const costByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          costUsd: t.agentRuns.costUsd,
+          model: t.agentRuns.model,
+          tokensIn: t.agentRuns.tokensIn,
+          tokensOut: t.agentRuns.tokensOut,
+        })
+        .from(t.agentRuns)
+        .where(inArray(t.agentRuns.prId, prIds));
+      const byPr = new Map<string, typeof runRows>();
+      for (const run of runRows) {
+        if (!run.prId) continue;
+        const bucket = byPr.get(run.prId);
+        if (bucket) bucket.push(run);
+        else byPr.set(run.prId, [run]);
+      }
+      const estimate = (model: string, tokensIn: number, tokensOut: number) =>
+        container.priceBook.estimate(model, tokensIn, tokensOut);
+      for (const [prId, runs] of byPr) costByPr.set(prId, sumRunCosts(estimate, runs));
     }
 
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
+      const sev = review ? sevByPr.get(r.id) : undefined;
       return {
         id: r.id,
         number: r.number,
@@ -153,6 +237,11 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        findings_critical: review ? (sev?.critical ?? 0) : null,
+        findings_warning: review ? (sev?.warning ?? 0) : null,
+        findings_suggestion: review ? (sev?.suggestion ?? 0) : null,
+        findings_preview: review ? buildFindingPreviews(findingsByPr.get(r.id) ?? []) : null,
+        total_cost_usd: costByPr.get(r.id) ?? null,
       };
     });
   });

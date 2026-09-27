@@ -18,6 +18,7 @@ import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
+import { latestReviewPerAgent } from "../../../../../lib/latest-reviews";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
 import { githubPrUrl } from "../../../../../lib/github-urls";
@@ -68,13 +69,18 @@ export default function PRDetailPage() {
   const setTab = (t: string) => setParam("tab", t);
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
+  // `runs` stays the FULL list — it drives the Review runs accordions and the
+  // timeline's per-run severity chips, both of which are history.
   const runs = reviews ?? [];
-  const allFindings: FindingRecord[] = React.useMemo(
-    () => runs.flatMap((r) => r.findings),
+  // Counts, by contrast, describe the PR's current state, so a re-run replaces
+  // that agent's earlier findings rather than adding to them. Same rule the PR
+  // list's FINDINGS column applies server-side, so the two screens agree.
+  const currentFindings: FindingRecord[] = React.useMemo(
+    () => latestReviewPerAgent(runs).flatMap((r) => r.findings),
     [reviews],
   );
-  const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
-  const findingsCount = allFindings.length;
+  const lethalTrifecta = currentFindings.filter((f) => f.kind === "lethal_trifecta");
+  const findingsCount = currentFindings.length;
 
   const repoName = activeRepo?.full_name ?? repoId;
   // The real "owner/repo" (null until the repo is loaded) — used to build

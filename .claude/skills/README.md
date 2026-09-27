@@ -16,6 +16,12 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
+| [engineering-insights](engineering-insights/SKILL.md) | Project | Recall and record findings in `<pkg>/INSIGHTS.md` (first-party) |
+
+Every skill above except `engineering-insights` is vendored from GitHub and
+tracked in `skills-lock.json`. **`engineering-insights` is first-party — do not
+add it to the lock file**, or the next sync will treat it as drift and clobber
+it.
 
 ## What Are Skills?
 
@@ -37,3 +43,6 @@ Each skill has:
 - `SKILL.md` — Main skill file with rules and conventions (required)
 - `examples.md` — Code examples showing good/bad patterns (recommended)
 - `references.md` — Sources and rationale (optional)
+- `scripts/` — Executable helpers (optional). Prefer a script over model judgment
+  for anything mechanical and safety-critical; it is deterministic and costs no
+  context. See `engineering-insights/scripts/`.

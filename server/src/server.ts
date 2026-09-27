@@ -28,6 +28,14 @@ async function main() {
   try {
     await app.listen({ port: config.apiPort, host: '0.0.0.0' });
     app.log.info(`DevDigest API listening on http://localhost:${config.apiPort}`);
+
+    // Warm the live price cache so the FIRST cost read already uses real
+    // OpenRouter prices. `estimate()` is synchronous and refreshes in the
+    // background, so without this the first request re-prices runs from the
+    // static snapshot and later ones from live prices — the same run showing
+    // two different costs. Fire-and-forget: `refresh()` never throws, and a
+    // cold cache degrades to the snapshot rather than failing the boot.
+    void app.container.priceBook.refresh();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

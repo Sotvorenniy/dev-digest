@@ -15,6 +15,16 @@ export const s = {
     background: "var(--border)",
     margin: "0 2px",
   } satisfies CSSProperties,
+  /** Counter pills — the run's severity signature, above the filter buttons. */
+  pillRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 10,
+  } satisfies CSSProperties,
+  pillSep: { color: "var(--text-muted)", fontSize: 12 } satisfies CSSProperties,
+  filterRow: { display: "flex", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
   toggleGroup: {
     marginLeft: "auto",
     display: "flex",
