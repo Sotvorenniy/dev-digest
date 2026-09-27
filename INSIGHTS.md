@@ -25,6 +25,19 @@ Score stays latest-only: a verdict is one review's, a finding list is not.
 Evidence: `server/src/modules/pulls/routes.ts:115`,
 `client/src/app/repos/[repoId]/pulls/[number]/page.tsx`
 
+`2026-09-27` — correction: "every review" was the wrong end of the same
+spectrum. It double-counts a re-run — the second pass of an agent ADDS its
+findings instead of replacing them, so a PR reviewed three times reads 3×. The
+rule on both surfaces is now the **newest review per `agent_id`**, summed:
+`countedReviewIds` (`server/src/modules/pulls/helpers.ts`) for the list column,
+`latestReviewPerAgent` (`client/src/lib/latest-reviews.ts`) for the "Agent runs
+N" badge. Two copies because `@devdigest/shared` is type-only in the client;
+they must move together. Two traps that go with it: a review with a null
+`agent_id` needs its own bucket or the seeded PR #482 findings vanish
+(`server/src/db/seed.ts:137` writes it with no agent), and the narrowing must
+touch COUNTS only — `runs` still feeds the Review runs accordions and the
+timeline chips, which are history.
+
 ### A contract field added to RunStats must be optional, not just nullable
 `2026-09-25` — `RunStats` is parsed out of the `run_traces.trace` jsonb column,
 so it validates documents written under OLDER schema versions. Adding

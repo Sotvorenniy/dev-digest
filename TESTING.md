@@ -5,6 +5,9 @@ as **one suite per package**, each with its own CI workflow, runner, and path
 filter. A package's suite runs only when that package (or a package it depends
 on at type-check time) changes.
 
+> The short form — which command runs which suite, and the `*.it.test.ts` naming
+> rule — is repeated for agents in [`CLAUDE.md`](CLAUDE.md). Keep the two in step.
+
 ## Philosophy — typological, not exhaustive
 
 We do **not** chase line coverage. Each suite covers the *kinds* of things that

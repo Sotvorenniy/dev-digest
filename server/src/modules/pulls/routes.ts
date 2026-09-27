@@ -8,7 +8,11 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import { deriveReviewStatus, rollupSeverities, type SeverityCounts } from './status.js';
-import { buildFindingPreviews, type FindingPreviewRow } from './helpers.js';
+import {
+  buildFindingPreviews,
+  countedReviewIds,
+  type FindingPreviewRow,
+} from './helpers.js';
 import { sumRunCosts } from '../../platform/run-cost.js';
 
 /**
@@ -114,14 +118,16 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     }
 
     // Per-PR rollup for the list: the latest review's SCORE for the ring, and
-    // EVERY review's findings for the FINDINGS breakdown + its hover popover.
+    // the latest review PER AGENT for the FINDINGS breakdown + its hover popover.
     //
     // The two differ on purpose. A score is one review's verdict, so the newest
-    // one wins. Findings are not: a PR reviewed by three agents in parallel has
-    // findings spread across three reviews, and taking only the newest would
-    // show whichever agent happened to finish last. Summing every review is
-    // also what the PR page's own "Agent runs N" badge counts, so the list and
-    // the detail page can never contradict each other.
+    // review wins outright. A finding list is not one review's: a PR reviewed by
+    // three agents in parallel has findings spread across three reviews written
+    // seconds apart, so "newest review" would show whichever agent finished
+    // last — while summing every review double-counts, because a re-run adds an
+    // agent's findings again instead of replacing them. Newest-per-agent is the
+    // PR's current state, and `latestReviewPerAgent` on the PR page applies the
+    // same rule to the "Agent runs N" badge so the two screens agree.
     //
     // Computed on read from reviews/findings (no FK denorm); the list is small,
     // so two IN-queries + JS grouping is cheap.
@@ -132,16 +138,25 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     const findingsByPr = new Map<string, FindingPreviewRow[]>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ id: t.reviews.id, prId: t.reviews.prId, score: t.reviews.score })
+        .select({
+          id: t.reviews.id,
+          prId: t.reviews.prId,
+          agentId: t.reviews.agentId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
-        .orderBy(desc(t.reviews.createdAt));
+        // `id` breaks the tie: "newest wins" needs a TOTAL order, and two
+        // reviews written in the same millisecond would otherwise pick a
+        // different winner per request.
+        .orderBy(desc(t.reviews.createdAt), desc(t.reviews.id));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
         reviewToPr.set(rv.id, rv.prId);
       }
-      if (reviewToPr.size > 0) {
+      const counted = countedReviewIds(reviewRows);
+      if (counted.size > 0) {
         const findingRows = await container.db
           .select({
             reviewId: t.findings.reviewId,
@@ -156,7 +171,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
             rationale: t.findings.rationale,
           })
           .from(t.findings)
-          .where(inArray(t.findings.reviewId, [...reviewToPr.keys()]));
+          .where(inArray(t.findings.reviewId, [...counted]));
         for (const f of findingRows) {
           const prId = reviewToPr.get(f.reviewId);
           if (!prId) continue;

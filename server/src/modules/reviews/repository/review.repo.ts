@@ -63,7 +63,9 @@ export async function reviewsForPull(
     .select()
     .from(t.reviews)
     .where(eq(t.reviews.prId, prId))
-    .orderBy(desc(t.reviews.createdAt));
+    // `id` breaks the tie so "newest wins" is well-defined for two reviews
+    // written in the same millisecond (see pulls/helpers.ts:countedReviewIds).
+    .orderBy(desc(t.reviews.createdAt), desc(t.reviews.id));
   if (reviews.length === 0) return [];
   const ids = reviews.map((r) => r.id);
   const findings = await db.select().from(t.findings).where(inArray(t.findings.reviewId, ids));

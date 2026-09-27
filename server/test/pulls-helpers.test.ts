@@ -5,7 +5,12 @@
  * not an incidental detail.
  */
 import { describe, it, expect } from 'vitest';
-import { buildFindingPreviews, type FindingPreviewRow } from '../src/modules/pulls/helpers.js';
+import {
+  buildFindingPreviews,
+  countedReviewIds,
+  type FindingPreviewRow,
+  type ReviewRollupRow,
+} from '../src/modules/pulls/helpers.js';
 import { PREVIEW_RATIONALE_CHARS } from '../src/modules/pulls/constants.js';
 
 function row(over: Partial<FindingPreviewRow> = {}): FindingPreviewRow {
@@ -59,5 +64,48 @@ describe('buildFindingPreviews', () => {
     const rows = [row({ id: 'b', severity: 'SUGGESTION' }), row({ id: 'a', severity: 'CRITICAL' })];
     buildFindingPreviews(rows);
     expect(rows.map((r) => r.id)).toEqual(['b', 'a']);
+  });
+});
+
+/** Reviews arrive newest-first, as the route's `createdAt desc, id desc` gives them. */
+function review(id: string, agentId: string | null, prId = 'pr1'): ReviewRollupRow {
+  return { id, prId, agentId };
+}
+
+describe('countedReviewIds', () => {
+  it("keeps only an agent's newest review, so a re-run replaces it", () => {
+    const counted = countedReviewIds([
+      review('r-new', 'security'),
+      review('r-old', 'security'),
+    ]);
+    expect([...counted]).toEqual(['r-new']);
+  });
+
+  it('keeps one review per agent when several reviewed in parallel', () => {
+    const counted = countedReviewIds([
+      review('r-perf', 'performance'),
+      review('r-sec', 'security'),
+      review('r-gen', 'general'),
+    ]);
+    expect(counted.size).toBe(3);
+  });
+
+  it('keeps every unattributed review — a null agent cannot be superseded', () => {
+    // The seeded PR #482 review is exactly this: db/seed.ts inserts it with no
+    // agentId, and dropping it would empty the FINDINGS column on fresh data.
+    const counted = countedReviewIds([review('r-a', null), review('r-b', null)]);
+    expect([...counted].sort()).toEqual(['r-a', 'r-b']);
+  });
+
+  it('does not let one PR supersede another PR\'s review by the same agent', () => {
+    const counted = countedReviewIds([
+      review('r-pr1', 'security', 'pr1'),
+      review('r-pr2', 'security', 'pr2'),
+    ]);
+    expect(counted.size).toBe(2);
+  });
+
+  it('returns an empty set for a PR with no reviews', () => {
+    expect(countedReviewIds([]).size).toBe(0);
   });
 });
