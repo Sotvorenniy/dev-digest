@@ -25,6 +25,8 @@ import { estimateCost } from '../adapters';
 import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
+import { SkillsRepository } from '../modules/skills/repository.js';
+import { SkillsService } from '../modules/skills/service.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import type { RepoIntel } from '../modules/repo-intel';
 import { RepoIntelService } from '../modules/repo-intel';
@@ -72,6 +74,8 @@ export class Container {
   // runs). Constructed here, in the composition root, so consuming modules use
   // `container.agentsRepo` instead of reaching into another module's folder.
   private _agentsRepo?: AgentsRepository;
+  private _skillsRepo?: SkillsRepository;
+  private _skillsService?: SkillsService;
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -98,6 +102,14 @@ export class Container {
 
   get agentsRepo(): AgentsRepository {
     return (this._agentsRepo ??= new AgentsRepository(this.db));
+  }
+
+  get skillsRepo(): SkillsRepository {
+    return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  get skillsService(): SkillsService {
+    return (this._skillsService ??= new SkillsService({ repo: this.skillsRepo }));
   }
 
   get reviewRepo(): ReviewRepository {

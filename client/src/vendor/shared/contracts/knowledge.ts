@@ -140,6 +140,17 @@ export const CommunitySkill = z.object({
 });
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
+// The immutable body snapshot captured in `skill_versions` whenever a skill's
+// name/description/type/body changes (mirrors AgentVersion's shape/intent).
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  change_note: z.string().nullish(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
 // ---- Conventions ----
 export const ConventionCandidate = z.object({
   id: z.string(),

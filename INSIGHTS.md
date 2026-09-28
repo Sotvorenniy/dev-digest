@@ -86,6 +86,20 @@ Workaround that works: call the binary directly —
 `./node_modules/.bin/tsx src/db/migrate.ts`, `./node_modules/.bin/vitest run`.
 Evidence: corepack bundled with Node v20.17.0 (README asks for Node >= 22)
 
+`2026-09-28` — Root cause found, and it unblocks `pnpm add`/`pnpm install`
+too (which `./node_modules/.bin/<bin>` cannot): it's a corepack shim/package
+mismatch, not the signature check per se — the cached pnpm@12.6.0 under
+`~/.cache/node/corepack/v1/pnpm/12.6.0/` ships only `bin/pnpm.mjs`, but the
+installed corepack shim looks for `bin/pnpm.cjs`. Fix: `npm install -g
+pnpm@10 --prefix /tmp/pnpm-global` (or any writable prefix), then use
+`/tmp/pnpm-global/bin/pnpm` in place of `pnpm` — `pnpm install
+--frozen-lockfile` and `pnpm add <pkg>` both succeed cleanly against this
+repo's `lockfileVersion: '9.0'` lockfiles in both `server/` and `client/`.
+Per-environment workaround, not a repo fix — full writeup in
+`client/INSIGHTS.md` and `server/INSIGHTS.md`.
+Evidence: `client/INSIGHTS.md` ("pnpm is broken" entry), `server/INSIGHTS.md`
+(same)
+
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->
 

@@ -1,6 +1,6 @@
 import type { Container } from '../../platform/container.js';
 import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
+import { reviewPullRequest, countBlockers, wrapUntrusted } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
@@ -184,6 +184,22 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Linked skills (Agent editor "Skills" tab), in `order`. Manual skills are
+      // agent-authored (trusted); imported/extracted/community skills are
+      // externally-sourced, so they're delimiter-wrapped like other untrusted
+      // sections.
+      const linkedSkills = await this.agents.linkedSkills(agent.id);
+      const skillTexts = linkedSkills
+        .filter((l) => l.skill.enabled)
+        .map((l) =>
+          l.skill.source === 'manual'
+            ? l.skill.body
+            : wrapUntrusted(`skill:${l.skill.name}`, l.skill.body),
+        );
+      if (skillTexts.length > 0) {
+        runLog.info(`skills: ${skillTexts.length} enabled skill(s) attached`);
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -201,6 +217,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // Linked skills (Agent editor), same omit-when-empty contract.
+        ...(skillTexts.length > 0 ? { skills: skillTexts } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),

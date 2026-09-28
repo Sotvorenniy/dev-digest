@@ -7,12 +7,31 @@ import React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button, Dropdown, ErrorState, Skeleton, Icon, Badge } from "@devdigest/ui";
 import { AppShell } from "../../../components/app-shell";
+import type { Agent } from "@devdigest/shared";
 import { AgentCard } from "../_components/AgentCard";
 import { AgentEditor } from "./_components/AgentEditor";
-import { useAgents, useAgent, useUpdateAgent } from "../../../lib/hooks/agents";
+import { useAgents, useAgent, useAgentSkills, useUpdateAgent } from "../../../lib/hooks/agents";
 import { ApiError } from "../../../lib/api";
 
-const VALID_TABS = ["config"];
+const VALID_TABS = ["config", "skills"];
+
+/** Wraps AgentCard with its own `useAgentSkills` — one query per rendered card,
+ *  so each list item is its own component (a hook can't be called from inside
+ *  a `.map` callback in the list's own render). */
+function AgentSidebarCard({
+  agent,
+  active,
+  onClick,
+  onToggle,
+}: {
+  agent: Agent;
+  active: boolean;
+  onClick: () => void;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const { data: links } = useAgentSkills(agent.id);
+  return <AgentCard ag={agent} active={active} skillCount={links?.length ?? 0} onClick={onClick} onToggle={onToggle} />;
+}
 
 export default function AgentEditorPage() {
   const params = useParams<{ id: string }>();
@@ -81,9 +100,9 @@ export default function AgentEditorPage() {
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "0 12px 12px" }}>
             {(agents ?? []).map((a) => (
-              <AgentCard
+              <AgentSidebarCard
                 key={a.id}
-                ag={a}
+                agent={a}
                 active={a.id === id}
                 onClick={() => router.push(`/agents/${a.id}?tab=${tab}`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}

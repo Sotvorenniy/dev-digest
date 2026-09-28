@@ -10,7 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/lang-markdown": "^6.5.2",
     "@tanstack/react-query": "^5.62.8",
+    "@uiw/react-codemirror": "^4.25.12",
+    "diff": "^9.0.0",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.469.0",
     "mermaid": "^11.15.0",
     "next": "^15.1.3",

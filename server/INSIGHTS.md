@@ -33,6 +33,17 @@ Evidence: `server/src/adapters/llm/pricing.ts:1-20`,
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
+### "pnpm is broken" is a corepack shim/package mismatch — a standalone pnpm fixes `pnpm add` too
+`2026-09-28` — see `client/INSIGHTS.md`'s matching entry for the full
+root-cause writeup (corepack's cached pnpm@12.6.0 ships `bin/pnpm.mjs` but the
+corepack shim looks for `bin/pnpm.cjs`). It affects `server/` identically.
+`npm install -g pnpm@10 --prefix /tmp/pnpm-global` then
+`/tmp/pnpm-global/bin/pnpm install --frozen-lockfile` installs clean against
+this repo's `lockfileVersion: '9.0'` lockfile — this is what actually unblocks
+adding a new server dependency, not just running an existing script via
+`./node_modules/.bin/<bin>`.
+Evidence: `server/pnpm-lock.yaml:1`, `client/INSIGHTS.md` ("pnpm is broken" entry)
+
 ### PriceBook.estimate returns a different price on the first call after boot
 `2026-09-25` — `estimate()` is synchronous and refreshes its OpenRouter cache in
 the BACKGROUND, so the first call after a cold start (or 6h TTL expiry) returns
