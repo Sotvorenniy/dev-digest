@@ -1,0 +1,34 @@
+// modules/__name__/routes.ts — PRESENTATION. Parse (Zod) → call the service → shape the reply.
+// Never imports drizzle-orm, src/db, repositories or adapters.
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+import { getContext } from '../_shared/context.js';
+import { IdParams } from '../_shared/schemas.js';
+import { NotFoundError } from '../../platform/errors.js';
+
+const Create__Entity__Body = z.object({ name: z.string().min(1) });
+
+export default async function __name__Routes(fastify: FastifyInstance) {
+  const app = fastify.withTypeProvider<ZodTypeProvider>();
+  // Built in the composition root (platform/container.ts), not here.
+  const service = app.container.__name__Service;
+
+  app.get('/__name__', async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    return service.list(workspaceId);
+  });
+
+  app.get('/__name__/:id', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    const found = await service.get(workspaceId, req.params.id);
+    if (!found) throw new NotFoundError('__Entity__ not found');
+    return found;
+  });
+
+  app.post('/__name__', { schema: { body: Create__Entity__Body } }, async (req, reply) => {
+    const { workspaceId } = await getContext(app.container, req);
+    reply.status(201);
+    return service.create(workspaceId, req.body.name);
+  });
+}

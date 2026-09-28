@@ -20,7 +20,11 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
         <Tabs tabs={tabs} value={tab} onChange={onTab} pad="0 24px" />
       </div>
       <div style={s.body}>
-        <ConfigTab agent={agent} />
+        {/* Keyed by agent id so switching agents remounts the form and its
+            draft state starts from the new agent. ConfigTab used to do this
+            with an effect keyed on `agent.id`, which meant a refetch that
+            changed the agent's *content* left the form showing stale values. */}
+        <ConfigTab key={agent.id} agent={agent} />
       </div>
     </div>
   );

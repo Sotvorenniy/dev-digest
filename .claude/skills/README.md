@@ -9,19 +9,28 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [fastify-best-practices](fastify-best-practices/SKILL.md) | Backend | Fastify routes, plugins, JSON-schema validation, error handling |
 | [drizzle-orm-patterns](drizzle-orm-patterns/SKILL.md) | Backend | Drizzle schema, queries, relations, transactions, migrations |
 | [postgresql-table-design](postgresql-table-design/SKILL.md) | Backend | Postgres schema design, data types, indexing, constraints |
+| [onion-architecture](onion-architecture/SKILL.md) | Backend | Onion layering for `server/`: dependency rule, ports, depcruise gate (first-party, v1.0.0) |
 | [next-best-practices](next-best-practices/SKILL.md) | Frontend | Next.js App Router, RSC boundaries, data fetching, optimization |
 | [react-best-practices](react-best-practices/SKILL.md) | Frontend | React anti-patterns, state management, hooks rules |
 | [react-testing-library](react-testing-library/SKILL.md) | Frontend | General-purpose React Testing Library guide with Vitest |
+| [frontend-ui-architecture](frontend-ui-architecture/SKILL.md) | Frontend | UI architecture & code placement: folders, boundaries, business logic (first-party, v1.1.0) |
 | [zod](zod/SKILL.md) | Full-stack | Zod schema validation, parsing, error handling, type inference |
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Project | Recall and record findings in `<pkg>/INSIGHTS.md` (first-party) |
+| [pr-self-review](pr-self-review/SKILL.md) | Project | Pre-PR review of local changes: routes each file to its skills, blocks on CRITICAL (first-party, v1.0.0) |
 
-Every skill above except `engineering-insights` is vendored from GitHub and
-tracked in `skills-lock.json`. **`engineering-insights` is first-party — do not
-add it to the lock file**, or the next sync will treat it as drift and clobber
-it.
+Six of the skills above are vendored from GitHub and tracked in
+`skills-lock.json`: `drizzle-orm-patterns`, `fastify-best-practices`,
+`next-best-practices`, `postgresql-table-design`, `typescript-expert` and `zod`.
+(The lock also pins `architecture-patterns` and `github-workflow-automation`,
+which are not currently checked out here.)
+
+The rest are **first-party — do not add them to the lock file**, or the next sync
+will treat them as drift and clobber them: `engineering-insights`, `pr-self-review`,
+`frontend-ui-architecture`, `onion-architecture`, `react-best-practices`, `react-testing-library`,
+`security` and `mermaid-diagram`.
 
 ## What Are Skills?
 

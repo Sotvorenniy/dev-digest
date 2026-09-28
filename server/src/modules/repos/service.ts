@@ -2,12 +2,8 @@ import type { Container } from '../../platform/container.js';
 import { type Repo } from '@devdigest/shared';
 import { NotFoundError } from '../../platform/errors.js';
 import { RepoRepository } from './repository.js';
-import { parseRepoUrl, withGitHubToken, toRepoDto } from './helpers.js';
-import {
-  CLONE_JOB_KIND,
-  CLONE_DEPTH,
-  GITHUB_TOKEN_SECRET,
-} from './constants.js';
+import { parseRepoUrl, toRepoDto } from './helpers.js';
+import { CLONE_JOB_KIND, CLONE_DEPTH } from './constants.js';
 import {
   INDEX_JOB_KIND,
   REFRESH_JOB_KIND,
@@ -50,9 +46,10 @@ export class RepoService {
 
   async runCloneJob(payload: CloneJobPayload): Promise<void> {
     const { repoId, owner, name, url } = payload;
-    const token = await this.container.secrets.get(GITHUB_TOKEN_SECRET);
-    const cloneUrl = token ? withGitHubToken(url, token) : url;
-    const { path } = await this.container.git.clone({ owner, name }, cloneUrl, {
+    // The clone URL stays credential-free: the GitClient attaches the PAT as an
+    // HTTP header per operation, so nothing authenticating ends up persisted in
+    // the checkout's `.git/config`.
+    const { path } = await this.container.git.clone({ owner, name }, url, {
       depth: CLONE_DEPTH,
     });
     await this.repo.updateClonePath(repoId, path);

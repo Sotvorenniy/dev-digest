@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import * as t from '../db/schema.js';
 import { withTimeout, withRetry } from './resilience.js';
+import { redactSecrets } from './redact.js';
 
 /**
  * JobRunner — async work (clone, PR import, indexing, polling) on a
@@ -90,7 +91,9 @@ export class JobRunner {
           .set({
             status: 'failed',
             finishedAt: new Date(),
-            error: (err as Error).message,
+            // Redacted: this string is durable and unexposed to review, so a
+            // credential that ever reaches an error message would sit here.
+            error: redactSecrets((err as Error).message),
           })
           .where(eq(t.jobs.id, jobId));
         throw err;

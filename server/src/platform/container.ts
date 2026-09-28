@@ -11,24 +11,25 @@ import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
 import { JobRunner } from './jobs.js';
 import { runBus, type RunBus } from './sse.js';
-import { LocalSecretsProvider } from '../adapters/secrets/local.js';
-import { LocalNoAuthProvider } from '../adapters/auth/local.js';
-import { OctokitGitHubClient } from '../adapters/github/octokit.js';
-import { SimpleGitClient } from '../adapters/git/simple-git.js';
-import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
-import { OpenAIProvider } from '../adapters/llm/openai.js';
-import { AnthropicProvider } from '../adapters/llm/anthropic.js';
-import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
+import { LocalSecretsProvider,
+  LocalNoAuthProvider,
+  OctokitGitHubClient,
+  SimpleGitClient,
+  RipgrepCodeIndex,
+  OpenAIProvider,
+  AnthropicProvider,
+  OpenAIEmbedder,
+} from '../adapters';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
-import { estimateCost } from '../adapters/llm/pricing.js';
+import { estimateCost } from '../adapters';
 import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
-import type { RepoIntel } from '../modules/repo-intel/types.js';
-import { RepoIntelService } from '../modules/repo-intel/service.js';
-import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
-import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { RepoIntel } from '../modules/repo-intel';
+import { RepoIntelService } from '../modules/repo-intel';
+import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph';
+import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -88,7 +89,10 @@ export class Container {
 
   get git(): GitClient {
     if (this.overrides.git) return this.overrides.git;
-    this._git ??= new SimpleGitClient(this.config.cloneDir);
+    // The PAT is resolved per git operation rather than baked into a clone URL,
+    // so it never lands in `<clone>/.git/config` and a rotated token takes effect
+    // without rebuilding the client.
+    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get('GITHUB_TOKEN'));
     return this._git;
   }
 

@@ -1,0 +1,37 @@
+// modules/__name__/repository.ts — INFRASTRUCTURE. The only module file that sees Drizzle.
+// Implements the port; maps rows → domain; every query is workspace-scoped.
+import { and, eq } from 'drizzle-orm';
+import type { Db } from '../../db/client.js';
+import * as t from '../../db/schema.js';
+import type { __Entity__ } from './domain.js';
+import type { __Entity__RepositoryPort } from './ports.js';
+
+type Row = typeof t.__table__.$inferSelect;
+const toDomain = (r: Row): __Entity__ => ({
+  id: r.id,
+  workspaceId: r.workspaceId,
+  name: r.name,
+  createdAt: r.createdAt,
+});
+
+export class __Entity__Repository implements __Entity__RepositoryPort {
+  constructor(private db: Db) {}
+
+  async list(workspaceId: string) {
+    const rows = await this.db.select().from(t.__table__).where(eq(t.__table__.workspaceId, workspaceId));
+    return rows.map(toDomain);
+  }
+
+  async getById(workspaceId: string, id: string) {
+    const [row] = await this.db
+      .select()
+      .from(t.__table__)
+      .where(and(eq(t.__table__.workspaceId, workspaceId), eq(t.__table__.id, id)));
+    return row ? toDomain(row) : undefined;
+  }
+
+  async insert(input: { workspaceId: string; name: string }) {
+    const [row] = await this.db.insert(t.__table__).values(input).returning();
+    return toDomain(row!);
+  }
+}

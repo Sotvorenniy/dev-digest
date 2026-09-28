@@ -15,6 +15,19 @@ import type { Finding, UnifiedDiff } from '@devdigest/shared';
 
 const FULL_FILE_KINDS = new Set(['secret_leak', 'lethal_trifecta', 'phantom', 'hook']);
 
+/**
+ * Widest [start_line, end_line] a diff-finding may claim before the gate stops
+ * believing it is a citation.
+ *
+ * The gate's job is to prove the model cited a *real* location, but a range wide
+ * enough to blanket the file proves nothing — `1..1000000` intersects every hunk
+ * and sails through, which is exactly the hallucinated-location case the gate
+ * exists to catch. The contract types both ends as a bare int (no bound), so the
+ * limit lives here. 200 lines is far beyond any genuine finding; the widest in
+ * the suites is 8.
+ */
+const MAX_FINDING_LINE_SPAN = 200;
+
 export interface GroundingResult {
   kept: Finding[];
   dropped: { finding: Finding; reason: string }[];
@@ -38,10 +51,20 @@ export function buildLineIndex(diff: UnifiedDiff): Map<string, Set<number>> {
   return idx;
 }
 
+/**
+ * Does [start, end] touch any line the diff covers?
+ *
+ * Iterates the *covered* lines (bounded by the diff) rather than the claimed
+ * range (unbounded, model-supplied). The previous form walked `lo..hi` one
+ * integer at a time, so a finding claiming `1000000000..2000000000` burned ~16s
+ * of synchronous CPU — and this runs in-process in the API, so a single erratic
+ * model response stalled every other request. Cost is now O(covered lines)
+ * regardless of what the model claims.
+ */
 function rangeIntersects(lines: Set<number>, start: number, end: number): boolean {
   const lo = Math.min(start, end);
   const hi = Math.max(start, end);
-  for (let n = lo; n <= hi; n++) if (lines.has(n)) return true;
+  for (const n of lines) if (n >= lo && n <= hi) return true;
   return false;
 }
 
@@ -66,6 +89,26 @@ export function groundFindings(findings: Finding[], diff: UnifiedDiff): Groundin
     if (isFullFile) {
       // full-file scanners only need the file to be in the diff
       kept.push(finding);
+      continue;
+    }
+
+    // A citation has to be specific to be a citation. Reject a nonsensical or
+    // file-blanketing range before testing intersection, so "be vague enough"
+    // stops being a way through the gate.
+    const lo = Math.min(finding.start_line, finding.end_line);
+    const hi = Math.max(finding.start_line, finding.end_line);
+    if (lo < 1) {
+      dropped.push({
+        finding,
+        reason: `lines ${finding.start_line}-${finding.end_line} are not a valid 1-based range in '${finding.file}'`,
+      });
+      continue;
+    }
+    if (hi - lo + 1 > MAX_FINDING_LINE_SPAN) {
+      dropped.push({
+        finding,
+        reason: `lines ${finding.start_line}-${finding.end_line} span ${hi - lo + 1} lines, over the ${MAX_FINDING_LINE_SPAN}-line limit for a citation in '${finding.file}'`,
+      });
       continue;
     }
 

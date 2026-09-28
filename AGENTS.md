@@ -25,6 +25,7 @@ Env: `server/.env` + `client/.env`, both copied from `.env.example`. No API key 
 ```bash
 ./scripts/dev.sh              # whole stack from zero (--no-seed · --no-client · --db-only)
 ./scripts/e2e.sh              # hermetic e2e on alt ports 5433/3101/3100 — never touches the dev DB
+./scripts/install-hooks.sh    # once per clone: git pre-push → PR self-review gate
 ```
 
 | | server | client | reviewer-core | e2e |
@@ -72,4 +73,5 @@ Three things that cost the most time here:
 - Choosing or running a test suite, the suite map → read `TESTING.md`
 - Writing an agent system prompt or picking a template → read `docs/agent-prompts/README.md`
 - Cross-cutting findings → read `INSIGHTS.md`
+- Before opening, pushing or merging a PR → run `/pr-self-review` (`.claude/skills/pr-self-review/`); any CRITICAL blocks it
 - Working inside a package → read `server/AGENTS.md`, `client/AGENTS.md`, `reviewer-core/AGENTS.md`, `e2e/AGENTS.md`
