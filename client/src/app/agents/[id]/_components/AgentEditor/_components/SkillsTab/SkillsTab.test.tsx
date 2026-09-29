@@ -66,25 +66,26 @@ const renderTab = () =>
   );
 
 describe("SkillsTab list", () => {
-  it("lists ALL skills, each with an attach checkbox, a type badge and an enabled toggle", () => {
+  it("lists ALL skills, each with a drag handle, an attach toggle and a type badge — no checkbox", () => {
     renderTab();
     for (const id of ["a", "b", "c", "d"]) {
       const r = within(row(id));
-      expect(r.getByRole("checkbox")).toBeInTheDocument();
+      expect(r.queryByRole("checkbox")).toBeNull();
       expect(r.getByRole("switch")).toBeInTheDocument();
     }
     expect(within(row("b")).getByText("security")).toBeInTheDocument();
-    expect(within(row("a")).getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
-    expect(within(row("d")).getByRole("checkbox")).toHaveAttribute("aria-checked", "false");
+    expect(within(row("a")).getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    expect(within(row("d")).getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    expect(within(row("a")).getByText("#1")).toBeInTheDocument();
+    expect(within(row("d")).queryByText(/^#\d/)).toBeNull();
   });
 
-  it("the enabled toggle updates the skill and does not touch attachment or order", () => {
+  it("the toggle attaches/detaches the skill", () => {
     renderTab();
     fireEvent.click(within(row("d")).getByRole("switch"));
-    expect(updateSkillMutate).toHaveBeenCalledWith({ id: "d", patch: { enabled: false } });
-    expect(setSkillsMutate).not.toHaveBeenCalled();
-    const ids = [...document.querySelectorAll("[data-skill-row]")].map((n) => n.getAttribute("data-skill-id"));
-    expect(ids).toEqual(["a", "b", "c", "d"]);
+    expect(setSkillsMutate).toHaveBeenCalledWith(["a", "b", "c", "d"]);
+    fireEvent.click(within(row("a")).getByRole("switch"));
+    expect(setSkillsMutate).toHaveBeenCalledWith(["b", "c"]);
   });
 
   it("keeps the name filter", () => {
@@ -96,15 +97,14 @@ describe("SkillsTab list", () => {
 });
 
 describe("SkillsTab drag and drop", () => {
-  it("only attached + enabled rows are draggable", () => {
+  it("only attached rows are draggable", () => {
     renderTab();
     expect(row("a")).toHaveAttribute("draggable", "true");
-    expect(row("b")).toHaveAttribute("draggable", "true");
-    expect(row("c")).toHaveAttribute("draggable", "false"); // attached but disabled
-    expect(row("d")).toHaveAttribute("draggable", "false"); // enabled but unattached
+    expect(row("c")).toHaveAttribute("draggable", "true");
+    expect(row("d")).toHaveAttribute("draggable", "false"); // unattached
   });
 
-  it("dropping an enabled attached row on another persists the new order", () => {
+  it("dropping an attached row on another persists the new order", () => {
     renderTab();
     fireEvent.dragStart(row("a"));
     fireEvent.dragOver(row("b"));
@@ -112,21 +112,14 @@ describe("SkillsTab drag and drop", () => {
     expect(setSkillsMutate).toHaveBeenCalledWith(["b", "a", "c"]);
   });
 
-  it("ignores a drop onto a disabled row, and a drag started from a disabled row", () => {
+  it("ignores a drop onto an unattached row, and a drag started from one", () => {
     renderTab();
     fireEvent.dragStart(row("a"));
-    fireEvent.drop(row("c"));
+    fireEvent.drop(row("d"));
     expect(setSkillsMutate).not.toHaveBeenCalled();
-    fireEvent.dragStart(row("c"));
+    fireEvent.dragStart(row("d"));
     fireEvent.drop(row("a"));
     expect(setSkillsMutate).not.toHaveBeenCalled();
-  });
-
-  it("keyboard arrows still reorder, and are hidden on a disabled row", () => {
-    renderTab();
-    fireEvent.click(within(row("b")).getByRole("button", { name: "Move up" }));
-    expect(setSkillsMutate).toHaveBeenCalledWith(["b", "a", "c"]);
-    expect(within(row("c")).queryByRole("button", { name: "Move up" })).toBeNull();
   });
 });
 

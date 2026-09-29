@@ -18,21 +18,19 @@ describe("reorderLinked", () => {
   const skills = [sk("a"), sk("b"), sk("c", false), sk("d"), sk("e")];
   const linked = ["a", "b", "c", "d"];
 
-  it("moves a dragged skill onto another enabled attached one", () => {
+  it("moves a dragged skill onto another attached one", () => {
     expect(reorderLinked(linked, skills, "a", "b")).toEqual(["b", "a", "c", "d"]);
     expect(reorderLinked(linked, skills, "d", "a")).toEqual(["d", "a", "b", "c"]);
   });
 
-  it("refuses when the source or target is disabled, unattached, or the same row", () => {
-    expect(reorderLinked(linked, skills, "c", "a")).toBeNull();
-    expect(reorderLinked(linked, skills, "a", "c")).toBeNull();
+  it("refuses when the source or target is unattached, or the same row", () => {
     expect(reorderLinked(linked, skills, "e", "a")).toBeNull();
     expect(reorderLinked(linked, skills, "a", "a")).toBeNull();
   });
 
-  it("isReorderable needs attached AND enabled", () => {
+  it("isReorderable needs the skill to be attached", () => {
     expect(isReorderable(sk("a"), linked)).toBe(true);
-    expect(isReorderable(sk("c", false), linked)).toBe(false);
+    expect(isReorderable(sk("c", false), linked)).toBe(true);
     expect(isReorderable(sk("e"), linked)).toBe(false);
   });
 });

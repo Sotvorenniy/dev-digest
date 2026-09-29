@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { TextInput, Badge, Button, IconBtn, Checkbox, EmptyState, Icon, Toggle } from "@devdigest/ui";
+import { TextInput, Badge, Button, EmptyState, Icon, Toggle } from "@devdigest/ui";
 import type { Agent, Skill } from "@devdigest/shared";
 import { useSkills, useAgentSkills, useSetAgentSkills, useUpdateSkill } from "@/lib/hooks";
 import { ImportSkillDrawer } from "@/components/import-skill-drawer";
@@ -11,8 +11,7 @@ import {
   toDisplayOrder,
   filterSkills,
   toggleLinked,
-  moveLinked,
-  isReorderable,
+    isReorderable,
   reorderLinked,
   applyLinkedOrder,
 } from "./helpers";
@@ -61,6 +60,10 @@ export function SkillsTab({ agent }: { agent: Agent }) {
   const toggle = (skillId: string) => {
     if (setSkills.isPending) return;
     const wasLinked = linkedIds.includes(skillId);
+    // A skill that is globally disabled would be attached but ignored — enable it too.
+    if (!wasLinked && bySkillId.get(skillId)?.enabled === false) {
+      updateSkill.mutate({ id: skillId, patch: { enabled: true } });
+    }
     setSkills.mutate(toggleLinked(linkedIds, skillId));
     // Detach: row stays put, just greys out — no jump.
     // Attach: the API appends it after the last already-linked skill, so move
@@ -81,10 +84,6 @@ export function SkillsTab({ agent }: { agent: Agent }) {
     setSkills.mutate(next);
     // Linked rows trade slots; unlinked rows never move.
     setRowOrder((prev) => (prev ? applyLinkedOrder(prev, next) : prev));
-  };
-  const move = (skillId: string, dir: -1 | 1) => {
-    if (setSkills.isPending) return;
-    commitOrder(moveLinked(linkedIds, skillId, dir));
   };
   const drop = (targetId: string) => {
     const from = dragId;
@@ -157,33 +156,14 @@ export function SkillsTab({ agent }: { agent: Agent }) {
                 >
                   <span
                     style={s.handle(canDrag)}
-                    title={canDrag ? t("skills.dragHandle") : isLinked ? t("skills.disabledNoDrag") : undefined}
+                    title={canDrag ? t("skills.dragHandle") : undefined}
                   >
                     <Icon.Menu size={14} />
                   </span>
-                  <Checkbox checked={isLinked} onChange={() => toggle(sk.id)} label={<span style={s.srOnly}>{t("skills.attach", { name: sk.name })}</span>} />
+                  <Toggle on={isLinked} onChange={() => toggle(sk.id)} size={14} />
                   <span style={s.name}>{sk.name}</span>
                   <Badge>{sk.type}</Badge>
-                  <Toggle
-                    on={sk.enabled}
-                    onChange={(enabled) => updateSkill.mutate({ id: sk.id, patch: { enabled } })}
-                    size={14}
-                  />
-                  {isLinked && sk.enabled && (
-                    <div style={s.reorder}>
-                      {idx > 0 && (
-                        <IconBtn icon="ArrowUp" label={t("skills.moveUp")} size={24} onClick={() => move(sk.id, -1)} />
-                      )}
-                      {idx < linkedIds.length - 1 && (
-                        <IconBtn
-                          icon="ArrowDown"
-                          label={t("skills.moveDown")}
-                          size={24}
-                          onClick={() => move(sk.id, 1)}
-                        />
-                      )}
-                    </div>
-                  )}
+                  {isLinked && <span style={s.position}>#{idx + 1}</span>}
                 </div>
               );
             })}

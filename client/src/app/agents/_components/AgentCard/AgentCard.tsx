@@ -17,12 +17,15 @@ export function AgentCard({
   skillCount,
   onClick,
   onToggle,
+  onDeleted,
 }: {
   ag: Agent;
   active?: boolean;
   skillCount?: number;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
+  /** Called after the agent is successfully deleted. */
+  onDeleted?: () => void;
 }) {
   const t = useTranslations("agents");
   const del = useDeleteAgent();
@@ -39,7 +42,10 @@ export function AgentCard({
             danger
             pending={del.isPending}
             onCancel={() => setConfirming(false)}
-            onConfirm={() => del.mutate(ag.id, { onSettled: () => setConfirming(false) })}
+            onConfirm={() => del.mutate(ag.id, {
+                onSuccess: () => onDeleted?.(),
+                onSettled: () => setConfirming(false),
+              })}
           />
         </div>
       )}

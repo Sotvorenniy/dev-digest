@@ -79,6 +79,7 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
             text={trace.prompt_assembly.skills}
             color={PROMPT_COLORS.skills}
             tokens={trace.prompt_assembly.skills_tokens}
+            names={trace.prompt_assembly.skills_used}
           />
         )}
         {trace.prompt_assembly.memory != null && (

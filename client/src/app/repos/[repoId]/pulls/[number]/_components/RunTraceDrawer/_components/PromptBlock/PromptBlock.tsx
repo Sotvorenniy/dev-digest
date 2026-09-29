@@ -25,12 +25,15 @@ export function PromptBlock({
   text,
   color,
   tokens,
+  names,
 }: {
   label: string;
   text: string;
   color: string;
   /** Approximate token count for this block; badge hidden when null/undefined. */
   tokens?: number | null;
+  /** Names of the items that make up this block (e.g. the skills used). */
+  names?: string[] | null;
 }) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
@@ -49,6 +52,13 @@ export function PromptBlock({
         {tokens != null && (
           <span data-prompt-tokens>
             <Badge mono>{t("trace.prompt.tokens", { count: tokens })}</Badge>
+          </span>
+        )}
+        {names && names.length > 0 && (
+          <span data-prompt-names style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {names.map((n, i) => (
+              <Badge key={i}>{n}</Badge>
+            ))}
           </span>
         )}
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>

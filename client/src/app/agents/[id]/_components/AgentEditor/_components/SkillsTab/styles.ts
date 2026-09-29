@@ -38,5 +38,5 @@ export const s = {
   headerActions: { marginLeft: "auto" } satisfies CSSProperties,
   importedHint: { fontSize: 12, color: "var(--text-muted)", margin: "-6px 0 12px" } satisfies CSSProperties,
   name: { fontSize: 14, fontWeight: 500, flex: 1 } satisfies CSSProperties,
-  reorder: { display: "flex", gap: 2 } satisfies CSSProperties,
+  position: { fontSize: 12, color: "var(--text-muted)", minWidth: 24, textAlign: "right" } satisfies CSSProperties,
 } as const;

@@ -40,13 +40,13 @@ export function moveLinked(linkedIds: string[], skillId: string, dir: -1 | 1): s
   return next;
 }
 
-/** Only an attached, enabled skill may be dragged or drop-targeted. */
+/** Only an attached skill may be dragged or drop-targeted. */
 export function isReorderable(skill: Skill, linkedIds: string[]): boolean {
-  return skill.enabled && linkedIds.includes(skill.id);
+  return linkedIds.includes(skill.id);
 }
 
 /** Drag `fromId` onto `toId`: move it to that slot in the linked order.
- *  Returns null (no change) unless BOTH rows are attached and enabled. */
+ *  Returns null (no change) unless BOTH rows are attached. */
 export function reorderLinked(
   linkedIds: string[],
   skills: Skill[],

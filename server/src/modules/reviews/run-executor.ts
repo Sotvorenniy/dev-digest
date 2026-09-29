@@ -6,7 +6,7 @@ import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { buildSkillTexts, taskLine } from './helpers.js';
+import { buildSkillNames, buildSkillTexts, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { withSkillsTokens } from '../../platform/trace-builder.js';
 
@@ -191,6 +191,7 @@ export class ReviewRunExecutor {
       // sections.
       const linkedSkills = await this.agents.linkedSkills(agent.id);
       const skillTexts = buildSkillTexts(linkedSkills);
+      const skillNames = buildSkillNames(linkedSkills);
       if (skillTexts.length > 0) {
         runLog.info(`skills: ${skillTexts.length} enabled skill(s) attached`);
       }
@@ -284,7 +285,7 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: withSkillsTokens(outcome.assembly),
+        prompt_assembly: { ...withSkillsTokens(outcome.assembly), skills_used: skillNames },
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,

@@ -41,6 +41,8 @@ export const PromptAssembly = z.object({
   skills: z.string().nullish(),
   /** Estimated tokens (ceil(chars/4)) of the skills block only; absent on old traces. */
   skills_tokens: z.number().int().nullish(),
+  /** Names of the skills that went into the skills block, in prompt order; absent on old traces. */
+  skills_used: z.array(z.string()).nullish(),
   memory: z.string().nullish(),
   specs: z.string().nullish(),
   /** Callers-of-changed-symbols digest (repo-intel); null when absent. */

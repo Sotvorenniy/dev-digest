@@ -23,14 +23,16 @@ function AgentSidebarCard({
   active,
   onClick,
   onToggle,
+  onDeleted,
 }: {
   agent: Agent;
   active: boolean;
   onClick: () => void;
   onToggle: (enabled: boolean) => void;
+  onDeleted: () => void;
 }) {
   const { data: links } = useAgentSkills(agent.id);
-  return <AgentCard ag={agent} active={active} skillCount={links?.length ?? 0} onClick={onClick} onToggle={onToggle} />;
+  return <AgentCard ag={agent} active={active} skillCount={links?.length ?? 0} onClick={onClick} onToggle={onToggle} onDeleted={onDeleted} />;
 }
 
 export default function AgentEditorPage() {
@@ -106,6 +108,13 @@ export default function AgentEditorPage() {
                 active={a.id === id}
                 onClick={() => router.push(`/agents/${a.id}?tab=${tab}`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
+                onDeleted={() => {
+                  // Deleting the open agent: move to another one instead of
+                  // showing a load error for the now-missing id.
+                  if (a.id !== id) return;
+                  const next = (agents ?? []).find((x) => x.id !== a.id);
+                  router.replace(next ? `/agents/${next.id}?tab=${tab}` : "/agents");
+                }}
               />
             ))}
           </div>

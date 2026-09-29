@@ -10,6 +10,11 @@ import type { FindingRow, PullRow, ReviewRow } from './repository.js';
 import { wrapUntrusted } from '@devdigest/reviewer-core';
 export { reduceReviews, sliceDiff } from '@devdigest/reviewer-core';
 
+/** Names of the skills that make it into the prompt (same filter/order as buildSkillTexts). */
+export function buildSkillNames(links: { skill: { name: string; enabled: boolean } }[]): string[] {
+  return links.filter((l) => l.skill.enabled).map((l) => l.skill.name);
+}
+
 /**
  * Skill blocks for the prompt, in the agent's `agent_skills.order` (callers pass
  * links already ordered). Disabled skills are dropped; manual skills are
