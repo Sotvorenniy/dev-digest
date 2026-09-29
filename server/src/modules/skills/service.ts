@@ -18,6 +18,7 @@ export interface CreateSkillInput {
   source?: SkillSource;
   body: string;
   enabled?: boolean;
+  evidence_files?: string[];
 }
 
 export interface UpdateSkillInput {
@@ -62,6 +63,7 @@ export class SkillsService {
       body: input.body,
       source,
       ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.evidence_files !== undefined ? { evidenceFiles: input.evidence_files } : {}),
       // A non-manual skill (imported/extracted/community) is never auto-enabled,
       // regardless of what the client sent for `enabled`.
       enabled: source === 'manual' ? (input.enabled ?? true) : false,

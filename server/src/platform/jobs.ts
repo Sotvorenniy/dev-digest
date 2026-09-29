@@ -22,6 +22,12 @@ export interface JobRunnerOptions {
   retries?: number;
 }
 
+/** Per-kind override of the runner's default timeout/retries (see `register`). */
+export interface JobKindOptions {
+  timeoutMs?: number;
+  retries?: number;
+}
+
 export interface EnqueuedJob {
   id: string;
   /** Resolves when the job finishes (or rejects if it ultimately fails). */
@@ -31,6 +37,7 @@ export interface EnqueuedJob {
 export class JobRunner {
   private queue: PQueue;
   private handlers = new Map<string, JobHandler>();
+  private kindOptions = new Map<string, JobKindOptions>();
   private timeoutMs: number;
   private retries: number;
 
@@ -43,8 +50,18 @@ export class JobRunner {
     this.retries = opts.retries ?? 2;
   }
 
-  register(kind: string, handler: JobHandler): void {
+  /**
+   * `kindOpts` overrides the runner's default timeout/retries for jobs of
+   * this kind only — e.g. a job that makes several sequential LLM calls
+   * (conventions-scan) genuinely needs more than the default 120s budget
+   * most jobs (clone/poll/index) comfortably finish inside, and re-running
+   * an expensive multi-call pipeline from scratch on every transient error
+   * is wasteful in a way a cheap job's retry isn't, so it may also want
+   * fewer retries. Unset fields fall back to the runner's own default.
+   */
+  register(kind: string, handler: JobHandler, kindOpts?: JobKindOptions): void {
     this.handlers.set(kind, handler);
+    if (kindOpts) this.kindOptions.set(kind, kindOpts);
   }
 
   async enqueue(workspaceId: string, kind: string, payload: unknown): Promise<EnqueuedJob> {
@@ -56,6 +73,9 @@ export class JobRunner {
       .values({ workspaceId, kind, payload: payload as object, status: 'queued' })
       .returning({ id: t.jobs.id });
     const jobId = row!.id;
+    const kindOpts = this.kindOptions.get(kind);
+    const timeoutMs = kindOpts?.timeoutMs ?? this.timeoutMs;
+    const retries = kindOpts?.retries ?? this.retries;
 
     const done = this.queue.add(async () => {
       await this.db
@@ -65,14 +85,14 @@ export class JobRunner {
       try {
         await withRetry(
           () =>
-            withTimeout(handler(payload, { jobId }), this.timeoutMs).then(async () => {
+            withTimeout(handler(payload, { jobId }), timeoutMs).then(async () => {
               await this.db
                 .update(t.jobs)
                 .set({ attempts: 1 })
                 .where(eq(t.jobs.id, jobId));
             }),
           {
-            retries: this.retries,
+            retries,
             onRetry: async (attempt) => {
               await this.db
                 .update(t.jobs)
@@ -99,6 +119,15 @@ export class JobRunner {
         throw err;
       }
     }) as Promise<void>;
+
+    // A job's failure is already durable (the `jobs` row above), and no
+    // caller here awaits `done` — every route enqueues and returns 202
+    // immediately, polling status via the DB instead. Without this catch,
+    // an eventual rejection (a slow LLM pipeline blowing past `timeoutMs`,
+    // in particular) is an unhandled promise rejection that crashes the
+    // whole process, not just the one job. `done` itself is untouched and
+    // still rejects for any caller that DOES choose to await it.
+    done.catch(() => {});
 
     return { id: jobId, done };
   }

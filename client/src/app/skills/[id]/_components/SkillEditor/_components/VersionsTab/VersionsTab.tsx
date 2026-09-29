@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Button, ErrorState, Modal, Skeleton } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { useRestoreSkillVersion, useSkillVersions } from "@/lib/hooks";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DiffViewer } from "@/components/diff-viewer";
 import type { PrFile } from "@/lib/types";
 import { currentVersionOf, diffAgainstCurrent, formatWhen, sortedByVersionDesc } from "./helpers";
@@ -18,6 +19,7 @@ export function VersionsTab({ skill }: { skill: Skill }) {
   const { data: versions, isLoading, isError, refetch } = useSkillVersions(skill.id);
   const restore = useRestoreSkillVersion(skill.id);
   const [diffing, setDiffing] = React.useState<number | null>(null);
+  const [restoring, setRestoring] = React.useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -40,12 +42,20 @@ export function VersionsTab({ skill }: { skill: Skill }) {
   const current = currentVersionOf(versions ?? []);
   const diffRow = diffing != null ? list.find((v) => v.version === diffing) : undefined;
 
-  const restoreVersion = (version: number) => {
-    if (window.confirm(t("versions.restoreConfirm", { version }))) restore.mutate(version);
-  };
+  const restoreVersion = (version: number) => setRestoring(version);
 
   return (
     <div style={s.wrap}>
+      {restoring != null && (
+        <ConfirmDialog
+          title={t("versions.restoreTitle", { version: restoring })}
+          body={t("versions.restoreConfirm", { version: restoring })}
+          confirmLabel={t("versions.restore")}
+          pending={restore.isPending}
+          onCancel={() => setRestoring(null)}
+          onConfirm={() => restore.mutate(restoring, { onSettled: () => setRestoring(null) })}
+        />
+      )}
       {diffRow && current && (
         <Modal
           width={860}

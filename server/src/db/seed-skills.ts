@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
 import type { Db } from './client.js';
 import * as t from './schema.js';
@@ -184,6 +187,7 @@ interface SkillSeed {
   description: string;
   type: 'rubric' | 'convention' | 'security' | 'custom';
   body: string;
+  source?: 'manual' | 'imported_file';
 }
 
 const TEST_QUALITY_SKILLS: SkillSeed[] = [
@@ -216,6 +220,30 @@ const API_CONTRACT_SKILLS: SkillSeed[] = [
   },
 ];
 
+const API_CONTRACT_DOCS_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..', '..', '..', 'docs', 'agent-skills', 'api-contract',
+);
+
+/**
+ * The four API Contract skills live as markdown under docs/agent-skills/api-contract/
+ * (the same files a user imports through the UI). Seeding them with
+ * source 'imported_file' gives the agents skills of imported origin. A missing
+ * file is skipped so the seed never fails on a checkout without docs/.
+ */
+function loadImportedApiContractSkills(): SkillSeed[] {
+  const names = ['breaking-change', 'response-schema', 'semver-discipline', 'deprecation-policy'];
+  const out: SkillSeed[] = [];
+  for (const name of names) {
+    const file = join(API_CONTRACT_DOCS_DIR, `${name}.md`);
+    if (!existsSync(file)) continue;
+    const body = readFileSync(file, 'utf8');
+    const description = body.split('\n').find((l, i) => i > 0 && l.trim() && !l.startsWith('#'))?.trim() ?? name;
+    out.push({ name, description, type: 'rubric', body, source: 'imported_file' });
+  }
+  return out;
+}
+
 /** Idempotently upsert one skill by (workspaceId, name) and snapshot version 1. */
 async function upsertSkill(db: Db, workspaceId: string, seed: SkillSeed) {
   const [existing] = await db
@@ -231,7 +259,7 @@ async function upsertSkill(db: Db, workspaceId: string, seed: SkillSeed) {
       name: seed.name,
       description: seed.description,
       type: seed.type,
-      source: 'manual',
+      source: seed.source ?? 'manual',
       body: seed.body,
       enabled: true,
       version: 1,
@@ -274,7 +302,7 @@ export async function seedSkills(
     await linkSkill(db, agentIds.testQuality, row.id, i);
   }
 
-  for (const [i, seed] of API_CONTRACT_SKILLS.entries()) {
+  for (const [i, seed] of [...API_CONTRACT_SKILLS, ...loadImportedApiContractSkills()].entries()) {
     const row = await upsertSkill(db, workspaceId, seed);
     await linkSkill(db, agentIds.apiContract, row.id, i);
   }

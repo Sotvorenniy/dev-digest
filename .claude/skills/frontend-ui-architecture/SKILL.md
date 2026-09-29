@@ -28,6 +28,31 @@ Code examples in BAD/GOOD form: [examples.md](examples.md).
 > nested `_components/` share the parent's styles, there is no `utils/` directory, and Tailwind
 > is not used. Where the two disagree, that file wins.
 
+## Where things live (this repo's `client/`)
+
+- **Pages** — `client/src/app/**/page.tsx`. Thin, mostly `"use client"`; route-level `styles.ts`, `constants.ts` and `helpers.ts` sit beside `page.tsx`.
+- **Page-local components** — `_components/` beside the page (`app/repos/[repoId]/pulls/_components/PRRow/`). Not routable, deleted with the route.
+- **Shared components** — `client/src/components/<kebab-case>/Name.tsx`, only when genuinely app-wide.
+- **Shared non-hook logic** — flat topic-named modules in `client/src/lib/` (there is no `utils/`).
+- **Data hooks** — global in `client/src/lib/hooks/`; component-scoped in `<component>/hooks/`. Components never call `fetch`: `lib/api.ts` → `lib/hooks/*` → component.
+
+## Naming conventions (this repo's `client/`)
+
+- A component is a folder: `Name.tsx` + `styles.ts` (`export const s`) + `index.ts` (named **and** default). `constants.ts` / `helpers.ts` / `types.ts` as needed.
+- Nested `_components/` children have no own `styles.ts`/`constants.ts`/`helpers.ts` (they use the parent's) and a named-only `index.ts`.
+- Folder case follows the zone: PascalCase under `app/**/_components/`, kebab-case under `src/components/`, PascalCase file inside both.
+- Route segments are lowercase; `[param]` is named for its entity when a route nests several (`[repoId]/pulls/[number]`).
+- Test hooks are semantic `data-<thing>` attributes, never `data-testid`. User-facing strings go in `client/messages/en/<ns>.json`, not inline JSX.
+
+## Where tests live (this repo's `client/`)
+
+- Colocated with the code: `Name.test.tsx` in the component folder, `helpers.test.ts` beside `helpers.ts`, `lib/<module>.test.ts` beside the module.
+- Nested `_components/` children are tested through their parent; most folders have no test today.
+- `client/src/test/` holds the vitest setup and the smoke test (a new `@devdigest/ui` component must be added to the showcase or it fails).
+- Vitest runs `src/**/*.test.{ts,tsx}` in jsdom with RTL; path aliases must be in both `tsconfig.json` and `vitest.config.ts`.
+
+See [references/this-repo.md](references/this-repo.md) for details; it wins over the generic rules.
+
 ## Severity levels
 
 Tagged on the sections below, matching the convention the sibling skills use. The reference

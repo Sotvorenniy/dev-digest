@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 /** Co-located styles for SkillsRail (mirrors the /agents/:id left rail). */
 export const s = {
   wrap: {
-    width: 280,
+    width: 320,
     flexShrink: 0,
     borderRight: "1px solid var(--border)",
     display: "flex",
@@ -62,11 +62,21 @@ export const s = {
   description: {
     fontSize: 12,
     color: "var(--text-muted)",
-    margin: "6px 0 8px",
+    margin: "6px 0 6px",
     lineHeight: 1.4,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
-  metaRow: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } satisfies CSSProperties,
+  source: { fontSize: 11, color: "var(--text-muted)" } satisfies CSSProperties,
+  deleteBtn: {
+    display: "grid",
+    placeItems: "center",
+    padding: 2,
+    background: "transparent",
+    border: "none",
+    color: "var(--text-muted)",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  metaRow: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 } satisfies CSSProperties,
 } as const;

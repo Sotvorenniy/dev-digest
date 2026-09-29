@@ -30,6 +30,38 @@ Evidence: `server/src/adapters/llm/pricing.ts:1-20`,
 ## Codebase Patterns
 <!-- Module layout, DI flow, repository conventions — with the reason. -->
 
+### A service can't call `resolveFeatureModel` directly — it takes `Container`, which cycles back
+`2026-09-28` — `modules/settings/feature-models.ts`'s `resolveFeatureModel(container, workspaceId,
+id)` takes `Container` as its first parameter, so calling it from `platform/container.ts` (to
+bind a per-feature service's model resolution into a closure) creates a `container.ts <->
+feature-models.ts` `no-circular` violation the moment `container.ts` imports it — even though
+`container.ts` is otherwise exempt from every other onion-architecture rule as the composition
+root. A `service.ts` obviously can't call it either (services must never import `Container` at
+all — see the onion-architecture skill). Worked around for the `conventions` module by
+duplicating the tiny override-read/default-fallback logic directly in `container.ts` as a
+private method reading `t.settings` + `FEATURE_MODELS` itself, never importing
+`feature-models.ts`. A second feature needing this should promote it to a real method/port
+instead of a third copy-paste.
+Evidence: `server/src/modules/settings/feature-models.ts:51` (`resolveFeatureModel` signature),
+`server/src/platform/container.ts` (`resolveFeatureModelFor`)
+
+### Widening `SkillSource` needs no migration — the column is `text`
+`2026-09-28` — `skills.source` is `text('source', { enum })`, so the enum is
+TypeScript-only. Adding a value (e.g. `imported_file`) means editing the Drizzle
+enum plus BOTH vendored `SkillSource` zod enums; `drizzle-kit generate` emits
+nothing for it. Do not hand-write a migration. Non-manual sources are still
+forced `enabled: false` by `SkillsService.create` and wrapped as untrusted in
+`run-executor.ts`, whatever the new value is called.
+Evidence: `server/src/db/schema/skills.ts:13`,
+`server/src/vendor/shared/contracts/knowledge.ts:118`
+
+### Findings have no `api`/contract category — API-contract agents must use `bug`
+`2026-09-28` — `FindingCategory` is `bug | security | perf | style | test`, so a
+reviewer prompt for API-contract problems has to tell the model to emit `bug`;
+no other value fits. Adding a real category means editing both vendored
+`findings.ts` copies plus the DB and UI enums, so treat it as its own task.
+Evidence: `server/src/vendor/shared/contracts/findings.ts:14`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
@@ -62,6 +94,24 @@ skews one call, and only re-priced (null `cost_usd`) rows are affected.
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
+
+### dependency-cruiser's `--ignore-known` baseline is already stale for repo-intel's circular imports
+`2026-09-28` — Running `.claude/skills/onion-architecture/scripts/check.sh` after ANY edit to
+`platform/container.ts` — even one unrelated to repo-intel — reports 8 `no-circular` errors for
+`repo-intel/service.ts`/`pipeline/{full,incremental}.ts`/`index.ts`/`routes.ts` and
+`_shared/context.ts`, all routed through `container.ts`. These are NOT new: verified by
+`git stash push -- server/src/platform/container.ts server/src/modules/index.ts` (reverting to
+HEAD) and re-running the gate — the identical 8 errors reproduce on unmodified `HEAD`.
+`.dependency-cruiser-known-violations.json`'s repo-intel cycle entries record a SHORTER path
+(e.g. `container.ts → repo-intel/service.ts` direct) than what depcruise now reports (e.g.
+`container.ts → repo-intel/index.ts → repo-intel/routes.ts → repo-intel/service.ts`) for the
+same underlying cycle — the baseline is stale, not the code newly broken. Confirm with the
+stash-and-recheck trick above before assuming your own change caused them, and don't
+regenerate the baseline to "fix" them (regenerating would GROW it, violating the skill's
+"baseline must only shrink" rule) unless deliberately paying down the repo-intel
+Container-in-service violation itself.
+Evidence: `server/.dependency-cruiser-known-violations.json` (repo-intel cycle entries),
+`.claude/skills/onion-architecture/scripts/check.sh`
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->

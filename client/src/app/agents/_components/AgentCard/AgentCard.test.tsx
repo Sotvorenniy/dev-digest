@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent } from "@devdigest/shared";
 import messages from "../../../../../messages/en/agents.json";
+import commonMessages from "../../../../../messages/en/common.json";
 import { AgentCard } from "./AgentCard";
 
 afterEach(cleanup);
@@ -27,7 +28,7 @@ function renderWithIntl(ui: React.ReactElement) {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <NextIntlClientProvider locale="en" messages={{ agents: messages }}>
+      <NextIntlClientProvider locale="en" messages={{ agents: messages, common: commonMessages }}>
         {ui}
       </NextIntlClientProvider>
     </QueryClientProvider>,
@@ -45,5 +46,16 @@ describe("AgentCard (smoke)", () => {
   it("falls back to a translated placeholder when description is empty", () => {
     renderWithIntl(<AgentCard ag={{ ...AGENT, description: "" }} />);
     expect(screen.getByText("No description")).toBeInTheDocument();
+  });
+});
+
+describe("AgentCard delete", () => {
+  it("opens the shared confirm dialog instead of window.confirm, and cancel closes it", () => {
+    renderWithIntl(<AgentCard ag={AGENT} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete agent" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent('Delete agent "Security Reviewer"? This cannot be undone.');
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

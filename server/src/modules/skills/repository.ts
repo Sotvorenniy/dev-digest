@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
@@ -17,7 +17,7 @@ import type { SkillsRepositoryPort } from './ports.js';
 import type { SkillRow, SkillVersionRow } from '../../db/rows.js';
 export type { SkillRow, SkillVersionRow };
 
-function toSkillDomain(row: SkillRow): Skill {
+function toSkillDomain(row: SkillRow, agentCount = 0): Skill {
   return {
     id: row.id,
     name: row.name,
@@ -28,6 +28,7 @@ function toSkillDomain(row: SkillRow): Skill {
     enabled: row.enabled,
     version: row.version,
     evidence_files: row.evidenceFiles ?? null,
+    agent_count: agentCount,
   };
 }
 
@@ -49,6 +50,7 @@ export interface InsertSkill {
   source?: SkillSource;
   body: string;
   enabled?: boolean;
+  evidenceFiles?: string[];
 }
 
 export interface UpdateSkill {
@@ -72,12 +74,32 @@ export class SkillsRepository implements SkillsRepositoryPort {
       .from(t.skills)
       .where(eq(t.skills.workspaceId, workspaceId))
       .orderBy(asc(t.skills.createdAt));
-    return rows.map(toSkillDomain);
+    // One grouped query for every skill's link count (no N+1).
+    const counts = await this.db
+      .select({ skillId: t.agentSkills.skillId, n: count() })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(eq(t.skills.workspaceId, workspaceId))
+      .groupBy(t.agentSkills.skillId);
+    const byId = new Map(counts.map((c) => [c.skillId, Number(c.n)]));
+    return rows.map((r) => toSkillDomain(r, byId.get(r.id) ?? 0));
   }
 
   async getById(workspaceId: string, id: string): Promise<Skill | undefined> {
     const row = await this.getRowById(workspaceId, id);
-    return row ? toSkillDomain(row) : undefined;
+    return row ? this.withAgentCount(row) : undefined;
+  }
+
+  private async withAgentCount(row: SkillRow): Promise<Skill> {
+    return toSkillDomain(row, await this.countAgents(row.id));
+  }
+
+  private async countAgents(skillId: string): Promise<number> {
+    const [c] = await this.db
+      .select({ n: count() })
+      .from(t.agentSkills)
+      .where(eq(t.agentSkills.skillId, skillId));
+    return Number(c?.n ?? 0);
   }
 
   private async getRowById(workspaceId: string, id: string): Promise<SkillRow | undefined> {
@@ -110,6 +132,7 @@ export class SkillsRepository implements SkillsRepositoryPort {
         body: values.body,
         enabled: values.enabled ?? true,
         version: INITIAL_SKILL_VERSION,
+        evidenceFiles: values.evidenceFiles ?? null,
       })
       .returning();
     await this.snapshotVersion(row!, INITIAL_SKILL_VERSION, null);
@@ -147,7 +170,7 @@ export class SkillsRepository implements SkillsRepositoryPort {
     if (bodyChanged && row) {
       await this.snapshotVersion(row, nextVersion, patch.changeNote ?? null);
     }
-    return row ? toSkillDomain(row) : undefined;
+    return row ? this.withAgentCount(row) : undefined;
   }
 
   // ---- skill_versions (immutable body snapshots) ---------------------------
@@ -185,7 +208,7 @@ export class SkillsRepository implements SkillsRepositoryPort {
       .returning();
 
     if (row) await this.snapshotVersion(row, nextVersion, `Restored from v${version}`);
-    return row ? toSkillDomain(row) : undefined;
+    return row ? this.withAgentCount(row) : undefined;
   }
 
   private async snapshotVersion(

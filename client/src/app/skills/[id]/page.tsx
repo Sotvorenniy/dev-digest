@@ -5,11 +5,11 @@
 import React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Badge, Button, ErrorState, Icon, Skeleton } from "@devdigest/ui";
+import { Badge, Button, ErrorState, Icon, Skeleton, Toggle } from "@devdigest/ui";
 import { AppShell } from "../../../components/app-shell";
 import { SkillsRail } from "../_components/SkillsRail";
 import { SkillEditor } from "./_components/SkillEditor";
-import { useSkill } from "../../../lib/hooks/skills";
+import { useSkill, useUpdateSkill } from "../../../lib/hooks/skills";
 import { ApiError } from "../../../lib/api";
 
 const VALID_TABS = ["config", "preview", "versions", "evals"];
@@ -21,6 +21,7 @@ export default function SkillEditorPage() {
   const { id } = params;
   const t = useTranslations("skills");
 
+  const update = useUpdateSkill();
   const { data: skill, isLoading, isError, error, refetch } = useSkill(id);
 
   const tab = VALID_TABS.includes(search.get("tab") ?? "") ? search.get("tab")! : "config";
@@ -69,7 +70,8 @@ export default function SkillEditorPage() {
               </Badge>
               <Badge color="var(--text-muted)" mono>{`v${skill.version}`}</Badge>
               {!skill.enabled && <Badge color="var(--text-muted)">{t("editor.disabled")}</Badge>}
-              <div style={{ marginLeft: "auto" }}>
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+                <Toggle on={skill.enabled} onChange={(enabled) => update.mutate({ id: skill.id, patch: { enabled } })} />
                 <Button kind="secondary" size="sm" icon="FlaskConical" disabled title={t("editor.runOnEvals")}>
                   {t("editor.runOnEvals")}
                 </Button>

@@ -35,6 +35,7 @@ const SKILL: Skill = {
   body: "# Rule\nBe thorough.",
   enabled: true,
   version: 2,
+  agent_count: 0,
 };
 
 function renderWithIntl(ui: React.ReactElement) {

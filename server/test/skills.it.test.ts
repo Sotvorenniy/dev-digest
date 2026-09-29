@@ -162,6 +162,36 @@ d('skills module', () => {
     await app.close();
   });
 
+  it('imported_file skill is saved disabled with its source; agent_count counts links', async () => {
+    const app = await makeApp();
+    const skill = (
+      await app.inject({
+        method: 'POST',
+        url: '/skills',
+        payload: { ...manualBody, name: 'From file', source: 'imported_file', enabled: true },
+      })
+    ).json();
+    expect(skill).toMatchObject({ source: 'imported_file', enabled: false, agent_count: 0 });
+
+    const mkAgent = async (name: string) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/agents',
+          payload: { name, provider: 'openai', model: 'gpt-4o-mini', system_prompt: 'Review.' },
+        })
+      ).json();
+    for (const a of [await mkAgent('AC1'), await mkAgent('AC2')]) {
+      await app.inject({ method: 'POST', url: `/agents/${a.id}/skills`, payload: { skill_id: skill.id } });
+    }
+
+    const got = (await app.inject({ method: 'GET', url: `/skills/${skill.id}` })).json();
+    expect(got.agent_count).toBe(2);
+    const list = (await app.inject({ method: 'GET', url: '/skills' })).json();
+    expect(list.find((x: { id: string }) => x.id === skill.id).agent_count).toBe(2);
+    await app.close();
+  });
+
   it('deleting a skill cascades its agent_skills link', async () => {
     const app = await makeApp();
     const skill = (

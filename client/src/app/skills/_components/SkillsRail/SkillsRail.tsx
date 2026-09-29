@@ -8,8 +8,10 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Badge, Button, Dropdown, EmptyState, ErrorState, Icon, Skeleton, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
-import { useCreateSkill, useSkills, useUpdateSkill } from "@/lib/hooks";
-import { ImportSkillDrawer, type ImportTab } from "../ImportSkillDrawer";
+import { useCreateSkill, useDeleteSkill, useSkills, useUpdateSkill } from "@/lib/hooks";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useToast } from "@/lib/toast";
+import { ImportSkillDrawer, type ImportTab } from "@/components/import-skill-drawer";
 import { filterSkills, needsVetting } from "./helpers";
 import { s } from "./styles";
 
@@ -18,29 +20,39 @@ function SkillRow({
   active,
   onClick,
   onToggle,
+  onDelete,
 }: {
   skill: Skill;
   active: boolean;
   onClick: () => void;
   onToggle: (enabled: boolean) => void;
+  onDelete: () => void;
 }) {
   const t = useTranslations("skills");
   const vetting = needsVetting(skill);
   return (
-    <div onClick={onClick} style={s.row(active, skill.enabled)}>
+    <div data-skill-id={skill.id} onClick={onClick} style={s.row(active, skill.enabled)}>
       <div style={s.rowHeader}>
-        <div style={s.iconBox}>
-          <Icon.FileText size={13} />
-        </div>
         <span style={s.name}>{skill.name}</span>
-        <div onClick={(e) => e.stopPropagation()}>
+        <Badge color="var(--text-secondary)">{t(`listItem.type.${skill.type}`)}</Badge>
+        <div onClick={(e) => e.stopPropagation()} aria-label={t("card.enabledLabel", { name: skill.name })}>
           <Toggle on={skill.enabled} onChange={onToggle} size={14} />
         </div>
+        <button
+          type="button"
+          style={s.deleteBtn}
+          aria-label={t("card.deleteLabel", { name: skill.name })}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Icon.Trash size={13} />
+        </button>
       </div>
-      <div style={s.description}>{skill.description || "—"}</div>
+      <div style={s.description}>{skill.description || t("card.noDescription")}</div>
       <div style={s.metaRow}>
-        <Badge color="var(--text-secondary)">{t(`listItem.type.${skill.type}`)}</Badge>
-        <Badge color="var(--text-muted)">{t(`listItem.source.${skill.source}`)}</Badge>
+        <span style={s.source}>{`${t(`listItem.source.${skill.source}`)} · ${t("card.version", { version: skill.version })}`}</span>
         {vetting && (
           <span title={t("listItem.vettingTitle")}>
             <Badge color="var(--warn)" bg="var(--warn-bg)" icon="AlertTriangle">
@@ -48,6 +60,11 @@ function SkillRow({
             </Badge>
           </span>
         )}
+      </div>
+      <div style={s.metaRow}>
+        <Badge color="var(--text-secondary)" icon="Cpu">
+          {t("card.agents", { count: skill.agent_count })}
+        </Badge>
       </div>
     </div>
   );
@@ -59,20 +76,47 @@ export function SkillsRail({ activeId, tab = "config" }: { activeId?: string | n
   const { data: skills, isLoading, isError, refetch } = useSkills();
   const create = useCreateSkill();
   const update = useUpdateSkill();
+  const del = useDeleteSkill();
+  const toast = useToast();
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [drawerTab, setDrawerTab] = React.useState<ImportTab | null>(null);
 
   const list = filterSkills(skills ?? [], search);
+  const deleting = (skills ?? []).find((sk) => sk.id === deletingId) ?? null;
+
+  const confirmDelete = () => {
+    if (!deleting) return;
+    const { id, name } = deleting;
+    del.mutate(id, {
+      onSuccess: () => {
+        toast.success(t("deleteDialog.success", { name }));
+        if (id === activeId) router.push("/skills");
+      },
+      onSettled: () => setDeletingId(null),
+    });
+  };
 
   const createFromScratch = () => {
     create.mutate(
-      { name: "untitled-skill", description: "", type: "custom", body: "", source: "manual", enabled: true },
+      { name: "untitled-skill", description: "", type: "custom", body: t("page.starterBody"), source: "manual", enabled: true },
       { onSuccess: (skill) => router.push(`/skills/${skill.id}?tab=config`) },
     );
   };
 
   return (
     <div style={s.wrap}>
+      {deleting && (
+        <ConfirmDialog
+          title={t("deleteDialog.title")}
+          body={t("deleteDialog.body", { name: deleting.name })}
+          confirmLabel={t("deleteDialog.confirm")}
+          danger
+          pending={del.isPending}
+          onCancel={() => setDeletingId(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
       {drawerTab && <ImportSkillDrawer initialTab={drawerTab} onClose={() => setDrawerTab(null)} />}
       <div style={s.header}>
         <h1 style={s.h1}>{t("page.heading")}</h1>
@@ -127,6 +171,7 @@ export function SkillsRail({ activeId, tab = "config" }: { activeId?: string | n
             active={sk.id === activeId}
             onClick={() => router.push(`/skills/${sk.id}?tab=${tab}`)}
             onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
+            onDelete={() => setDeletingId(sk.id)}
           />
         ))}
       </div>

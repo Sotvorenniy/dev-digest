@@ -14,6 +14,7 @@ export interface SkillsRepositoryPort {
     source?: SkillSource;
     body: string;
     enabled?: boolean;
+    evidenceFiles?: string[];
   }): Promise<Skill>;
   update(
     workspaceId: string,

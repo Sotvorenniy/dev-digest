@@ -1,7 +1,10 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count, plural, one {# skill} other {# skills}}"
+    "skillCount": "{count, plural, one {# skill} other {# skills}}",
+    "delete": "Delete agent",
+    "deleteConfirmTitle": "Delete agent?",
+    "deleteConfirmBody": "Delete agent \"{name}\"? This cannot be undone."
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
@@ -94,7 +97,14 @@
     "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach.",
     "moveUp": "Move up",
     "moveDown": "Move down",
-    "emptyTitle": "No skills in the workspace yet"
+    "emptyTitle": "No skills in the workspace yet",
+    "importSkill": "Import skill",
+    "dragHandle": "Drag to reorder",
+    "enabledToggle": "Skill enabled",
+    "attach": "Attach {name}",
+    "disabledNoDrag": "Disabled skills can't be reordered — enable it first.",
+    "importedHint": "Imported skills are created disabled. Enable one to use it in reviews.",
+    "typeLabel": "Type"
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

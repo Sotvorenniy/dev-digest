@@ -6,6 +6,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Drawer, Tabs } from "@devdigest/ui";
+import type { Skill } from "@devdigest/shared";
 import { TABS, type ImportTab } from "./constants";
 import { FileTab } from "./_components/FileTab";
 import { UrlTab } from "./_components/UrlTab";
@@ -15,9 +16,12 @@ import { s } from "./styles";
 export function ImportSkillDrawer({
   initialTab,
   onClose,
+  onImported,
 }: {
   initialTab: ImportTab;
   onClose: () => void;
+  /** Called with the newly created skill after a successful import. */
+  onImported?: (skill: Skill) => void;
 }) {
   const t = useTranslations("skills");
   const [tab, setTab] = React.useState<ImportTab>(initialTab);
@@ -27,8 +31,8 @@ export function ImportSkillDrawer({
     <Drawer width={560} title={t("drawer.title")} subtitle={t("drawer.subtitle")} onClose={onClose}>
       <Tabs tabs={tabs} value={tab} onChange={(k) => setTab(k as ImportTab)} pad="0" />
       <div style={s.body}>
-        {tab === "file" && <FileTab onDone={onClose} />}
-        {tab === "url" && <UrlTab onDone={onClose} />}
+        {tab === "file" && <FileTab onDone={onClose} onImported={onImported} />}
+        {tab === "url" && <UrlTab onDone={onClose} onImported={onImported} />}
         {tab === "community" && <CommunityTab />}
       </div>
     </Drawer>

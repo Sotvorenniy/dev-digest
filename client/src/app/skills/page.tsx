@@ -1,5 +1,5 @@
-/* /skills — Skills Lab index: rail + right pane. Nothing selected yet, so the
-   right pane just prompts a pick (same shell as /skills/:id). */
+/* /skills — Skills Lab index: the skills rail on the left and a "select a
+   skill" prompt on the right. The full editor lives at /skills/:id. */
 "use client";
 
 import React from "react";
@@ -16,8 +16,8 @@ export default function SkillsPage() {
     <AppShell crumb={crumb}>
       <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
         <SkillsRail />
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <EmptyState icon="FileText" title={t("page.selectPrompt.title")} body={t("page.selectPrompt.body")} />
+        <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+          <EmptyState title={t("page.selectPrompt.title")} body={t("page.selectPrompt.body")} />
         </div>
       </div>
     </AppShell>

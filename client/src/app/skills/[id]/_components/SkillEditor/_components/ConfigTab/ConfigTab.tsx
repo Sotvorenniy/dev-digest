@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Button, FormField, SelectInput, TextInput } from "@devdigest/ui";
+import { Badge, Button, FormField, SelectInput, TextInput, Toggle } from "@devdigest/ui";
 import type { Skill, SkillType } from "@devdigest/shared";
 import { useUpdateSkill } from "@/lib/hooks";
 import { useToast } from "@/lib/toast";
@@ -45,6 +45,9 @@ export function ConfigTab({ skill }: { skill: Skill }) {
     <div style={s.wrap}>
       <div style={s.header}>
         <h2 style={s.h2}>{t("config.title")}</h2>
+        <div style={{ marginLeft: "auto" }} aria-label={t("card.enabledLabel", { name: skill.name })}>
+          <Toggle on={skill.enabled} onChange={(enabled) => update.mutate({ id: skill.id, patch: { enabled } })} />
+        </div>
       </div>
       <FormField label={t("config.name")} required>
         <TextInput value={name} onChange={setName} />

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
-import { deriveNameFromBody, extractZipCandidates } from "./helpers";
+import { deriveDescription, deriveNameFromBody, extractZipCandidates } from "./helpers";
 
 describe("deriveNameFromBody", () => {
   it("kebab-cases the first # heading", () => {
@@ -36,5 +36,18 @@ describe("extractZipCandidates", () => {
     const file = new File([bytes], "bundle.zip", { type: "application/zip" });
 
     expect(await extractZipCandidates(file)).toEqual([]);
+  });
+});
+
+describe("deriveDescription", () => {
+  it("takes the first prose paragraph, skipping headings", () => {
+    expect(deriveDescription("# Title\n\nFirst para\nwraps here.\n\nSecond.")).toBe("First para wraps here.");
+  });
+  it("skips YAML frontmatter and code fences", () => {
+    expect(deriveDescription("---\nname: x\n---\n# T\n\n```\ncode\n```\n\nReal text.")).toBe("Real text.");
+  });
+  it("returns empty string when there is no prose and truncates long text", () => {
+    expect(deriveDescription("# Only a heading")).toBe("");
+    expect(deriveDescription("a".repeat(500)).length).toBeLessThanOrEqual(200);
   });
 });

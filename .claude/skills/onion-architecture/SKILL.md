@@ -24,6 +24,13 @@ plug in through interfaces that the core owns.
           Composition root: src/platform/container.ts (sees everything)
 ```
 
+## Rule block (non-negotiable)
+
+- **Route → service → domain, wired via the container.** `routes.ts` calls a service; the service works against ports; `platform/container.ts` is the only place concrete classes are built.
+- **External integrations (GitHub, LLM, git, SDKs) live only in adapters at the edge**, behind ports.
+- **Dependencies point inward.** Inner rings never import outer ones.
+- **A route must never call an adapter, a repository or the db directly** (no `container.db`, `db/schema`, `drizzle-orm`, no `container.<adapter>` in `routes.ts`). **CRITICAL.**
+
 Read the reference that fits the task, not all of them:
 
 | Task | Read |

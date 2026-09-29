@@ -39,3 +39,34 @@ export function moveLinked(linkedIds: string[], skillId: string, dir: -1 | 1): s
   next[j] = tmp;
   return next;
 }
+
+/** Only an attached, enabled skill may be dragged or drop-targeted. */
+export function isReorderable(skill: Skill, linkedIds: string[]): boolean {
+  return skill.enabled && linkedIds.includes(skill.id);
+}
+
+/** Drag `fromId` onto `toId`: move it to that slot in the linked order.
+ *  Returns null (no change) unless BOTH rows are attached and enabled. */
+export function reorderLinked(
+  linkedIds: string[],
+  skills: Skill[],
+  fromId: string,
+  toId: string,
+): string[] | null {
+  if (fromId === toId) return null;
+  const byId = new Map(skills.map((sk) => [sk.id, sk]));
+  const from = byId.get(fromId);
+  const to = byId.get(toId);
+  if (!from || !to || !isReorderable(from, linkedIds) || !isReorderable(to, linkedIds)) return null;
+  const next = linkedIds.filter((id) => id !== fromId);
+  next.splice(next.indexOf(toId) + (linkedIds.indexOf(fromId) < linkedIds.indexOf(toId) ? 1 : 0), 0, fromId);
+  return next;
+}
+
+/** Re-seat the linked ids into the slots linked rows already occupy in the
+ *  frozen row order, so unlinked rows never move when linked rows reorder. */
+export function applyLinkedOrder(rowOrder: string[], linkedIds: string[]): string[] {
+  const linkedSet = new Set(linkedIds);
+  const queue = [...linkedIds];
+  return rowOrder.map((id) => (linkedSet.has(id) ? (queue.shift() ?? id) : id));
+}

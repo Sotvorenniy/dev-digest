@@ -2,16 +2,18 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Chip, FormField, Markdown, TextInput, Textarea } from "@devdigest/ui";
+import { Badge, Button, Chip, FormField, Markdown, SelectInput, TextInput, Textarea } from "@devdigest/ui";
+import type { Skill, SkillType } from "@devdigest/shared";
 import { useCreateSkill } from "@/lib/hooks";
 import { useToast } from "@/lib/toast";
-import { deriveNameFromBody, extractZipCandidates, type ZipCandidate } from "./helpers";
+import { DEFAULT_IMPORT_SKILL_TYPE, SKILL_TYPES } from "@/lib/skill-types";
+import { extractZipCandidates, parseSkillCore, type ZipCandidate } from "./helpers";
 import { s } from "./styles";
 
 /** File tab — paste/type a body, or upload a .md/.txt file directly or a
  *  .zip to pick a text entry from. Preview must be non-empty before import
  *  is enabled. */
-export function FileTab({ onDone }: { onDone: () => void }) {
+export function FileTab({ onDone, onImported }: { onDone: () => void; onImported?: (skill: Skill) => void }) {
   const t = useTranslations("skills");
   const toast = useToast();
   const create = useCreateSkill();
@@ -19,6 +21,7 @@ export function FileTab({ onDone }: { onDone: () => void }) {
   const [body, setBody] = React.useState("");
   const [candidates, setCandidates] = React.useState<ZipCandidate[]>([]);
   const [selected, setSelected] = React.useState(0);
+  const [type, setType] = React.useState<SkillType>(DEFAULT_IMPORT_SKILL_TYPE);
   const [fileError, setFileError] = React.useState<string | null>(null);
 
   const onFile = async (file: File) => {
@@ -38,18 +41,22 @@ export function FileTab({ onDone }: { onDone: () => void }) {
     }
   };
 
+  const parsed = parseSkillCore(body, name);
+  const hasBody = body.trim().length > 0;
+
   const submit = () =>
     create.mutate(
       {
-        name: name.trim() || deriveNameFromBody(body) || "untitled-skill",
-        description: "",
-        type: "custom",
+        name: parsed.name,
+        description: parsed.description,
+        type,
         body,
-        source: "manual",
+        source: "imported_file",
       },
       {
         onSuccess: (skill) => {
           toast.success(t("file.success", { name: skill.name }));
+          onImported?.(skill);
           onDone();
         },
       },
@@ -92,15 +99,34 @@ export function FileTab({ onDone }: { onDone: () => void }) {
       <FormField label={t("file.bodyLabel")} hint={t("file.bodyHint")}>
         <Textarea value={body} onChange={setBody} rows={10} mono placeholder={t("file.bodyPlaceholder")} />
       </FormField>
-      {body.trim().length > 0 && (
-        <FormField label={t("file.previewLabel")}>
-          <div style={s.preview}>
-            <Markdown>{body}</Markdown>
+      {hasBody && (
+        <div data-skill-import-preview style={s.previewCard}>
+          <div style={s.previewTitle}>{t("file.previewTitle")}</div>
+          <div style={s.previewRow}>
+            <span style={s.previewKey}>{t("file.previewName")}</span>
+            <Badge mono>{parsed.name}</Badge>
           </div>
-        </FormField>
+          <div style={s.previewRow}>
+            <span style={s.previewKey}>{t("file.previewDescription")}</span>
+            <span style={s.previewValue}>{parsed.description || t("file.noDescription")}</span>
+          </div>
+          <FormField label={t("file.previewType")}>
+            <SelectInput
+              value={type}
+              onChange={(v) => setType(v as SkillType)}
+              options={SKILL_TYPES.map((v) => ({ value: v, label: v }))}
+            />
+          </FormField>
+          <FormField label={t("file.previewBody")}>
+            <div style={s.preview}>
+              <Markdown>{body}</Markdown>
+            </div>
+          </FormField>
+          <div style={s.note}>{t("file.disabledNote")}</div>
+        </div>
       )}
       <div style={s.actions}>
-        <Button kind="primary" icon="Upload" onClick={submit} disabled={create.isPending || body.trim().length === 0}>
+        <Button kind="primary" icon="Upload" onClick={submit} disabled={create.isPending || !hasBody}>
           {create.isPending ? t("file.importing") : t("file.import")}
         </Button>
       </div>

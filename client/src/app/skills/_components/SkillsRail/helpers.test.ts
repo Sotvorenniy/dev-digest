@@ -12,6 +12,7 @@ function skill(overrides: Partial<Skill>): Skill {
     body: "",
     enabled: true,
     version: 1,
+    agent_count: 0,
     ...overrides,
   };
 }
