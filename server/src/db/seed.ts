@@ -6,7 +6,10 @@ import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
+  TEST_QUALITY_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { seedSkills } from './seed-skills.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -18,11 +21,14 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  *
  * Seeds: default workspace + system user + membership, default settings,
  * demo repo (acme/payments-api), PR #482 with files/commits, a sample review
- * with a few findings, and the three built-in agents (General + Security +
- * Performance), all on the default openrouter/deepseek-v4-flash provider+model.
+ * with a few findings, and the five built-in agents (General + Security +
+ * Performance + Test Quality + API Contract), all on the default
+ * openrouter/deepseek-v4-flash provider+model. The Test Quality and API
+ * Contract reviewers also seed their linked skills (see ./seed-skills.ts) —
+ * a before/after skills control-experiment demo for the lesson on skills.
  *
- * Course lessons populate the other tables (skills, conventions, memory, eval,
- * …) once their features are built — they start empty here.
+ * Course lessons populate the other tables (conventions, memory, eval, …)
+ * once their features are built — they start empty here.
  */
 
 export const DEFAULT_WORKSPACE_NAME = 'default';
@@ -211,14 +217,47 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       version: 1,
       createdBy: userId,
     },
+    {
+      workspaceId,
+      name: 'Test Quality Reviewer',
+      description:
+        'Checks uncovered branches, missing edge cases, excessive mocking, and flaky test patterns.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: TEST_QUALITY_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description: 'Flags breaking changes to route request/response contracts.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
   ];
+  let testQualityAgentId: string | undefined;
+  let apiContractAgentId: string | undefined;
   for (const a of seedAgents) {
-    const [existing] = await db
+    let [row] = await db
       .select()
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
-    if (!existing) await db.insert(t.agents).values(a);
+    if (!row) [row] = await db.insert(t.agents).values(a).returning();
+    if (a.name === 'Test Quality Reviewer') testQualityAgentId = row!.id;
+    if (a.name === 'API Contract Reviewer') apiContractAgentId = row!.id;
   }
+
+  // ---- skills for the "before/after skills" demo agents ----
+  await seedSkills(db, workspaceId, {
+    testQuality: testQualityAgentId!,
+    apiContract: apiContractAgentId!,
+  });
 
   return { workspaceId, userId };
 }

@@ -6,29 +6,38 @@ import type {
   CodeIndex,
   Embedder,
   LLMProvider,
+  FeatureModelId,
 } from '@devdigest/shared';
+import { FEATURE_MODELS, FeatureModelChoice } from '@devdigest/shared';
+import { eq, and } from 'drizzle-orm';
+import * as t from '../db/schema.js';
 import type { AppConfig } from './config.js';
 import type { Db } from '../db/client.js';
 import { JobRunner } from './jobs.js';
 import { runBus, type RunBus } from './sse.js';
-import { LocalSecretsProvider } from '../adapters/secrets/local.js';
-import { LocalNoAuthProvider } from '../adapters/auth/local.js';
-import { OctokitGitHubClient } from '../adapters/github/octokit.js';
-import { SimpleGitClient } from '../adapters/git/simple-git.js';
-import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
-import { OpenAIProvider } from '../adapters/llm/openai.js';
-import { AnthropicProvider } from '../adapters/llm/anthropic.js';
-import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
+import { LocalSecretsProvider,
+  LocalNoAuthProvider,
+  OctokitGitHubClient,
+  SimpleGitClient,
+  RipgrepCodeIndex,
+  OpenAIProvider,
+  AnthropicProvider,
+  OpenAIEmbedder,
+} from '../adapters';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
-import { estimateCost } from '../adapters/llm/pricing.js';
+import { estimateCost } from '../adapters';
 import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
+import { SkillsRepository } from '../modules/skills/repository.js';
+import { SkillsService } from '../modules/skills/service.js';
+import { ConventionsRepository } from '../modules/conventions/repository.js';
+import { ConventionsService } from '../modules/conventions/service.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
-import type { RepoIntel } from '../modules/repo-intel/types.js';
-import { RepoIntelService } from '../modules/repo-intel/service.js';
-import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
-import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import type { RepoIntel } from '../modules/repo-intel';
+import { RepoIntelService } from '../modules/repo-intel';
+import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph';
+import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -71,6 +80,10 @@ export class Container {
   // runs). Constructed here, in the composition root, so consuming modules use
   // `container.agentsRepo` instead of reaching into another module's folder.
   private _agentsRepo?: AgentsRepository;
+  private _skillsRepo?: SkillsRepository;
+  private _skillsService?: SkillsService;
+  private _conventionsRepo?: ConventionsRepository;
+  private _conventionsService?: ConventionsService;
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -88,12 +101,79 @@ export class Container {
 
   get git(): GitClient {
     if (this.overrides.git) return this.overrides.git;
-    this._git ??= new SimpleGitClient(this.config.cloneDir);
+    // The PAT is resolved per git operation rather than baked into a clone URL,
+    // so it never lands in `<clone>/.git/config` and a rotated token takes effect
+    // without rebuilding the client.
+    this._git ??= new SimpleGitClient(this.config.cloneDir, () => this.secrets.get('GITHUB_TOKEN'));
     return this._git;
   }
 
   get agentsRepo(): AgentsRepository {
     return (this._agentsRepo ??= new AgentsRepository(this.db));
+  }
+
+  get skillsRepo(): SkillsRepository {
+    return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  get skillsService(): SkillsService {
+    return (this._skillsService ??= new SkillsService({ repo: this.skillsRepo }));
+  }
+
+  get conventionsRepo(): ConventionsRepository {
+    return (this._conventionsRepo ??= new ConventionsRepository(this.db));
+  }
+
+  /**
+   * `ConventionsService` depends on ports only — never `Container` (see
+   * onion-architecture skill: "Services must not import type { Container }").
+   * Everything it needs from the Container is bound into narrow closures
+   * here, in the composition root, instead.
+   */
+  get conventionsService(): ConventionsService {
+    return (this._conventionsService ??= new ConventionsService({
+      repo: this.conventionsRepo,
+      repoIntel: this.repoIntel,
+      llm: (provider) => this.llm(provider),
+      resolveModel: (workspaceId) => this.resolveFeatureModelFor(workspaceId, 'conventions'),
+      skills: this.skillsService,
+      agentLinker: {
+        hasAgent: async (workspaceId, agentId) =>
+          !!(await this.agentsRepo.getById(workspaceId, agentId)),
+        appendSkill: async (agentId, skillId) => {
+          const existing = await this.agentsRepo.linkedSkills(agentId);
+          if (existing.some((l) => l.skill.id === skillId)) return;
+          await this.agentsRepo.linkSkill(agentId, skillId, existing.length);
+        },
+      },
+    }));
+  }
+
+  /**
+   * Resolve a workspace's chosen (or registry-default) provider+model for a
+   * per-feature LLM setting (Settings → Models). Deliberately duplicates
+   * `modules/settings/feature-models.ts`'s `resolveFeatureModel` logic rather
+   * than importing that function here: `resolveFeatureModel` takes a
+   * `Container` parameter, so importing it INTO container.ts would create a
+   * container.ts <-> feature-models.ts import cycle — the exact shape a
+   * service.ts is forbidden from creating (onion-architecture skill), which
+   * the composition root should not create either just for a settings
+   * lookup this small. If a THIRD caller needs this, promote it into a real
+   * settings port instead of duplicating a third time.
+   */
+  private async resolveFeatureModelFor(
+    workspaceId: string,
+    id: FeatureModelId,
+  ): Promise<FeatureModelChoice> {
+    const [row] = await this.db
+      .select({ value: t.settings.value })
+      .from(t.settings)
+      .where(and(eq(t.settings.workspaceId, workspaceId), eq(t.settings.key, 'feature_models')));
+    const raw = (row?.value as Record<string, unknown> | undefined)?.[id];
+    const parsed = FeatureModelChoice.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    const def = FEATURE_MODELS.find((f) => f.id === id)!;
+    return { provider: def.defaultProvider, model: def.defaultModel };
   }
 
   get reviewRepo(): ReviewRepository {

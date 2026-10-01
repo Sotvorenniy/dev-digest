@@ -1,0 +1,38 @@
+diff --git a/server/package.json b/server/package.json
+--- a/server/package.json
++++ b/server/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "@devdigest/api",
+-  "version": "1.4.2",
++  "version": "1.4.3",
+   "private": false,
+   "type": "module"
+ }
+diff --git a/server/src/modules/repos/routes.ts b/server/src/modules/repos/routes.ts
+--- a/server/src/modules/repos/routes.ts
++++ b/server/src/modules/repos/routes.ts
+@@ -1,22 +1,17 @@
+ import type { FastifyInstance } from 'fastify';
+ import { z } from 'zod';
+ 
+ const RepoOut = z.object({
+   id: z.string(),
+   full_name: z.string(),
+-  default_branch: z.string(),
++  defaultBranch: z.string(),
+ });
+ 
+ export default async function repoRoutes(app: FastifyInstance) {
+   app.get('/repos/:id', async (req, reply) => {
+     const repo = await app.container.repos.get((req.params as { id: string }).id);
+     return reply.send(RepoOut.parse(repo));
+   });
+ 
+-  app.get('/repos/:id/skills', async (req, reply) => {
+-    const skills = await app.container.repos.listSkills((req.params as { id: string }).id);
+-    return reply.send(skills);
+-  });
+-
+   app.get('/repos', async (_req, reply) => reply.send(await app.container.repos.list()));
+ }

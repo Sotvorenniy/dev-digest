@@ -4,6 +4,7 @@
     "crumbSkills": "Skills",
     "heading": "Skills",
     "addSkill": "Add Skill",
+    "createFromScratch": "Create from scratch",
     "searchPlaceholder": "Search skills…",
     "loadError": "Could not load skills.",
     "menu": {
@@ -19,7 +20,8 @@
     "selectPrompt": {
       "title": "Select a skill",
       "body": "Pick a skill on the left to preview its body."
-    }
+    },
+    "starterBody": "# New skill\n\nDescribe what the reviewer should check."
   },
   "detail": {
     "crumbSkill": "Skill",
@@ -28,6 +30,19 @@
     "notFound": {
       "title": "Skill not found",
       "body": "It may have been deleted."
+    }
+  },
+  "editor": {
+    "loadErrorTitle": "Couldn’t load this skill",
+    "loadErrorBody": "The skill could not be loaded.",
+    "skillFallback": "Skill",
+    "disabled": "disabled",
+    "runOnEvals": "Run on evals…",
+    "tabs": {
+      "config": "Config",
+      "preview": "Preview",
+      "versions": "Versions",
+      "evals": "Evals"
     }
   },
   "drawer": {
@@ -47,17 +62,33 @@
     "bodyLabel": "Skill body (Markdown)",
     "bodyHint": "Pasted content is wrapped as untrusted data — never executed as instructions.",
     "bodyPlaceholder": "# Rule\nDescribe the rule…",
+    "uploadLabel": "Upload a file",
+    "uploadHint": "A .md/.txt file becomes the body directly. A .zip is scanned for markdown/text entries only — nothing else in it is read.",
+    "zipCandidates": "Multiple text files found in the archive — pick one:",
+    "zipEmpty": "No markdown or text entries found in that archive.",
+    "previewLabel": "Preview",
     "importing": "Importing…",
     "import": "Import skill",
-    "success": "Imported \"{name}\" (stored as untrusted data)."
+    "success": "Imported \"{name}\" (stored as untrusted data). It starts disabled — enable it to use it.",
+    "previewTitle": "Parsed skill",
+    "previewName": "Name",
+    "previewDescription": "Description",
+    "previewType": "Type",
+    "previewBody": "Body",
+    "noDescription": "No description found",
+    "disabledNote": "Imported skills are created disabled. Enable it from the Skills page or an agent's Skills tab once you have vetted it."
   },
   "url": {
     "label": "Skill URL",
     "hint": "Fetched server-side, stored as untrusted, and left disabled until vetted.",
     "placeholder": "https://example.com/skills/security.md",
+    "fetch": "Fetch",
     "fetching": "Fetching…",
+    "previewLabel": "Preview",
+    "importing": "Importing…",
     "import": "Import from URL",
-    "success": "Imported \"{name}\". Disabled until you vet + enable it."
+    "success": "Imported \"{name}\". Disabled until you vet + enable it.",
+    "disabledNote": "Imported skills are created disabled. Enable it from the Skills page or an agent's Skills tab once you have vetted it."
   },
   "community": {
     "searchPlaceholder": "Search community skills (e.g. security)…",
@@ -69,7 +100,8 @@
       "body": "Try a different search term."
     },
     "importing": "Importing…",
-    "import": "Import"
+    "import": "Import",
+    "comingSoon": "Community search is coming soon."
   },
   "listItem": {
     "needsVetting": "needs vetting",
@@ -84,18 +116,85 @@
       "manual": "Manual",
       "extracted": "Extracted",
       "community": "Community",
-      "imported_url": "Imported"
+      "imported_url": "Imported",
+      "imported_file": "Imported file"
     }
   },
+  "config": {
+    "title": "Configuration",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "body": "Skill body",
+    "bodyHint": "Markdown, injected into the agent's prompt when this skill is enabled.",
+    "unsaved": "Unsaved",
+    "tokenCount": "{count} tokens",
+    "changeNote": "Change note",
+    "changeNotePlaceholder": "What changed?",
+    "save": "Save skill",
+    "saving": "Saving…",
+    "saved": "Saved (v{version})",
+    "savedToast": "Skill saved (v{version})",
+    "enabled": "Enabled"
+  },
   "preview": {
-    "untrustedBadge": "untrusted source",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "save": "Save",
-    "edit": "Edit",
-    "untrustedNotice": "This skill came from an untrusted source. Its body is stored as data (delimiter-wrapped) and must be vetted before it is enabled for an agent.",
-    "bodyLabel": "Skill body (Markdown)",
-    "bodyHint": "Saving a changed body creates a new immutable version.",
-    "version": "v{version}"
+    "hint": "Rendered as the reviewing agent receives it."
+  },
+  "versions": {
+    "current": "Current",
+    "diff": "Diff",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "restoreConfirm": "Restore v{version}? This creates a new version with this content.",
+    "updatedFallback": "Updated skill",
+    "diffModalTitle": "v{version} → current",
+    "empty": "No versions yet.",
+    "loadError": "Could not load version history.",
+    "restoreTitle": "Restore v{version}?"
+  },
+  "evals": {
+    "comingSoon": "Evals aren't wired up yet — coming soon."
+  },
+  "card": {
+    "agents": "{count, plural, one {# agent} other {# agents}}",
+    "version": "v{version}",
+    "delete": "Delete",
+    "deleteLabel": "Delete {name}",
+    "enabledLabel": "Enabled: {name}",
+    "noDescription": "No description"
+  },
+  "grid": {
+    "add": "Add",
+    "addTitle": "Add a skill",
+    "addSubtitle": "Create one from scratch or import an existing skill.",
+    "create": "Create",
+    "import": "Import",
+    "choiceCreateBody": "Write a new skill by hand.",
+    "choiceImportBody": "From a file, a URL, or the community catalog."
+  },
+  "panel": {
+    "title": "Skill preview",
+    "close": "Close preview",
+    "openFull": "Open full page",
+    "empty": "This skill has no body."
+  },
+  "createModal": {
+    "title": "Create skill",
+    "name": "Name",
+    "namePlaceholder": "pr-quality-rubric",
+    "description": "Description",
+    "type": "Type",
+    "body": "Skill body (Markdown)",
+    "bodyPlaceholder": "# Rule\nDescribe the rule…",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…",
+    "success": "Created \"{name}\"."
+  },
+  "deleteDialog": {
+    "title": "Delete skill?",
+    "body": "Delete \"{name}\"? Agents using it will lose it. This cannot be undone.",
+    "confirm": "Delete",
+    "success": "Deleted \"{name}\"."
   }
 }

@@ -78,6 +78,27 @@
       "when": 1790355514989,
       "tag": "0010_unknown_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790595332410,
+      "tag": "0011_previous_radioactive_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790618495671,
+      "tag": "0012_conventions_status_and_scan_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790623006018,
+      "tag": "0013_lush_pyro",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,31 @@ import type { FindingRow, PullRow, ReviewRow } from './repository.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
 // shared with the CI runner); re-exported here for backward-compatible imports.
+import { wrapUntrusted } from '@devdigest/reviewer-core';
 export { reduceReviews, sliceDiff } from '@devdigest/reviewer-core';
+
+/** Names of the skills that make it into the prompt (same filter/order as buildSkillTexts). */
+export function buildSkillNames(links: { skill: { name: string; enabled: boolean } }[]): string[] {
+  return links.filter((l) => l.skill.enabled).map((l) => l.skill.name);
+}
+
+/**
+ * Skill blocks for the prompt, in the agent's `agent_skills.order` (callers pass
+ * links already ordered). Disabled skills are dropped; manual skills are
+ * agent-authored (trusted) while every other source (imported_url,
+ * imported_file, extracted, community) is wrapped as untrusted.
+ */
+export function buildSkillTexts(
+  links: { skill: { name: string; body: string; source: string; enabled: boolean } }[],
+): string[] {
+  return links
+    .filter((l) => l.skill.enabled)
+    .map((l) =>
+      l.skill.source === 'manual'
+        ? l.skill.body
+        : wrapUntrusted(`skill:${l.skill.name}`, l.skill.body),
+    );
+}
 
 export interface ReviewDtoFinding extends Finding {
   review_id: string;

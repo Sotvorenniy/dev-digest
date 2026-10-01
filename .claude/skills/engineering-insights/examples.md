@@ -36,7 +36,7 @@ method rather than a misfiled test. Check the filename before debugging the SQL.
 Evidence: `server/vitest.config.ts:14`
 ```
 
-Passes all five gates: the naming rule is in `server/CLAUDE.md`, but the
+Passes all five gates: the naming rule is in `server/AGENTS.md`, but the
 *misleading failure mode* is not — and that is the part that costs an hour.
 
 ### ✓ Good — a contract trap across packages, so it files at root
@@ -84,7 +84,7 @@ record the cause; the outage itself is not an insight.
 
 Candidate: *"DB-backed tests must be named `*.it.test.ts`."*
 
-`find-related.sh` finds no entry, but `server/CLAUDE.md` already states it under
+`find-related.sh` finds no entry, but `server/AGENTS.md` already states it under
 `## Conventions (not obvious from code)`.
 
 **Action: drop the candidate.** Recording it duplicates the convention and the

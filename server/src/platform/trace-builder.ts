@@ -56,7 +56,21 @@ export function buildRunTrace(input: BuildTraceInput): RunTrace {
   return RunTraceSchema.parse(trace);
 }
 
+/**
+ * Estimated tokens for the skills block, computed from EXACTLY the block text
+ * that went into the prompt (`assembly.skills`) — ceil(chars / 4). Null when
+ * there is no skills block.
+ */
+export function estimateSkillsTokens(skillsText: string | null | undefined): number | null {
+  return skillsText ? Math.ceil(skillsText.length / 4) : null;
+}
+
+/** Attach `skills_tokens` to an assembly produced by reviewer-core. */
+export function withSkillsTokens(assembly: PromptAssembly): PromptAssembly {
+  return { ...assembly, skills_tokens: estimateSkillsTokens(assembly.skills) };
+}
+
 /** An empty prompt-assembly for detectors that don't call an LLM. */
 export function emptyPromptAssembly(system: string, user: string): PromptAssembly {
-  return { system, skills: null, memory: null, specs: null, user };
+  return { system, skills: null, skills_tokens: null, memory: null, specs: null, user };
 }

@@ -115,7 +115,7 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
+export const SkillSource = z.enum(['manual', 'imported_url', 'imported_file', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
 export const Skill = z.object({
@@ -128,6 +128,8 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  /** Number of agents this skill is linked to (agent_skills rows). */
+  agent_count: z.number().int(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -140,16 +142,49 @@ export const CommunitySkill = z.object({
 });
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
+// The immutable body snapshot captured in `skill_versions` whenever a skill's
+// name/description/type/body changes (mirrors AgentVersion's shape/intent).
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  change_note: z.string().nullish(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
 // ---- Conventions ----
+export const ConventionCandidateStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionCandidateStatus = z.infer<typeof ConventionCandidateStatus>;
+
 export const ConventionCandidate = z.object({
   id: z.string(),
+  repo_id: z.string(),
   rule: z.string(),
   evidence_path: z.string(),
   evidence_snippet: z.string(),
+  evidence_start_line: z.number().int().nullish(),
+  evidence_end_line: z.number().int().nullish(),
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  /** Model-assigned topic (naming, error-handling, ...); null on pre-category rows. */
+  category: z.string().nullish(),
+  status: ConventionCandidateStatus,
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+export const ConventionScanStatus = z.enum(['never_run', 'queued', 'running', 'done', 'failed']);
+export type ConventionScanStatus = z.infer<typeof ConventionScanStatus>;
+
+export const ConventionScanState = z.object({
+  repo_id: z.string(),
+  status: ConventionScanStatus,
+  sampled_file_count: z.number().int(),
+  candidate_count: z.number().int(),
+  error: z.string().nullish(),
+  started_at: z.string().nullish(),
+  finished_at: z.string().nullish(),
+});
+export type ConventionScanState = z.infer<typeof ConventionScanState>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a

@@ -1,0 +1,26 @@
+// modules/__name__/service.ts — APPLICATION. One method per use case.
+// Depends on ports + domain only. Never imports drizzle, src/db, src/adapters or the Container.
+import type { __Entity__ } from './domain.js';
+import { assertValidName } from './domain.js';
+import type { __Entity__RepositoryPort } from './ports.js';
+
+export interface __Entity__ServiceDeps {
+  repo: __Entity__RepositoryPort;
+}
+
+export class __Entity__Service {
+  constructor(private readonly deps: __Entity__ServiceDeps) {}
+
+  list(workspaceId: string): Promise<__Entity__[]> {
+    return this.deps.repo.list(workspaceId);
+  }
+
+  get(workspaceId: string, id: string): Promise<__Entity__ | undefined> {
+    return this.deps.repo.getById(workspaceId, id);
+  }
+
+  async create(workspaceId: string, name: string): Promise<__Entity__> {
+    assertValidName(name);
+    return this.deps.repo.insert({ workspaceId, name });
+  }
+}

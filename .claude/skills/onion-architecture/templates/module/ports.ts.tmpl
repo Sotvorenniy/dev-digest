@@ -1,0 +1,9 @@
+// modules/__name__/ports.ts — CORE. Interfaces the service needs, shaped by the service.
+// Promote to src/ports/<topic>.ts only when a second module needs the same port.
+import type { __Entity__ } from './domain.js';
+
+export interface __Entity__RepositoryPort {
+  list(workspaceId: string): Promise<__Entity__[]>;
+  getById(workspaceId: string, id: string): Promise<__Entity__ | undefined>;
+  insert(input: { workspaceId: string; name: string }): Promise<__Entity__>;
+}

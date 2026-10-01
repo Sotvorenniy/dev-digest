@@ -1,0 +1,12 @@
+// platform/container.ts — COMPOSITION ROOT. Add next to the other lazy getters.
+private ___name__Service?: __Entity__Service;
+
+get __name__Service(): __Entity__Service {
+  return (this.___name__Service ??= new __Entity__Service({
+    repo: new __Entity__Repository(this.db),
+  }));
+}
+
+// modules/index.ts — one import + one entry:
+//   import __name__ from './__name__/routes.js';
+//   export const modules = { …, __name__ };

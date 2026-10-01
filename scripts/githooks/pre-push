@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Blocks a push until /pr-self-review has a PASS verdict for the current changes.
+# Installed by scripts/install-hooks.sh. Skip in an emergency: git push --no-verify.
+exec bash "$(git rev-parse --show-toplevel)/.claude/skills/pr-self-review/scripts/gate.sh"

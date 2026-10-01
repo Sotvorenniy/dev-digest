@@ -4,7 +4,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Icon, Modal } from "@devdigest/ui";
+import { Badge, Button, Icon, Modal } from "@devdigest/ui";
 import { s } from "../../styles";
 import { PromptModalBody } from "../PromptModalBody";
 
@@ -20,7 +20,21 @@ const miniBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-export function PromptBlock({ label, text, color }: { label: string; text: string; color: string }) {
+export function PromptBlock({
+  label,
+  text,
+  color,
+  tokens,
+  names,
+}: {
+  label: string;
+  text: string;
+  color: string;
+  /** Approximate token count for this block; badge hidden when null/undefined. */
+  tokens?: number | null;
+  /** Names of the items that make up this block (e.g. the skills used). */
+  names?: string[] | null;
+}) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
   const [full, setFull] = React.useState(false);
@@ -35,6 +49,18 @@ export function PromptBlock({ label, text, color }: { label: string; text: strin
       <div onClick={() => setOpen((o) => !o)} style={s.promptHead}>
         <span style={s.promptDot(color)} />
         <span style={s.promptLabel}>{label}</span>
+        {tokens != null && (
+          <span data-prompt-tokens>
+            <Badge mono>{t("trace.prompt.tokens", { count: tokens })}</Badge>
+          </span>
+        )}
+        {names && names.length > 0 && (
+          <span data-prompt-names style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {names.map((n, i) => (
+              <Badge key={i}>{n}</Badge>
+            ))}
+          </span>
+        )}
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"

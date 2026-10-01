@@ -1,0 +1,16 @@
+// modules/__name__/domain.ts — CORE. Pure TypeScript only.
+// Allowed: other core files, `import type` from zod / @devdigest/shared, src/platform/errors.
+// Forbidden: fastify, drizzle-orm, postgres, SDKs, src/adapters, src/db, platform/container, runtime zod.
+import { AppError } from '../../platform/errors.js';
+
+export interface __Entity__ {
+  id: string;
+  workspaceId: string;
+  name: string;
+  createdAt: Date;
+}
+
+/** A business rule: true without a database and without HTTP. */
+export function assertValidName(name: string): void {
+  if (name.trim().length === 0) throw new AppError('invalid___name__', 'Name must not be empty', 422);
+}

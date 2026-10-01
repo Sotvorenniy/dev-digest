@@ -1,6 +1,6 @@
 # Architecture — client (@devdigest/web)
 
-Deep-dive behind `client/CLAUDE.md`. Stack, commands and the route map are in
+Deep-dive behind `client/AGENTS.md`. Stack, commands and the route map are in
 `client/README.md` and are not repeated here.
 
 ## Data flow
@@ -40,7 +40,7 @@ Dark/light via `data-theme` on `<html>`, set before paint by the inline
   file. Layers and tokens: `client/src/vendor/ui/README.md`.
 - `@devdigest/shared` → `src/vendor/shared` — Zod contracts, a copy of
   `server/src/vendor/shared` that has already drifted. Type-only imports (see
-  `client/CLAUDE.md`). `src/lib/types.ts` re-exports the contract types the UI
+  `client/AGENTS.md`). `src/lib/types.ts` re-exports the contract types the UI
   needs plus UI-only view models.
 
 ## Routing & chrome

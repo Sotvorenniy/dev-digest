@@ -15,7 +15,7 @@ import { loadConfig, type AppConfig } from './platform/config.js';
 import { createDb, type Db } from './db/client.js';
 import { Container, type ContainerOverrides } from './platform/container.js';
 import { AppError } from './platform/errors.js';
-import { modules } from './modules/index.js';
+import { modules } from './modules';
 import { ReviewService } from './modules/reviews/service.js';
 
 // Attach the DI container to every request/instance.
@@ -52,6 +52,21 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
         ? false
         : {
             level: config.logLevel,
+            // Request headers and error payloads are the two places a credential
+            // can reach the log without anyone intending it. Redaction is cheap
+            // and, unlike a code review, does not have to be repeated.
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'res.headers["set-cookie"]',
+                '*.token',
+                '*.apiKey',
+                '*.api_key',
+                '*.password',
+              ],
+              censor: '***',
+            },
             transport:
               config.nodeEnv === 'development'
                 ? { target: 'pino-pretty', options: { colorize: true } }

@@ -1,0 +1,73 @@
+{
+  "$comment": "Which review skill runs on which changed files. The single place to edit when a skill is added or removed. A file is routed to a skill when it matches one of `globs`, or matches `triggerGlobs` AND an added line matches one of `contentTriggers` (JS regex source). Every directory in .claude/skills/ must appear here or in `notReviewSkills` — route.test.mjs enforces it.",
+  "exclude": [
+    "server/clones/**",
+    "**/src/vendor/**",
+    "**/node_modules",
+    "**/node_modules/**",
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    "**/*.{png,jpg,jpeg,gif,svg,ico,webp,woff,woff2}"
+  ],
+  "notReviewSkills": ["mermaid-diagram", "engineering-insights", "pr-self-review"],
+  "rules": [
+    {
+      "skill": "frontend-ui-architecture",
+      "globs": ["client/src/**/*.{ts,tsx}"]
+    },
+    {
+      "skill": "react-best-practices",
+      "globs": ["client/src/**/*.tsx"]
+    },
+    {
+      "skill": "next-best-practices",
+      "globs": ["client/src/app/**", "client/next.config.*", "client/src/middleware.ts"]
+    },
+    {
+      "skill": "react-testing-library",
+      "globs": ["client/**/*.test.{ts,tsx}"]
+    },
+    {
+      "skill": "onion-architecture",
+      "globs": ["server/src/modules/**", "server/src/platform/**", "server/src/adapters/**"]
+    },
+    {
+      "skill": "fastify-best-practices",
+      "globs": ["server/src/**/routes.ts", "server/src/platform/**", "server/src/app.ts", "server/src/server.ts"]
+    },
+    {
+      "skill": "drizzle-orm-patterns",
+      "globs": ["server/src/db/schema.ts", "server/src/db/schema/**", "server/src/**/repository.ts", "server/src/**/repository/**", "server/src/**/*.repo.ts"]
+    },
+    {
+      "skill": "postgresql-table-design",
+      "globs": ["server/src/db/schema.ts", "server/src/db/schema/**", "server/src/db/migrations/*.sql"]
+    },
+    {
+      "skill": "zod",
+      "globs": ["**/schemas.ts", "**/contracts/**"],
+      "triggerGlobs": ["{server,client,reviewer-core}/src/**/*.{ts,tsx}"],
+      "contentTriggers": ["from ['\"]zod['\"]", "\\bz\\.(object|string|enum|union|array|infer)\\b"]
+    },
+    {
+      "skill": "security",
+      "globs": ["server/src/**/routes.ts", "reviewer-core/src/**/*.ts", "**/*secret*", "server/src/adapters/**"],
+      "triggerGlobs": ["**/*.{ts,tsx,mjs,js,sh}"],
+      "contentTriggers": [
+        "child_process",
+        "\\bexec(File)?(Sync)?\\(",
+        "\\bspawn\\(",
+        "dangerouslySetInnerHTML",
+        "process\\.env",
+        "\\bsql\\.raw\\(",
+        "\\beval\\(",
+        "new Function\\(",
+        "\\b(token|password|secret|api[_-]?key)\\b"
+      ]
+    },
+    {
+      "skill": "typescript-expert",
+      "globs": ["**/tsconfig*.json", "**/*.d.ts", "reviewer-core/src/**/*.ts"]
+    }
+  ]
+}

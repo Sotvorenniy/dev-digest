@@ -50,8 +50,29 @@ Evidence: `server/src/vendor/shared/contracts/trace.ts:65`,
 ## Codebase Patterns
 <!-- Conventions and architectural decisions, with the reason. -->
 
+### Agent instructions live in AGENTS.md; CLAUDE.md is a thin `@AGENTS.md` stub
+`2026-09-27` — Root and all four packages now carry BOTH files: `AGENTS.md`
+holds every shared convention, `CLAUDE.md` is `@AGENTS.md` plus a `## Claude
+Code` section for slash-command-only lines. Edit conventions in `AGENTS.md` —
+editing the stub hides them from Codex/Cursor/Copilot. Do NOT add
+`instructionFiles` to a `.claude/settings.json`: the default
+`claude-md-or-agents-md` makes CLAUDE.md shadow AGENTS.md, which is exactly what
+stops the import loading the same file twice; `claude-md-and-agents-md` would
+double-load it. Verified by headless probe — facts from root and from
+`client/AGENTS.md` both resolve.
+Evidence: `CLAUDE.md:1`, `client/CLAUDE.md:1`, `AGENTS.md:75`
+
 ## Tool & Library Notes
 <!-- Dependency quirks: Drizzle, Fastify, Next, pgvector, OpenRouter. -->
+
+### A local edit to a committed skill is reverted by a `skills-lock.json` re-sync
+`2026-09-27` — `.claude/skills/*` is committed but pinned to upstream sources by
+`skills-lock.json`, so hand-edits there survive only until the next sync. The
+AGENTS.md move required repointing `engineering-insights` to promote conventions
+into `<pkg>/AGENTS.md`; a re-sync silently restores `CLAUDE.md`, and new
+conventions then land in the import stub where other tools never see them.
+Re-check that line after any skill update.
+Evidence: `.claude/skills/engineering-insights/SKILL.md:225`, `skills-lock.json`
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
@@ -64,6 +85,20 @@ Workaround that works: call the binary directly —
 `./node_modules/.bin/drizzle-kit generate`,
 `./node_modules/.bin/tsx src/db/migrate.ts`, `./node_modules/.bin/vitest run`.
 Evidence: corepack bundled with Node v20.17.0 (README asks for Node >= 22)
+
+`2026-09-28` — Root cause found, and it unblocks `pnpm add`/`pnpm install`
+too (which `./node_modules/.bin/<bin>` cannot): it's a corepack shim/package
+mismatch, not the signature check per se — the cached pnpm@12.6.0 under
+`~/.cache/node/corepack/v1/pnpm/12.6.0/` ships only `bin/pnpm.mjs`, but the
+installed corepack shim looks for `bin/pnpm.cjs`. Fix: `npm install -g
+pnpm@10 --prefix /tmp/pnpm-global` (or any writable prefix), then use
+`/tmp/pnpm-global/bin/pnpm` in place of `pnpm` — `pnpm install
+--frozen-lockfile` and `pnpm add <pkg>` both succeed cleanly against this
+repo's `lockfileVersion: '9.0'` lockfiles in both `server/` and `client/`.
+Per-environment workaround, not a repo fix — full writeup in
+`client/INSIGHTS.md` and `server/INSIGHTS.md`.
+Evidence: `client/INSIGHTS.md` ("pnpm is broken" entry), `server/INSIGHTS.md`
+(same)
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->

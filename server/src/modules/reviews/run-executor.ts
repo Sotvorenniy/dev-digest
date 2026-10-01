@@ -6,8 +6,9 @@ import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { buildSkillNames, buildSkillTexts, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { withSkillsTokens } from '../../platform/trace-builder.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -184,6 +185,17 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Linked skills (Agent editor "Skills" tab), in `order`. Manual skills are
+      // agent-authored (trusted); imported/extracted/community skills are
+      // externally-sourced, so they're delimiter-wrapped like other untrusted
+      // sections.
+      const linkedSkills = await this.agents.linkedSkills(agent.id);
+      const skillTexts = buildSkillTexts(linkedSkills);
+      const skillNames = buildSkillNames(linkedSkills);
+      if (skillTexts.length > 0) {
+        runLog.info(`skills: ${skillTexts.length} enabled skill(s) attached`);
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -201,6 +213,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // Linked skills (Agent editor), same omit-when-empty contract.
+        ...(skillTexts.length > 0 ? { skills: skillTexts } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -271,7 +285,7 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: { ...withSkillsTokens(outcome.assembly), skills_used: skillNames },
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
