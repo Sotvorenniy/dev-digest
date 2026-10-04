@@ -41,7 +41,8 @@ export interface IntentRepositoryPort {
   getRepo(repoId: string): Promise<IntentRepoInfo | undefined>;
   /** First line of each commit message, in stored order. */
   listCommitSubjects(prId: string): Promise<string[]>;
-  listFilePaths(prId: string): Promise<string[]>;
+  /** Changed files with their hunk headers only (never patch bodies). */
+  listFiles(prId: string): Promise<{ path: string; hunks: string[] }[]>;
   /** `undefined` when no intent was ever derived (or the PR is in another workspace). */
   getIntent(workspaceId: string, prId: string): Promise<(PrIntentRecord & { inputs_hash: string | null }) | undefined>;
   upsertIntent(values: IntentWrite): Promise<void>;

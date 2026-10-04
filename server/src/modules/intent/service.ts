@@ -107,11 +107,13 @@ export class IntentService {
     if (!repoInfo) throw new NotFoundError('Repo not found');
     const fullName = `${repoInfo.owner}/${repoInfo.name}`;
 
-    const [commitSubjects, paths, model] = await Promise.all([
+    const [commitSubjects, files, model] = await Promise.all([
       repo.listCommitSubjects(prId).then((xs) => xs.slice(0, MAX_COMMIT_SUBJECTS)),
-      repo.listFilePaths(prId).then((xs) => xs.slice(0, MAX_PATHS)),
+      repo.listFiles(prId).then((xs) => xs.slice(0, MAX_PATHS)),
       this.deps.resolveModel(workspaceId),
     ]);
+
+    const paths = files.map((f) => f.path);
 
     // ---- cache: DB-held inputs + model only (live issue/doc content is not in the key)
     const inputsHash = computeInputsHash({
@@ -163,14 +165,31 @@ export class IntentService {
         author: pull.author,
         description,
         commits: commitSubjects,
-        paths,
+        files,
         labels,
         documents: gathered.documents,
         sourceIds: gathered.sourceIds,
       },
     });
+    // Metadata only: section names + sizes + token counts + which sources fed it. No text,
+    // no hunk headers, no URLs, no secrets.
     ctx.logger?.info(
-      { correlation_id: ctx.correlationId, prId, model: model.model, provider: model.provider, costUsd: out.costUsd, ms: Date.now() - t0 },
+      {
+        event: 'intent.prompt.assembled',
+        correlation_id: ctx.correlationId,
+        prId,
+        provider: model.provider,
+        model: model.model,
+        sections: out.promptSections.map((p) => ({ ...p, tokens_est: Math.ceil(p.chars / 4) })),
+        total_chars: out.promptSections.reduce((n, p) => n + p.chars, 0),
+        sources: gathered.sources.map((s) => ({ id: s.id, kind: s.kind, fetched: s.fetched })),
+        files: files.length,
+        hunk_headers: files.reduce((n, f) => n + f.hunks.length, 0),
+        tokensIn: out.tokensIn,
+        tokensOut: out.tokensOut,
+        costUsd: out.costUsd,
+        ms: Date.now() - t0,
+      },
       'intent: classifier call finished',
     );
 

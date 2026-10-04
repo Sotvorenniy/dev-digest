@@ -124,6 +124,16 @@ These rules cut that without dropping any validation step. Savings are estimates
 
 It matches command text, so a script that runs a denied command internally is not caught.
 
+## Orchestration rules
+
+Advisory (the orchestrating session follows them; no hook can enforce them):
+
+- **Dependent stages run one after another.** `planner` → `implementer` → `test-writer` → reviewers → `doc-writer` each need the previous output. Starting them together only makes them wait on each other.
+- **One writer at a time per working tree.** `implementer`, `test-writer` and `doc-writer` never run concurrently on the same checkout. Concurrent writers need `isolation: "worktree"`.
+- **Parallel only for independent read-only work.** `architecture-reviewer` and `plan-verifier` look at the same finished change without touching it, so they may run together. Several `researcher`s on disjoint questions likewise.
+- **No agent team for a single file or a linear plan.** Do it in the main session or with one agent.
+- **Enforced, not advisory:** write access is limited by `tools:` plus the path and Bash guard hooks above, never by a sentence in a prompt.
+
 ## Sources behind the rules
 
 Fetched 2026-10-04. The 1,536-character, 500-line and 15,000-token limits came through a summarizing fetch tool and were not spot-checked.

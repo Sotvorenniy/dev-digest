@@ -83,6 +83,16 @@ content — reuse the guarded adapter method instead.
 Evidence: `server/src/adapters/git/simple-git.ts:207`,
 `server/src/modules/conventions/helpers.ts:173`
 
+### The classifier gets hunk headers, never patch bodies — and an unreadable link is flagged in the intent
+`2026-10-04` — `IntentRepositoryPort.listFiles` returns `{path, hunks}` where `hunks` are only the
+`@@ -a,b +c,d @@ ctx` lines of `pr_files.patch` (`extractHunkHeaders`). The full diff goes only to the
+review call, so it is never sent twice. When a linked issue/ticket/plan/spec is `fetched:false`,
+`finaliseIntent` appends "[Missing context: ...]" to the intent and caps confidence at 0.5 instead
+of letting the model fill the gap. The classifier call logs `intent.prompt.assembled`: section names,
+chars, token estimate, model, source id/kind/fetched, tokens, cost — no text, refs or hunk lines.
+Evidence: `server/src/modules/intent/domain.ts` (`extractHunkHeaders`, `finaliseIntent`),
+`server/src/modules/intent/service.ts`, `server/test/intent-service.test.ts`
+
 ### `pr_intent` has exactly one writer: `IntentRepository.upsertIntent`
 `2026-10-04` — The legacy three-field `upsertIntent`/`getIntent` on the
 reviews repository were dead code and are removed; the table now carries

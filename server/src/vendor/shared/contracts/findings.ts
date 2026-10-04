@@ -56,6 +56,11 @@ export const Finding = z.object({
   suggestion: z.string().nullish(), // markdown
   confidence: z.number().min(0).max(1),
   kind: FindingKind.nullish(),
+  /**
+   * Set by the reviewer when the finding concerns code outside the PR's derived
+   * `in_scope`. Deterministically filtered (never for CRITICAL) once an intent is supplied.
+   */
+  out_of_scope: z.boolean().nullish(),
   // Lethal-trifecta variant fields (present only when kind === 'lethal_trifecta')
   trifecta_components: z.array(TrifectaComponent).nullish(),
   evidence: z.array(TrifectaEvidence).nullish(),

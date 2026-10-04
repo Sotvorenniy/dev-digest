@@ -18,6 +18,9 @@ export const MAX_TICKET_KEYS = 5;
 export const MAX_REQUIREMENTS = 12;
 export const MAX_COMMIT_SUBJECTS = 30;
 export const MAX_PATHS = 40;
+export const MAX_HUNKS_PER_FILE = 8;
+/** A linked source that could not be read caps confidence here: the model guessed. */
+export const CONTEXT_GAP_CONFIDENCE_CAP = 0.5;
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
@@ -25,6 +28,26 @@ export function confidenceLevel(confidence: number): ConfidenceLevel {
   if (confidence >= HIGH_CONFIDENCE) return 'high';
   if (confidence >= MEDIUM_CONFIDENCE) return 'medium';
   return 'low';
+}
+
+// ---- hunk headers ----------------------------------------------------------------
+
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@.*$/;
+
+/**
+ * Only the `@@ -a,b +c,d @@ context` lines of a patch — never a change body. This is
+ * all the classifier learns about a file's content.
+ */
+export function extractHunkHeaders(patch: string | null | undefined, max = MAX_HUNKS_PER_FILE): string[] {
+  if (!patch) return [];
+  const out: string[] = [];
+  for (const line of patch.split('\n')) {
+    if (HUNK_HEADER.test(line)) {
+      out.push(line.trimEnd());
+      if (out.length >= max) break;
+    }
+  }
+  return out;
 }
 
 // ---- reference extraction ----------------------------------------------------
@@ -193,6 +216,8 @@ const DOCUMENTED_KINDS: ReadonlySet<IntentSourceKind> = new Set([
   'spec',
 ]);
 
+const CONTEXT_GAP_KINDS: ReadonlySet<IntentSourceKind> = new Set(['issue', 'ticket', 'plan', 'spec']);
+
 /** A fetched plan/spec is what unlocks requirements and "documented" spec checks. */
 export function hasFetchedSpec(sources: IntentSource[]): boolean {
   return sources.some((s) => (s.kind === 'plan' || s.kind === 'spec') && s.fetched);
@@ -239,8 +264,18 @@ export function finaliseIntent(c: IntentClassification, sources: IntentSource[])
     ? (c.requirements ?? []).map((r) => r.trim()).filter(Boolean).slice(0, MAX_REQUIREMENTS)
     : [];
 
+  // A linked issue/ticket/plan/spec that could not be read is NEVER papered over: the
+  // intent itself says so and the confidence is capped.
+  const gaps = sources.filter((s) => !s.fetched && CONTEXT_GAP_KINDS.has(s.kind));
+  let intent = c.intent;
+  if (gaps.length > 0) {
+    confidence = Math.min(confidence, CONTEXT_GAP_CONFIDENCE_CAP);
+    const kinds = [...new Set(gaps.map((g) => g.kind))].join(', ');
+    intent = `${intent} [Missing context: ${gaps.length} linked source(s) could not be read (${kinds}).]`;
+  }
+
   return {
-    intent: c.intent,
+    intent,
     in_scope: c.in_scope,
     out_of_scope: c.out_of_scope,
     change_type: c.change_type,

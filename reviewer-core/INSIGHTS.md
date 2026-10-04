@@ -25,6 +25,18 @@ policy-relevant text there: the INJECTION_GUARD says stated scope can never
 descope a review.
 Evidence: `reviewer-core/src/prompt.ts:80`
 
+### Scope is enforced by code on a schema field, not by a title-prefix instruction
+`2026-10-04` — Supersedes the entry above on WHAT the policy says (its placement
+in the system prompt still holds). The model sets `Finding.out_of_scope`;
+`applyScopeFilter` (`review/scope.ts`) drops non-CRITICAL ones and keeps CRITICAL
+ones with an `[out of scope] ` prefix, then `reviewPullRequest` appends one
+summary line. An earlier version told the model to prefix titles and never
+filtered, i.e. a text rule where a schema + code boundary was needed. CRITICAL is
+never hidden for being out of scope. The "spec not fetched" note is likewise
+appended in code, not requested from the model.
+Evidence: `reviewer-core/src/review/scope.ts`, `reviewer-core/src/review/run.ts`,
+`reviewer-core/test/scope.test.ts`
+
 ### Intent source labels are not machine-enforced — ids must match the server's
 `2026-10-04` — Classifier sections are labelled `<id>:<kind>` and the model is
 only told to cite the exact id. Nothing in reviewer-core checks it; the server

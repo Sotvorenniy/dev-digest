@@ -27,6 +27,14 @@ export interface IntentDocument {
   content?: string;
 }
 
+/** One changed file as the classifier sees it: path + hunk headers, no diff lines. */
+export interface IntentFile {
+  path: string;
+  hunks?: string[];
+}
+
+const MAX_HUNKS_PER_FILE = 8;
+
 export interface IntentPromptInput {
   title: string;
   branch?: string | null;
@@ -35,8 +43,8 @@ export interface IntentPromptInput {
   description?: string | null;
   /** Commit subjects (untrusted), capped by the caller. */
   commits?: string[];
-  /** Changed file paths, capped by the caller. */
-  paths?: string[];
+  /** Changed files with their hunk HEADERS only (`@@ -a,b +c,d @@ ctx`); never change bodies. Capped by the caller. */
+  files?: IntentFile[];
   labels?: string[];
   documents?: IntentDocument[];
   /** Server-generated ids of the built-in sources (e.g. `title-1`); default `<kind>-1`. */
@@ -45,7 +53,7 @@ export interface IntentPromptInput {
 
 const CLASSIFY_SYSTEM_PROMPT =
   'You derive what a pull request is MEANT to do, before it is reviewed. You receive its ' +
-  'title, description, commit subjects, changed paths, labels and any linked issues or ' +
+  'title, description, commit subjects, changed files (path + hunk headers, never the code), labels and any linked issues or ' +
   'plan/spec documents. Every source is delimited and labelled "<id>:<kind>" (for example "title-1:title"); ' +
   'cite the exact id (the part before the colon).\n' +
   'Return: intent (one or two sentences), in_scope and out_of_scope (short lists of what the ' +
@@ -62,6 +70,14 @@ const CLASSIFY_SYSTEM_PROMPT =
 
 function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function fileLines(files: IntentFile[] | undefined): string {
+  const xs = (files ?? []).slice(0, MAX_LIST_ITEMS).map((f) => {
+    const hunks = (f.hunks ?? []).slice(0, MAX_HUNKS_PER_FILE).map((h) => `    ${clip(h, MAX_LIST_ITEM_CHARS)}`);
+    return [`- ${clip(f.path, MAX_LIST_ITEM_CHARS)}`, ...hunks].join('\n');
+  });
+  return xs.length > 0 ? xs.join('\n') : '(none)';
 }
 
 function list(items: string[] | undefined): string {
@@ -88,12 +104,15 @@ export function assembleIntentPrompt(input: IntentPromptInput): ChatMessage[] {
     )}`,
   );
   sections.push(`## Commit subjects\n${wrapUntrusted(idOf('commits'), list(input.commits))}`);
-  sections.push(`## Changed paths\n${wrapUntrusted(idOf('files'), list(input.paths))}`);
+  sections.push(`## Changed files (hunk headers only)\n${wrapUntrusted(idOf('files'), fileLines(input.files))}`);
   if (input.labels && input.labels.length > 0) {
     sections.push(`## Labels\n${wrapUntrusted(idOf('label'), list(input.labels))}`);
   }
   for (const d of input.documents ?? []) {
-    const body = d.fetched && d.content ? clip(d.content, MAX_DOC_CHARS) : '(not fetched)';
+    const body =
+      d.fetched && d.content
+        ? clip(d.content, MAX_DOC_CHARS)
+        : '(NOT FETCHED — content unavailable. Do not guess what it says; state the missing context in the intent.)';
     sections.push(
       `## Linked ${d.kind}: ${clip(d.ref, MAX_LIST_ITEM_CHARS)}\n${wrapUntrusted(`${d.id}:${d.kind}`, body)}`,
     );
@@ -112,24 +131,53 @@ export interface ClassifyIntentInput {
   maxRetries?: number;
 }
 
+/** Size of one classifier prompt section. Counts only — never text. */
+export interface IntentPromptSection {
+  section: string;
+  chars: number;
+}
+
+/**
+ * Composition of an assembled classifier prompt (system + each user section), for
+ * metadata-only logging. Section names are the fixed headings; document refs are
+ * dropped so a path or URL never reaches a log through here.
+ */
+export function describeIntentPrompt(messages: ChatMessage[]): IntentPromptSection[] {
+  const out: IntentPromptSection[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      out.push({ section: 'system', chars: m.content.length });
+      continue;
+    }
+    for (const part of m.content.split(/\n\n(?=## )/)) {
+      const heading = /^## ([^\n:(]+)/.exec(part)?.[1]?.trim() ?? 'user';
+      out.push({ section: heading.toLowerCase(), chars: part.length });
+    }
+  }
+  return out;
+}
+
 export interface ClassifyIntentOutcome {
   classification: IntentClassification;
+  promptSections: IntentPromptSection[];
   tokensIn: number;
   tokensOut: number;
   costUsd: number | null;
 }
 
 export async function classifyIntent(input: ClassifyIntentInput): Promise<ClassifyIntentOutcome> {
+  const messages = assembleIntentPrompt(input.inputs);
   const res = await input.llm.completeStructured<IntentClassification>({
     model: input.model,
     schema: IntentClassificationSchema,
     schemaName: 'IntentClassification',
-    messages: assembleIntentPrompt(input.inputs),
+    messages,
     maxRetries: input.maxRetries ?? DEFAULT_CLASSIFY_INTENT_MAX_RETRIES,
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
   });
   return {
     classification: res.data,
+    promptSections: describeIntentPrompt(messages),
     tokensIn: res.tokensIn,
     tokensOut: res.tokensOut,
     costUsd: res.costUsd ?? null,

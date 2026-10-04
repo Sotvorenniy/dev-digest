@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import type { PrIntentRecord } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import { extractHunkHeaders } from './domain.js';
 import type {
   IntentPullInfo,
   IntentRepoInfo,
@@ -41,9 +42,9 @@ export class IntentRepository implements IntentRepositoryPort {
     return rows.map((r) => r.message.split('\n')[0]!.trim()).filter(Boolean);
   }
 
-  async listFilePaths(prId: string): Promise<string[]> {
+  async listFiles(prId: string): Promise<{ path: string; hunks: string[] }[]> {
     const rows = await this.db.select().from(t.prFiles).where(eq(t.prFiles.prId, prId));
-    return rows.map((r) => r.path);
+    return rows.map((r) => ({ path: r.path, hunks: extractHunkHeaders(r.patch) }));
   }
 
   async getIntent(
