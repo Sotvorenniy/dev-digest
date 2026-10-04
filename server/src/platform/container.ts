@@ -37,6 +37,9 @@ import { ConventionsService } from '../modules/conventions/service.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import { IntentRepository } from '../modules/intent/repository.js';
 import { IntentService } from '../modules/intent/service.js';
+import { SmartDiffRepository } from '../modules/smart-diff/repository.js';
+import type { SmartDiffRepositoryPort } from '../modules/smart-diff/ports.js';
+import { SmartDiffService } from '../modules/smart-diff/service.js';
 import type { DocFetcher } from '../ports/doc-fetcher.js';
 import type { RepoIntel } from '../modules/repo-intel';
 import { RepoIntelService } from '../modules/repo-intel';
@@ -93,6 +96,8 @@ export class Container {
   private _reviewRepo?: ReviewRepository;
   private _intentRepo?: IntentRepository;
   private _intentService?: IntentService;
+  private _smartDiffRepo?: SmartDiffRepositoryPort;
+  private _smartDiffService?: SmartDiffService;
   private _docFetcher?: DocFetcher;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -187,6 +192,15 @@ export class Container {
 
   get intentRepo(): IntentRepository {
     return (this._intentRepo ??= new IntentRepository(this.db));
+  }
+
+  get smartDiffRepo(): SmartDiffRepositoryPort {
+    return (this._smartDiffRepo ??= new SmartDiffRepository(this.db));
+  }
+
+  /** Groups PR files by role + current finding lines; ports only (no Container). */
+  get smartDiffService(): SmartDiffService {
+    return (this._smartDiffService ??= new SmartDiffService({ repo: this.smartDiffRepo }));
   }
 
   get docFetcher(): DocFetcher {
