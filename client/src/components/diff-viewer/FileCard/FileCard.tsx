@@ -120,7 +120,7 @@ export function FileCard({
             ))
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
-          {findings && unanchored.length > 0 && (
+          {findings && (commenting?.showComments ?? true) && unanchored.length > 0 && (
             <div style={fs.unanchoredWrap}>
               {unanchored.map((fd) => (
                 <InlineFinding

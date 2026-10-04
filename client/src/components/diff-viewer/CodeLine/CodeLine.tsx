@@ -87,6 +87,7 @@ export function CodeLine({
       </div>
 
       {findings &&
+        (commenting?.showComments ?? true) &&
         flagged.map((f) => (
           <div key={f.id} style={fs.inlineWrap}>
             <InlineFinding

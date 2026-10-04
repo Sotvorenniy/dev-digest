@@ -26,16 +26,16 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
   const { data: smart } = useSmartDiff(prId);
   const findingAction = useFindingAction();
   // Comments start hidden so the diff is clean by default — toggle to reveal.
-  const [showComments, setShowComments] = React.useState(false);
+  const [showComments, setShowComments] = React.useState(true);
   const [order, setOrder] = React.useState<DiffOrder>("smart");
-
-  const commentCount = comments?.length ?? 0;
 
   // CURRENT findings only: the newest review of each agent (same rule as the PR list).
   const byPath = React.useMemo(
     () => findingsByPath(latestReviewPerAgent(reviews ?? []).flatMap((r) => r.findings)),
     [reviews],
   );
+  const findingCount = React.useMemo(() => [...byPath.values()].reduce((n, list) => n + list.length, 0), [byPath]);
+  const commentCount = (comments?.length ?? 0) + findingCount;
   const groups = React.useMemo(() => (smart ? groupFiles(files, smart) : null), [files, smart]);
   const totals = diffTotals(files);
 
@@ -77,6 +77,7 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
         order={order}
         onOrderChange={setOrder}
         commentCount={commentCount}
+        reviewed={(reviews?.length ?? 0) > 0}
         showComments={showComments}
         onToggleComments={() => setShowComments((v) => !v)}
       />

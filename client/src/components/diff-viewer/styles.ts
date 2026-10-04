@@ -143,6 +143,8 @@ export const fs = {
     padding: "12px 14px",
     opacity: muted ? 0.6 : 1,
   }),
+  collapseBtn: { display: "inline-flex", padding: 0, border: "none", background: "transparent", cursor: "pointer", color: "var(--text-muted)" } satisfies CSSProperties,
+  chevron: (open: boolean): CSSProperties => ({ transform: open ? "rotate(90deg)" : "none", transition: "transform .12s" }),
   head: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } satisfies CSSProperties,
   title: (muted: boolean, dismissed: boolean): CSSProperties => ({
     fontSize: 14,

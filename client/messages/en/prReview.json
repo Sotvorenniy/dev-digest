@@ -9,7 +9,9 @@
     "replyToAuthor": "Reply to author",
     "replyPlaceholder": "Reply to the author about this finding…",
     "sendReply": "Send reply",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "collapse": "Collapse finding",
+    "expand": "Expand finding"
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",
@@ -73,7 +75,8 @@
     "filesWithFindings": "{count} with findings",
     "showComments": "Show comments",
     "hideComments": "Hide comments",
-    "toggleLabel": "Diff order"
+    "toggleLabel": "Diff order",
+    "notReviewed": "Review hasn't been started yet"
   },
   "list": {
     "breadcrumb": "Pull Requests",

@@ -16,6 +16,7 @@ export function SmartDiffHeader({
   order,
   onOrderChange,
   commentCount,
+  reviewed,
   showComments,
   onToggleComments,
 }: {
@@ -25,7 +26,10 @@ export function SmartDiffHeader({
   filesWithFindings: number;
   order: DiffOrder;
   onOrderChange: (order: DiffOrder) => void;
+  /** Comments + findings the toggle hides. */
   commentCount: number;
+  /** At least one review exists for this PR. */
+  reviewed: boolean;
   showComments: boolean;
   onToggleComments: () => void;
 }) {
@@ -46,7 +50,11 @@ export function SmartDiffHeader({
           <span className="mono tnum">
             <span style={s.add}>+{additions}</span> <span style={s.del}>−{deletions}</span>
           </span>
-          {filesWithFindings > 0 && <span>· {t("smartDiff.filesWithFindings", { count: filesWithFindings })}</span>}
+          {!reviewed ? (
+            <span data-review-not-started>· {t("smartDiff.notReviewed")}</span>
+          ) : (
+            <span>· {t("smartDiff.filesWithFindings", { count: filesWithFindings })}</span>
+          )}
         </div>
         <div style={s.right}>
           {commentCount > 0 && (

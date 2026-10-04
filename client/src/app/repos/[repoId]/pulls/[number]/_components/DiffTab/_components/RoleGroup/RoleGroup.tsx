@@ -25,11 +25,13 @@ export function RoleGroup({
 }) {
   const t = useTranslations("prReview");
   const meta = ROLE_META[role];
-  const [open, setOpen] = React.useState(!COLLAPSED_BY_DEFAULT.has(role));
+  // Default: groups skimmed last start closed, unless they hold findings. A manual toggle wins.
+  const [manualOpen, setManualOpen] = React.useState<boolean | null>(null);
+  const open = manualOpen ?? (filesWithFindings > 0 || !COLLAPSED_BY_DEFAULT.has(role));
 
   return (
     <div data-role-group={role} style={s.wrap}>
-      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={s.header}>
+      <button type="button" aria-expanded={open} onClick={() => setManualOpen(!open)} style={s.header}>
         <Icon.ChevronRight size={14} style={s.chevron(open)} />
         <span style={s.swatch(meta.color)} />
         <span style={s.label}>{t(`smartDiff.${meta.label}`)}</span>
