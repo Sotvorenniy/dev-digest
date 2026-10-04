@@ -9,17 +9,31 @@ import { LEVEL_COLORS } from "./constants";
 import { confidenceLevel, hasUnfetchedSpec } from "./helpers";
 import { s } from "./styles";
 
-function ScopeList({ label, items }: { label: string; items: string[] }) {
+function ScopeList({
+  label,
+  items,
+  kind,
+}: {
+  label: string;
+  items: string[];
+  kind: "in" | "out";
+}) {
   const t = useTranslations("intent");
+  const Mark = kind === "in" ? Icon.Check : Icon.X;
   return (
     <div style={s.column}>
-      <div style={s.listLabel}>{label}</div>
+      <div style={kind === "in" ? s.scopeLabelIn : s.scopeLabelOut}>
+        <Mark size={14} />
+        {label}
+      </div>
       {items.length === 0 ? (
         <span style={s.none}>{t("none")}</span>
       ) : (
-        <ul style={s.list}>
+        <ul style={kind === "in" ? s.scopeListIn : s.scopeListOut}>
           {items.map((it, i) => (
-            <li key={i}>{it}</li>
+            <li key={i} style={s.scopeItem}>
+              {it}
+            </li>
           ))}
         </ul>
       )}
@@ -34,7 +48,7 @@ function IntentBody({ intent }: { intent: PrIntentRecord }) {
   const requirements = intent.requirements ?? [];
   return (
     <>
-      <p style={s.intentText}>{intent.intent}</p>
+      <p style={s.intentText}>&ldquo;{intent.intent}&rdquo;</p>
       <div style={s.badges}>
         {intent.change_type && <Badge>{t(`changeType.${intent.change_type}`)}</Badge>}
         <span data-intent-confidence={level}>
@@ -55,10 +69,11 @@ function IntentBody({ intent }: { intent: PrIntentRecord }) {
           <span>{t("specUnverified")}</span>
         </div>
       )}
-      <div style={s.columns}>
-        <ScopeList label={t("inScope")} items={intent.in_scope} />
-        <ScopeList label={t("outOfScope")} items={intent.out_of_scope} />
+      <div style={s.columns} data-intent-scope>
+        <ScopeList kind="in" label={t("inScope")} items={intent.in_scope} />
+        <ScopeList kind="out" label={t("outOfScope")} items={intent.out_of_scope} />
       </div>
+      <hr style={s.divider} />
       {requirements.length > 0 && (
         <div>
           <div style={s.listLabel}>{t("requirements")}</div>
@@ -95,7 +110,7 @@ export function IntentCard({ prId }: { prId: string }) {
   return (
     <section data-intent-card style={s.card}>
       <SectionLabel
-        icon="Sparkles"
+        icon="Target"
         right={
           <span data-intent-derive>
             <Button
