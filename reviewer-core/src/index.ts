@@ -19,8 +19,21 @@ export {
   INJECTION_GUARD,
   type PromptParts,
   type AssembledPrompt,
+  buildScopePolicy,
   type ConventionScanPromptParts,
+  type PromptIntent,
 } from './prompt.js';
+
+// Intent classifier: PR text/docs → derived intent (pure; LLM injected).
+export {
+  classifyIntent,
+  assembleIntentPrompt,
+  DEFAULT_CLASSIFY_INTENT_MAX_RETRIES,
+  type ClassifyIntentInput,
+  type ClassifyIntentOutcome,
+  type IntentDocument,
+  type IntentPromptInput,
+} from './review/classify-intent.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';

@@ -73,7 +73,7 @@ export default function PullsPage() {
     <AppShell crumb={[{ label: repoName, mono: true }, { label: t("list.breadcrumb") }]}>
       <div style={s.pageHeader}>
         <div>
-          <h1 style={s.pageTitle}>{t("list.title")}</h1>
+          <h1 style={s.pageTitle}>{pulls ? t("list.titleWithCount", { count: filtered.length }) : t("list.title")}</h1>
           <p style={s.pageSubtitle}>
             {pulls
               ? t("list.summary", { open: openCount, needsReview: needsReviewCount })

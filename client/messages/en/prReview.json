@@ -63,6 +63,7 @@
   "list": {
     "breadcrumb": "Pull Requests",
     "title": "Pull Requests",
+    "titleWithCount": "Pull Requests ({count})",
     "summary": "{open} open · {needsReview} need review",
     "loading": "Loading pull requests…",
     "status": {

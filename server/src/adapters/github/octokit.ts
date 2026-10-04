@@ -116,6 +116,8 @@ export class OctokitGitHubClient implements GitHubClient {
               committed_at: c.commit.author?.date,
             })),
             linked_issue: linkedIssue,
+            // Live labels for the intent layer; never persisted.
+            labels: pr.labels.map((l) => l.name),
           };
         })(),
         TIMEOUT,

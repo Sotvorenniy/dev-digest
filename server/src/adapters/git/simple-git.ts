@@ -205,7 +205,13 @@ export class SimpleGitClient implements GitClient {
   }
 
   async readFile(repo: RepoRef, path: string): Promise<string> {
-    return readFile(join(this.clonePathFor(repo), path), 'utf8');
+    // Containment guard: `path` can originate from untrusted PR text (plan/spec
+    // links), so it must resolve inside the clone — no `..`, absolute or NUL paths.
+    const root = resolve(this.clonePathFor(repo));
+    if (path.includes('\0')) throw new Error('invalid path');
+    const full = resolve(root, path);
+    if (full !== root && !full.startsWith(root + sep)) throw new Error('path escapes the clone');
+    return readFile(full, 'utf8');
   }
 }
 

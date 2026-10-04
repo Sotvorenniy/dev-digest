@@ -34,7 +34,7 @@ export class ReviewService {
   constructor(private container: Container) {
     this.repo = new ReviewRepository(container.db);
     this.agents = container.agentsRepo;
-    this.executor = new ReviewRunExecutor(container, this.repo, this.agents);
+    this.executor = new ReviewRunExecutor(container, this.repo, this.agents, container.intentService);
   }
 
   // ===========================================================================
@@ -106,6 +106,7 @@ export class ReviewService {
     prId: string,
     targets: AgentRow[],
     logger?: Logger,
+    correlationId?: string,
   ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
     const pull = await this.repo.getPull(workspaceId, prId);
     if (!pull) throw new NotFoundError('Pull request not found');
@@ -131,7 +132,7 @@ export class ReviewService {
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
-    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
+    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger, correlationId).catch((err) => {
       logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
     });
 

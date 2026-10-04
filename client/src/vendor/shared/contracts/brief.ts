@@ -13,6 +13,58 @@ export const Intent = z.object({
 });
 export type Intent = z.infer<typeof Intent>;
 
+/** What kind of change the PR is, as judged by the intent classifier. */
+export const IntentChangeType = z.enum([
+  'feature',
+  'bugfix',
+  'refactor',
+  'perf',
+  'docs',
+  'test',
+  'chore',
+  'other',
+]);
+export type IntentChangeType = z.infer<typeof IntentChangeType>;
+
+/** `documented` = backed by author-written text; `inferred` = guessed from indirect signals. */
+export const IntentBasis = z.enum(['documented', 'inferred']);
+export type IntentBasis = z.infer<typeof IntentBasis>;
+
+export const IntentSourceKind = z.enum([
+  'title',
+  'description',
+  'branch',
+  'commits',
+  'files',
+  'label',
+  'issue',
+  'ticket',
+  'plan',
+  'spec',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+/** One input the intent was derived from. `ref` never carries a URL query or a body. */
+export const IntentSource = z.object({
+  id: z.string(),
+  kind: IntentSourceKind,
+  ref: z.string(),
+  fetched: z.boolean(),
+  note: z.string().nullish(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** Classifier output: the Intent plus change type, confidence, basis and spec requirements. */
+export const IntentClassification = Intent.extend({
+  change_type: IntentChangeType,
+  confidence: z.number().min(0).max(1),
+  basis: IntentBasis,
+  requirements: z.array(z.string()).max(12).nullish(),
+  /** Ids of the supplied sources the classifier actually relied on. */
+  used_source_ids: z.array(z.string()).nullish(),
+});
+export type IntentClassification = z.infer<typeof IntentClassification>;
+
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({
   name: z.string(),
