@@ -76,6 +76,20 @@ describe('IntentService.derive', () => {
     expect(dump).not.toContain('@@ -1,2');
   });
 
+  it('reports classifier model, tokens, cost and sources to the Live Log, metadata only', async () => {
+    const t = setup({ body: 'Desc sk-live-ABC123' });
+    const live: string[] = [];
+    const log = { info: (m: string) => live.push(m), tool: (m: string) => live.push(m), result: (m: string) => live.push(m) };
+    await t.svc.derive('w', 'p1', { log, logger: t.logger });
+    const dump = live.join('\n');
+    expect(dump).toContain('model=openrouter/deepseek/deepseek-v4-flash');
+    expect(dump).toContain('tokens=100/20');
+    expect(dump).toContain('cost=$0.000100');
+    expect(dump).toContain('description-1');
+    expect(dump).not.toContain('sk-live');
+    expect(dump).not.toContain('@@ -1,2');
+  });
+
   it('is cached on unchanged inputs, but force re-derives', async () => {
     const t = setup({ body: 'Desc' });
     await t.svc.derive('w', 'p1', { logger: t.logger });

@@ -63,7 +63,7 @@ export interface IntentLogPort {
   result(msg: string, data?: unknown): void;
 }
 
-/** Structured stdout logger (pino-compatible). Cost is reported here only. */
+/** Structured stdout logger (pino-compatible). Full structured record, incl. correlation_id and cost. */
 export interface IntentStdLogger {
   info(obj: unknown, msg?: string): void;
   warn(obj: unknown, msg?: string): void;

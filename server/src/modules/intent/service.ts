@@ -171,6 +171,19 @@ export class IntentService {
         sourceIds: gathered.sourceIds,
       },
     });
+    // Live Log: what the classifier cost and what it was based on. Same metadata-only rule
+    // as the pino line below: section names, sizes, source ids/kinds — never text or refs.
+    const sectionsTotal = out.promptSections.reduce((n, p) => n + p.chars, 0);
+    ctx.log?.tool(
+      `Intent classifier: model=${model.provider}/${model.model}, ` +
+        `tokens=${out.tokensIn}/${out.tokensOut}, cost=${out.costUsd == null ? 'n/a' : `$${out.costUsd.toFixed(6)}`}, ` +
+        `${Date.now() - t0}ms`,
+    );
+    ctx.log?.info(
+      `Intent based on: ${gathered.sources.map((s) => `${s.id}${s.fetched ? '' : ' (not fetched)'}`).join(', ')}; ` +
+        `prompt=${out.promptSections.map((p) => `${p.section}:${Math.ceil(p.chars / 4)}t`).join(' ')} ` +
+        `(~${Math.ceil(sectionsTotal / 4)} tokens est.), ${files.length} file(s)`,
+    );
     // Metadata only: section names + sizes + token counts + which sources fed it. No text,
     // no hunk headers, no URLs, no secrets.
     ctx.logger?.info(

@@ -8,10 +8,12 @@ source of truth for its rules. This README is a guide to the set.
 | Agent | Role | Model | Tools | Writes files |
 |---|---|---|---|---|
 | [`researcher`](researcher.md) | Finds facts in the repo or on the web | `sonnet` | `Read, Grep, Glob, WebSearch, WebFetch` | No |
+| [`brainstorm`](brainstorm.md) | Explores 2-4 options with trade-offs before planning | `opus` | `Read, Grep, Glob` | No |
 | [`planner`](planner.md) | Turns a task into a Development Plan | `opus` | `Read, Grep, Glob` | No |
 | [`implementer`](implementer.md) | Executes a plan on server and client, keeps existing tests green | `sonnet` | `Read, Grep, Glob, Edit, Write, Bash` | Yes (production code) |
 | [`test-writer`](test-writer.md) | Writes and runs the plan's tests for client and server | `sonnet` | `Read, Grep, Glob, Edit, Write, Bash` | Yes (test files only, hook-enforced) |
 | [`architecture-reviewer`](architecture-reviewer.md) | Checks architectural boundaries, reports findings with evidence | `opus` | `Read, Grep, Glob` | No |
+| [`security-reviewer`](security-reviewer.md) | Looks for vulnerabilities in the change (OWASP), separate from architecture | `opus` | `Read, Grep, Glob` | No |
 | [`plan-verifier`](plan-verifier.md) | Verifies the code against every plan item with evidence | `opus` | `Read, Grep, Glob, Bash` | No (Bash allowlist hook) |
 | [`doc-writer`](doc-writer.md) | Documents implemented features with diagrams, places them in `docs/` and `specs/` | `sonnet` | `Read, Grep, Glob, Edit, Write` | Yes (`docs/` and `specs/` only, hook-enforced) |
 
@@ -21,20 +23,24 @@ None of the agents has the `Agent` tool, so they cannot spawn further subagents.
 
 ```mermaid
 flowchart LR
-  R[researcher<br/>optional] -.-> P[planner]
+  B[brainstorm<br/>optional] -.-> P[planner]
+  R[researcher<br/>optional] -.-> P
   P --> PL[(.claude/plans/slug.md)]
   PL --> I[implementer]
   I -->|Implementation Report| T[test-writer]
   T -->|Test Report| A[architecture-reviewer]
   A -->|CRITICAL or HIGH| I
-  A -->|ok| V[plan-verifier]
+  A -->|ok| S[security-reviewer]
+  S -->|CRITICAL or HIGH| I
+  S -->|ok| V[plan-verifier]
   PL --> V
   V -->|not met| I
   V -->|missing tests| T
   V -->|COMPLETE| W[doc-writer]
-  W --> G[/pr-self-review and security review/]
+  W --> G[/pr-self-review/]
 ```
 
+0. Optionally ask `brainstorm` for options when the approach is not obvious. Its recommendation feeds `planner`.
 1. Optionally ask `researcher` for facts the plan depends on.
 2. `planner` returns a plan as a message. It has no write tool.
 3. The orchestrator saves it to `.claude/plans/<task-slug>.md`. That folder is git-ignored.
@@ -43,7 +49,7 @@ flowchart LR
 6. `architecture-reviewer` gets the changed-file list (plus the `git diff` and depcruise output, which it cannot run itself) and returns findings.
 7. `plan-verifier` checks every plan item and returns a Plan Verification Report. Not-met items go back to `implementer` or `test-writer`.
 8. `doc-writer` documents the verified feature under `docs/` or `<pkg>/docs/`, and acceptance criteria under `specs/`.
-9. Security review and `/pr-self-review` are done separately; they are not part of these agents.
+9. `security-reviewer` checks the same change for vulnerabilities. It is separate from `architecture-reviewer` and may run in parallel with it. `/pr-self-review` is still run separately.
 10. After the work is verified and reviewed, delete the plan file. Durable findings go to `<pkg>/INSIGHTS.md` through `/engineering-insights`.
 
 ## Token-efficient hand-offs
@@ -66,6 +72,12 @@ These rules cut that without dropping any validation step. Savings are estimates
 - **Permissions:** no Write, Edit or Bash. Does not use skills or slash commands.
 - **Input:** a concrete question, scope (package or sources) and desired depth.
 - **Output:** a structured report: Question, Conclusions (with confidence), Evidence, References or Sources, Not found / unverified, Open questions. Two templates, one for repository and one for external research.
+
+## brainstorm
+
+- **Responsibility:** explore the options before planning. Returns 2-4 distinct approaches grounded in the repo (`path:line`), with trade-offs, one recommendation and open questions. Does not write steps or file lists; that is `planner`.
+- **Permissions:** read-only (`Read, Grep, Glob`).
+- **Input:** a goal and scope. Stops and asks when the goal is vague. **Output:** Options Report (goal and constraints, options, recommendation, open questions, not verified, hand-off to planner).
 
 ## planner
 
@@ -98,6 +110,12 @@ These rules cut that without dropping any validation step. Savings are estimates
 - **Responsibility:** verify onion layering, client placement, vendored `shared` drift, `reviewer-core` purity and migrations on changed lines only. Every finding carries `path:line`, the rule and quoted evidence.
 - **Permissions:** read-only (`Read, Grep, Glob`). It cannot run `git` or depcruise, so the orchestrator pastes the changed-file list, the diff and the `onion-architecture/scripts/check.sh` output; without the gate output it reports "gate not run".
 - **Output:** Architecture Review Report (verdict, findings table with confidence, gate results, checked-and-clean per area, not verified, hand-off). Security review and plan conformance are out of scope.
+
+## security-reviewer
+
+- **Responsibility:** vulnerability review of changed lines: untrusted PR/issue text, path traversal, SSRF, secret leaks into logs or the Live Log, injection, validation and workspace scoping, client XSS, dependencies. Every finding has an attack scenario and `path:line`. Architecture is out of scope.
+- **Permissions:** read-only (`Read, Grep, Glob`). The orchestrator supplies the changed-file list and diff.
+- **Output:** Security Review Report (verdict, findings table with OWASP class, checked and clean, not verified, hand-off).
 
 ## plan-verifier
 
