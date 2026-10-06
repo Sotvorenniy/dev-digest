@@ -15,7 +15,10 @@ import {
   type CommentThread,
   type DiffCommentApi,
 } from "../comments";
-import { s, chevronFor } from "../styles";
+import { s, fs, chevronFor } from "../styles";
+import { lineKey } from "../comments";
+import { partitionFindings, worstSeverity, type DiffFindingApi } from "../findings";
+import { InlineFinding } from "../InlineFinding";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
 
@@ -30,7 +33,15 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+export function FileCard({
+  file,
+  commenting,
+  findings,
+}: {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+  findings?: DiffFindingApi;
+}) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
     (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
@@ -48,6 +59,16 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
     return partitionThreads(fileThreads, renderedKeys);
   }, [comments, file.path, lines]);
 
+  // Current findings for this file: anchored ones render under their line, the
+  // rest at the end of the body. All of them count toward the header dot.
+  const fileFindings = findings?.byPath.get(file.path);
+  const { matched: findingsByLine, unanchored } = React.useMemo(() => {
+    const renderedKeys = new Set<string>();
+    for (const ln of lines) for (const k of keysForLine(ln)) renderedKeys.add(k);
+    return partitionFindings(fileFindings ?? [], renderedKeys);
+  }, [fileFindings, lines]);
+  const worst = worstSeverity(fileFindings ?? []);
+
   const commentCount = commenting
     ? commenting.comments.filter((c) => c.path === file.path).length
     : 0;
@@ -64,6 +85,14 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
           <span style={s.addText}>+{file.additions}</span>{" "}
           <span style={s.delText}>−{file.deletions}</span>
         </span>
+        {worst && (
+          <span
+            data-file-finding-dot={worst}
+            title={t("diffViewer.fileHasFindings")}
+            aria-label={t("diffViewer.fileHasFindings")}
+            style={fs.dot(worst)}
+          />
+        )}
         {commentCount > 0 && (
           <span
             style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}
@@ -85,10 +114,24 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
+                findings={findings}
+                lineFindings={ln.kind !== "del" && ln.kind !== "hunk" ? findingsByLine.get(lineKey("RIGHT", ln.newNo) ?? "") : undefined}
               />
             ))
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
+          {findings && (commenting?.showComments ?? true) && unanchored.length > 0 && (
+            <div style={fs.unanchoredWrap}>
+              {unanchored.map((fd) => (
+                <InlineFinding
+                  key={fd.id}
+                  finding={fd}
+                  pending={findings.pendingId === fd.id}
+                  onAction={(action) => findings.onAction(fd, action)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

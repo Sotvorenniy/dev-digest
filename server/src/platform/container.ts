@@ -23,6 +23,7 @@ import { LocalSecretsProvider,
   OpenAIProvider,
   AnthropicProvider,
   OpenAIEmbedder,
+  HttpDocFetcher,
 } from '../adapters';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
 import { estimateCost } from '../adapters';
@@ -34,6 +35,12 @@ import { SkillsService } from '../modules/skills/service.js';
 import { ConventionsRepository } from '../modules/conventions/repository.js';
 import { ConventionsService } from '../modules/conventions/service.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
+import { IntentRepository } from '../modules/intent/repository.js';
+import { IntentService } from '../modules/intent/service.js';
+import { SmartDiffRepository } from '../modules/smart-diff/repository.js';
+import type { SmartDiffRepositoryPort } from '../modules/smart-diff/ports.js';
+import { SmartDiffService } from '../modules/smart-diff/service.js';
+import type { DocFetcher } from '../ports/doc-fetcher.js';
 import type { RepoIntel } from '../modules/repo-intel';
 import { RepoIntelService } from '../modules/repo-intel';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph';
@@ -60,6 +67,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Plan/spec document fetcher for the intent layer — tests inject a fake. */
+  docFetcher?: DocFetcher;
 }
 
 export class Container {
@@ -85,6 +94,11 @@ export class Container {
   private _conventionsRepo?: ConventionsRepository;
   private _conventionsService?: ConventionsService;
   private _reviewRepo?: ReviewRepository;
+  private _intentRepo?: IntentRepository;
+  private _intentService?: IntentService;
+  private _smartDiffRepo?: SmartDiffRepositoryPort;
+  private _smartDiffService?: SmartDiffService;
+  private _docFetcher?: DocFetcher;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -174,6 +188,36 @@ export class Container {
     if (parsed.success) return parsed.data;
     const def = FEATURE_MODELS.find((f) => f.id === id)!;
     return { provider: def.defaultProvider, model: def.defaultModel };
+  }
+
+  get intentRepo(): IntentRepository {
+    return (this._intentRepo ??= new IntentRepository(this.db));
+  }
+
+  get smartDiffRepo(): SmartDiffRepositoryPort {
+    return (this._smartDiffRepo ??= new SmartDiffRepository(this.db));
+  }
+
+  /** Groups PR files by role + current finding lines; ports only (no Container). */
+  get smartDiffService(): SmartDiffService {
+    return (this._smartDiffService ??= new SmartDiffService({ repo: this.smartDiffRepo }));
+  }
+
+  get docFetcher(): DocFetcher {
+    if (this.overrides.docFetcher) return this.overrides.docFetcher;
+    return (this._docFetcher ??= new HttpDocFetcher());
+  }
+
+  /** Derives PR intent with the workspace's 'review_intent' model; ports only (no Container). */
+  get intentService(): IntentService {
+    return (this._intentService ??= new IntentService({
+      repo: this.intentRepo,
+      github: () => this.github(),
+      git: this.git,
+      docs: this.docFetcher,
+      llm: (provider) => this.llm(provider),
+      resolveModel: (workspaceId) => this.resolveFeatureModelFor(workspaceId, 'review_intent'),
+    }));
   }
 
   get reviewRepo(): ReviewRepository {

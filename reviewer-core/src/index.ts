@@ -19,8 +19,27 @@ export {
   INJECTION_GUARD,
   type PromptParts,
   type AssembledPrompt,
+  buildScopePolicy,
   type ConventionScanPromptParts,
+  type PromptIntent,
 } from './prompt.js';
+
+// Intent classifier: PR text/docs → derived intent (pure; LLM injected).
+export {
+  classifyIntent,
+  assembleIntentPrompt,
+  DEFAULT_CLASSIFY_INTENT_MAX_RETRIES,
+  type ClassifyIntentInput,
+  type ClassifyIntentOutcome,
+  describeIntentPrompt,
+  type IntentDocument,
+  type IntentFile,
+  type IntentPromptSection,
+  type IntentPromptInput,
+} from './review/classify-intent.js';
+
+// Deterministic scope filter (out-of-scope findings; CRITICAL is never hidden).
+export { applyScopeFilter, scopeFlagLine, OUT_OF_SCOPE_PREFIX, type ScopeFilterResult } from './review/scope.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';

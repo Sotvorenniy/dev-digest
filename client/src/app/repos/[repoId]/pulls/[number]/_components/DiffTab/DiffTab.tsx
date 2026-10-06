@@ -1,11 +1,15 @@
 "use client";
 
 import React from "react";
-import { SectionLabel, Button } from "@devdigest/ui";
-import { DiffViewer, type DiffCommentApi } from "@/components/diff-viewer";
-import { usePrComments, useCreatePrComment } from "@/lib/hooks/reviews";
+import type { FindingActionKind, FindingRecord, PrFile } from "@devdigest/shared";
+import { DiffViewer, type DiffCommentApi, type DiffFindingApi } from "@/components/diff-viewer";
+import { usePrComments, useCreatePrComment, usePrReviews, useSmartDiff, useFindingAction } from "@/lib/hooks/reviews";
+import { latestReviewPerAgent } from "@/lib/latest-reviews";
 import { notify } from "@/lib/toast";
-import type { PrFile } from "@devdigest/shared";
+import { RoleGroup } from "./_components/RoleGroup";
+import { SmartDiffHeader, type DiffOrder } from "./_components/SmartDiffHeader";
+import { diffTotals, filesWithFindingsCount, findingsByPath, groupFiles } from "./helpers";
+import { s } from "./styles";
 
 interface DiffTabProps {
   prId: string | null;
@@ -18,10 +22,22 @@ interface DiffTabProps {
 export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
+  const { data: reviews } = usePrReviews(prId);
+  const { data: smart } = useSmartDiff(prId);
+  const findingAction = useFindingAction();
   // Comments start hidden so the diff is clean by default — toggle to reveal.
-  const [showComments, setShowComments] = React.useState(false);
+  const [showComments, setShowComments] = React.useState(true);
+  const [order, setOrder] = React.useState<DiffOrder>("smart");
 
-  const commentCount = comments?.length ?? 0;
+  // CURRENT findings only: the newest review of each agent (same rule as the PR list).
+  const byPath = React.useMemo(
+    () => findingsByPath(latestReviewPerAgent(reviews ?? []).flatMap((r) => r.findings)),
+    [reviews],
+  );
+  const findingCount = React.useMemo(() => [...byPath.values()].reduce((n, list) => n + list.length, 0), [byPath]);
+  const commentCount = (comments?.length ?? 0) + findingCount;
+  const groups = React.useMemo(() => (smart ? groupFiles(files, smart) : null), [files, smart]);
+  const totals = diffTotals(files);
 
   const commenting: DiffCommentApi = {
     comments: comments ?? [],
@@ -40,26 +56,47 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
     },
   };
 
+  const findings: DiffFindingApi = {
+    byPath,
+    pendingId: findingAction.isPending ? findingAction.variables?.findingId : null,
+    onAction: (finding: FindingRecord, action: FindingActionKind) =>
+      findingAction.mutate({ findingId: finding.id, action, prId: prId ?? undefined }),
+  };
+
+  // Smart order needs the classification; while it loads (or fails) fall back to
+  // the flat GitHub-order list rather than blocking the diff.
+  const showGroups = order === "smart" && groups !== null && files.length > 0;
+
   return (
-    <section>
-      <SectionLabel
-        icon="Code"
-        right={
-          commentCount > 0 ? (
-            <Button
-              kind="ghost"
-              size="sm"
-              icon={showComments ? "EyeOff" : "Eye"}
-              onClick={() => setShowComments((v) => !v)}
-            >
-              {showComments ? "Hide comments" : "Show comments"} ({commentCount})
-            </Button>
-          ) : undefined
-        }
-      >
-        Files changed · {filesCount} files
-      </SectionLabel>
-      <DiffViewer files={files} commenting={commenting} />
+    <section style={s.section}>
+      <SmartDiffHeader
+        filesCount={filesCount}
+        additions={totals.additions}
+        deletions={totals.deletions}
+        filesWithFindings={filesWithFindingsCount(files, byPath)}
+        order={order}
+        onOrderChange={setOrder}
+        commentCount={commentCount}
+        reviewed={(reviews?.length ?? 0) > 0}
+        showComments={showComments}
+        onToggleComments={() => setShowComments((v) => !v)}
+      />
+      {showGroups ? (
+        <div style={s.groups}>
+          {groups.map((g) => (
+            <RoleGroup
+              key={g.role}
+              role={g.role}
+              files={g.files}
+              filesWithFindings={filesWithFindingsCount(g.files, byPath)}
+              commenting={commenting}
+              findings={findings}
+            />
+          ))}
+        </div>
+      ) : (
+        <DiffViewer files={files} commenting={commenting} findings={findings} />
+      )}
     </section>
   );
 }

@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
+import type { PrIntentRecord, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import { reviewPullRequest, countBlockers, type PromptIntent } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
@@ -8,7 +9,10 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { buildSkillNames, buildSkillTexts, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { redactSecrets } from '../../platform/redact.js';
+import type { IntentDerivePort } from '../intent/ports.js';
 import { withSkillsTokens } from '../../platform/trace-builder.js';
+import { summarizePromptAssembly } from '../../platform/prompt-log.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -16,6 +20,20 @@ export class RunCancelledError extends Error {
     super('Run cancelled');
     this.name = 'RunCancelledError';
   }
+}
+
+/** Map the persisted intent record onto reviewer-core's prompt shape. */
+function toPromptIntent(r: PrIntentRecord): PromptIntent {
+  return {
+    intent: r.intent,
+    in_scope: r.in_scope,
+    out_of_scope: r.out_of_scope,
+    change_type: r.change_type ?? null,
+    confidence: r.confidence ?? null,
+    basis: r.basis ?? null,
+    requirements: r.requirements ?? null,
+    sources: (r.sources ?? []).map((s) => ({ id: s.id, kind: s.kind, ref: s.ref, fetched: s.fetched })),
+  };
 }
 
 /** Minimal structured logger (pino-compatible: (obj, msg)) for runtime logs. */
@@ -46,6 +64,7 @@ export class ReviewRunExecutor {
     private container: Container,
     private repo: ReviewRepository,
     private agents: Container['agentsRepo'],
+    private intentService: IntentDerivePort,
   ) {}
 
   /**
@@ -59,6 +78,8 @@ export class ReviewRunExecutor {
     repo: typeof schema.repos.$inferSelect,
     jobs: { agent: AgentRow; runId: string }[],
     logger?: Logger,
+    /** One id per review trigger; falls back to a fresh UUID when the caller has none. */
+    correlationId: string = randomUUID(),
   ): Promise<void> {
     // ONE logger fanned out over every queued run: shared pre-work (diff +
     // intent) is streamed into each target agent's Live Log and persisted into
@@ -67,7 +88,7 @@ export class ReviewRunExecutor {
       this.container.runBus,
       jobs.map((j) => j.runId),
       logger,
-      { prId: pull.id },
+      { prId: pull.id, correlation_id: correlationId },
     );
 
     // Pre-work failure (e.g. diff load) fails EVERY queued run. The error was
@@ -106,14 +127,36 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Derive the PR's intent ONCE for every agent (best-effort: a failure or timeout
+    // just means the agents review without it). Cached by inputs hash, so a re-run
+    // on an unchanged PR costs no LLM call.
+    let intent: PrIntentRecord | undefined;
+    let intentMs = 0;
+    try {
+      const t0 = Date.now();
+      const res = await runLog.step(
+        'Deriving PR intent',
+        () => this.intentService.derive(workspaceId, pull.id, {
+            log: runLog,
+            correlationId,
+            ...(logger ? { logger } : {}),
+          }),
+        { kind: 'tool' },
+      );
+      intent = res.record;
+      intentMs = res.cached ? 0 : Date.now() - t0;
+    } catch (err) {
+      runLog.info(`Intent unavailable — reviewing without it: ${redactSecrets((err as Error).message).slice(0, 200)}`);
+    }
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
-        { runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
+        { correlation_id: correlationId, runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intent, intentMs, correlationId, logger);
         logger?.info(
           {
             runId,
@@ -145,6 +188,10 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intent?: PrIntentRecord,
+    intentMs = 0,
+    correlationId: string = randomUUID(),
+    logger?: Logger,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -218,6 +265,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Derived intent — untrusted + marked "may be wrong" by assemblePrompt; sent
+        // with every chunk of every pass. Omitted when derivation failed.
+        ...(intent ? { intent: toPromptIntent(intent) } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -226,6 +276,38 @@ export class ReviewRunExecutor {
         },
       });
       const { tokensIn, tokensOut, costUsd, grounding } = outcome;
+
+      // Metadata-only prompt log (never prompt text, diff hunks or skill/spec/
+      // memory content). The full prompt still lands in run_traces.trace below.
+      const verbose = this.container.config.promptLogVerbose;
+      const promptSummary = summarizePromptAssembly(outcome.assembly, {
+        diffChars: diff.raw.length,
+        diffFiles: diff.files.length,
+        verbose,
+        ...(verbose
+          ? {
+              skillsUsed: skillNames,
+              skillTexts: skillNames.map((name, i) => ({ name, text: skillTexts[i] ?? '' })),
+            }
+          : {}),
+      });
+      logger?.info(
+        {
+          event: 'prompt.assembled',
+          correlation_id: correlationId,
+          run_id: runId,
+          pr_id: pull.id,
+          agent: agent.name,
+          provider: agent.provider,
+          model: agent.model,
+          ...promptSummary,
+        },
+        'review: prompt assembled',
+      );
+      runLog.info(
+        `Prompt assembled — ${promptSummary.sections.length} section(s), ` +
+          `${promptSummary.total_chars} chars (~${promptSummary.total_tokens_est} tokens)`,
+      );
 
       const keptFindings = outcome.review.findings;
 
@@ -286,12 +368,26 @@ export class ReviewRunExecutor {
           grounding,
         },
         prompt_assembly: { ...withSkillsTokens(outcome.assembly), skills_used: skillNames },
-        tool_calls: outcome.chunks.map((c) => ({
-          tool: 'review_file',
-          args: c.label,
-          meta: outcome.mode,
-          ms: Math.round(durationMs / Math.max(outcome.chunks.length, 1)),
-        })),
+        tool_calls: [
+          ...(intent
+            ? [
+                {
+                  tool: 'classify_intent',
+                  args: `${intent.provider ?? ''}/${intent.model ?? ''}`,
+                  meta: `basis=${intent.basis ?? 'unknown'} confidence=${intent.confidence ?? 'unknown'}${
+                    intent.cached ? ' cached' : ''
+                  }`,
+                  ms: intentMs,
+                },
+              ]
+            : []),
+          ...outcome.chunks.map((c) => ({
+            tool: 'review_file',
+            args: c.label,
+            meta: outcome.mode,
+            ms: Math.round(durationMs / Math.max(outcome.chunks.length, 1)),
+          })),
+        ],
         raw_output: outcome.raw,
         memory_pulled: [],
         specs_read: [],

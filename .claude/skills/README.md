@@ -32,6 +32,33 @@ will treat them as drift and clobber them: `engineering-insights`, `pr-self-revi
 `frontend-ui-architecture`, `onion-architecture`, `react-best-practices`, `react-testing-library`,
 `security` and `mermaid-diagram`.
 
+## Agent routing
+
+Single source of truth for the agents that read skills (`.claude/agents/`: `planner`, `implementer`,
+`test-writer`, `architecture-reviewer`, `doc-writer`). The planner assigns skills per step from this
+table; the other agents read them before working. Read the `SKILL.md` of every row that matches the
+files you touch.
+
+| Files / task | Skills |
+|---|---|
+| `server/src/modules/**` — routes, services, repositories, ports, `platform/container.ts` | `onion-architecture`, `fastify-best-practices` |
+| `server/src/db/**` — schema, queries, transactions | `drizzle-orm-patterns`, `postgresql-table-design` |
+| `server/src/db/migrations/**` | never edit; generate with `drizzle-kit` (see `drizzle-orm-patterns`) |
+| Contracts, request/response validation (`*/src/vendor/shared`, route schemas) | `zod` |
+| New file / folder / hook / constant placement in `client/**` | `frontend-ui-architecture` |
+| `client/**` components, hooks, state, data fetching | `react-best-practices`, `next-best-practices` |
+| `client/**` tests (`*.test.tsx`) | `react-testing-library` |
+| `server/test/**` — hermetic and `*.it.test.ts` | `onion-architecture` (`references/testing.md`) |
+| Architecture review of a change set (read-only) | `onion-architecture`, `frontend-ui-architecture`, `pr-self-review/severity.md` (rubric only) |
+| `docs/**`, `<pkg>/docs/**` — docs with diagrams | `mermaid-diagram` (doc-writer only; not for the implementer) |
+| Input handling, auth, secrets, uploads, new endpoints | `security` (planned in, not reviewed by the implementer) |
+| Hard typing problems in any package | `typescript-expert` |
+| Recording a non-obvious finding | `engineering-insights` |
+
+Reading order for both agents: root `AGENTS.md` → `<pkg>/AGENTS.md` → `<pkg>/INSIGHTS.md` → routed
+`SKILL.md` files. Plans live in `.claude/plans/<task-slug>.md` (git-ignored, deleted after the work is
+verified and reviewed; durable findings go to `INSIGHTS.md`).
+
 ## What Are Skills?
 
 Skills are modular packages that extend the AI agent with specialized knowledge and workflows. Unlike rules (always applied) or agents (invoked for specific tasks), skills are loaded on-demand when the agent determines they're relevant.

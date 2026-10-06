@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, SmartDiff } from './brief.js';
+import {
+  Intent,
+  IntentBasis,
+  IntentChangeType,
+  IntentSource,
+  SmartDiff,
+} from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -57,8 +63,26 @@ export const ReviewRunResponse = z.object({
 export type ReviewRunResponse = z.infer<typeof ReviewRunResponse>;
 
 /** Intent persisted for a PR (the Intent plus the pr_id it scopes). */
-export const PrIntentRecord = Intent.extend({ pr_id: z.string() });
+export const PrIntentRecord = Intent.extend({
+  pr_id: z.string(),
+  change_type: IntentChangeType.nullish(),
+  confidence: z.number().nullish(),
+  basis: IntentBasis.nullish(),
+  sources: z.array(IntentSource).nullish(),
+  requirements: z.array(z.string()).nullish(),
+  provider: z.string().nullish(),
+  model: z.string().nullish(),
+  head_sha: z.string().nullish(),
+  /** True when the response was served from the inputs-hash cache (POST only). */
+  cached: z.boolean().nullish(),
+  created_at: z.string().nullish(),
+  updated_at: z.string().nullish(),
+});
 export type PrIntentRecord = z.infer<typeof PrIntentRecord>;
+
+/** Body of `POST /pulls/:id/intent`. */
+export const DeriveIntentRequest = z.object({ force: z.boolean().optional() });
+export type DeriveIntentRequest = z.infer<typeof DeriveIntentRequest>;
 
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;

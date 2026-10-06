@@ -40,6 +40,13 @@
     "reply": "Reply",
     "viewOnGitHub": "View on GitHub",
     "postedToGitHub": "Posts to GitHub immediately",
-    "outdatedTitle": "{count} comment(s) on older revisions"
+    "outdatedTitle": "{count} comment(s) on older revisions",
+    "findingLabel": {
+      "blocker": "blocker",
+      "warning": "warning",
+      "suggestion": "suggestion"
+    },
+    "fileHasFindings": "This file has review findings",
+    "findingLine": "line {line}"
   }
 }

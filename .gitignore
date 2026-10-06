@@ -23,3 +23,6 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+
+# agent working plans (planner output, deleted after the work is done)
+.claude/plans/

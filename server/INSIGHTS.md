@@ -62,6 +62,62 @@ no other value fits. Adding a real category means editing both vendored
 `findings.ts` copies plus the DB and UI enums, so treat it as its own task.
 Evidence: `server/src/vendor/shared/contracts/findings.ts:14`
 
+### The intent `inputs_hash` cache covers DB-held inputs only, not live issue/doc text
+`2026-10-04` — `IntentService.derive` skips the classifier when the hash of
+title, branch, body, head sha, commit subjects, paths and provider/model is
+unchanged. Linked issue bodies, plan/spec contents and GitHub labels are
+fetched live and are NOT in the key, so editing a linked issue never
+invalidates a cached intent. Pass `force: true` (the on-demand route) to
+re-derive. Labels are also not persisted: only `sources` (id, kind, ref,
+fetched) reach `pr_intent`.
+Evidence: `server/src/modules/intent/domain.ts:183`,
+`server/src/modules/intent/service.ts:115`
+
+### Plan/spec `readFile` needs a containment guard — `readCloneFile` still has the unguarded shape
+`2026-10-04` — Doc paths come from untrusted PR text. `SimpleGitClient.readFile`
+now resolves the path and rejects NUL bytes and anything outside the clone
+root; before the intent layer it did a bare `join`. The same bare-join shape
+survives in `conventions/helpers.ts` `readCloneFile`; it is only safe while
+every caller passes a fixed filename. Never feed it a path derived from PR
+content — reuse the guarded adapter method instead.
+Evidence: `server/src/adapters/git/simple-git.ts:207`,
+`server/src/modules/conventions/helpers.ts:173`
+
+### The classifier gets hunk headers, never patch bodies — and an unreadable link is flagged in the intent
+`2026-10-04` — `IntentRepositoryPort.listFiles` returns `{path, hunks}` where `hunks` are only the
+`@@ -a,b +c,d @@ ctx` lines of `pr_files.patch` (`extractHunkHeaders`). The full diff goes only to the
+review call, so it is never sent twice. When a linked issue/ticket/plan/spec is `fetched:false`,
+`finaliseIntent` appends "[Missing context: ...]" to the intent and caps confidence at 0.5 instead
+of letting the model fill the gap. The classifier call logs `intent.prompt.assembled`: section names,
+chars, token estimate, model, source id/kind/fetched, tokens, cost — no text, refs or hunk lines.
+Evidence: `server/src/modules/intent/domain.ts` (`extractHunkHeaders`, `finaliseIntent`),
+`server/src/modules/intent/service.ts`, `server/test/intent-service.test.ts`
+
+### `pr_intent` has exactly one writer: `IntentRepository.upsertIntent`
+`2026-10-04` — The legacy three-field `upsertIntent`/`getIntent` on the
+reviews repository were dead code and are removed; the table now carries
+confidence, basis, sources, requirements and the cache hash, so a second
+writer would silently drop those columns. Add writes through the intent module
+only. The review run executor consumes it via the `IntentDerivePort` in
+`intent/ports.ts` (cross-module imports may only target domain/ports/types).
+Evidence: `server/src/modules/intent/repository.ts:79`,
+`server/src/modules/intent/ports.ts`
+
+### Prompt logs are metadata-only; `run_traces.trace` still stores the full prompt
+`2026-10-04` — The `prompt.assembled` pino event (one per agent run) carries only
+section name, fixed source label, chars, ceil(chars/4) tokens, model, agent and
+`correlation_id` (Fastify `req.id`, shared by every agent run of a trigger and
+the intent derive). It never holds prompt, diff, skill, spec or memory text.
+That is a logging rule only: `run_traces.trace.prompt_assembly` still persists
+the FULL prompt text (diff and specs included), so treat that table as
+sensitive. `PROMPT_LOG_VERBOSE` adds only hashes/line counts/per-skill sizes and
+is honoured solely when `NODE_ENV=development` AND `API_HOST` is loopback
+(127.0.0.1/localhost/::1); the server used to hardcode `0.0.0.0`, so the default
+`API_HOST` stays `0.0.0.0` and verbose is therefore OFF unless you also set
+`API_HOST=127.0.0.1`. A refused request logs one boot `warn`.
+Evidence: `server/src/platform/prompt-log.ts`, `server/src/platform/config.ts`
+(`resolvePromptLogVerbose`), `server/src/modules/reviews/run-executor.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 

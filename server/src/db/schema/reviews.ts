@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { IntentSource } from '@devdigest/shared';
 import { pgTable, uuid, text, integer, jsonb, timestamp, doublePrecision } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
@@ -52,6 +53,17 @@ export const prIntent = pgTable('pr_intent', {
   intent: text('intent').notNull(),
   inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  changeType: text('change_type'),
+  confidence: doublePrecision('confidence'),
+  basis: text('basis', { enum: ['documented', 'inferred'] }),
+  sources: jsonb('sources').$type<IntentSource[]>(),
+  requirements: jsonb('requirements').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  provider: text('provider'),
+  model: text('model'),
+  headSha: text('head_sha'),
+  inputsHash: text('inputs_hash'),
+  createdAt: now(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const prBrief = pgTable('pr_brief', {

@@ -9,7 +9,9 @@
     "replyToAuthor": "Reply to author",
     "replyPlaceholder": "Reply to the author about this finding…",
     "sendReply": "Send reply",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "collapse": "Collapse finding",
+    "expand": "Expand finding"
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",
@@ -58,11 +60,28 @@
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "filesCount": "{count} files",
     "findingLines": "{count} finding-lines",
-    "groupedByRole": "Smart Diff · grouped by role"
+    "groupedByRole": "Smart Diff · grouped by role",
+    "testsLabel": "Tests",
+    "docsLabel": "Docs",
+    "title": "Reviewer-ordered diff",
+    "summary": "{count} files",
+    "smartOrder": "Smart order",
+    "originalOrder": "Original order",
+    "coreDescription": "The substance of the change — review closely",
+    "testsDescription": "Tests covering the change",
+    "wiringDescription": "Hooks the core into the app",
+    "docsDescription": "Documentation — skim",
+    "boilerplateDescription": "Generated / mechanical — skim",
+    "filesWithFindings": "{count} with findings",
+    "showComments": "Show comments",
+    "hideComments": "Hide comments",
+    "toggleLabel": "Diff order",
+    "notReviewed": "Review hasn't been started yet"
   },
   "list": {
     "breadcrumb": "Pull Requests",
     "title": "Pull Requests",
+    "titleWithCount": "Pull Requests ({count})",
     "summary": "{open} open · {needsReview} need review",
     "loading": "Loading pull requests…",
     "status": {

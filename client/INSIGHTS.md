@@ -55,6 +55,22 @@ level up.
 Evidence: `client/src/app/repos/[repoId]/conventions/_components/ConventionsView/ConventionsView.test.tsx:9-13`,
 `client/src/components/app-shell/hooks/useShellContext.ts:22-29`
 
+### IntentCard's confidence thresholds are hand-mirrored from the server
+`2026-10-04` — `HIGH_CONFIDENCE = 0.75` / `MEDIUM_CONFIDENCE = 0.5` in the
+card's `constants.ts` copy the server's `intent/domain.ts` rule; the wire
+carries only the numeric `confidence`, so a server-side change silently
+mislabels the badge. Change both together.
+Evidence: `server/src/modules/intent/domain.ts:12`
+
+### Nested `_components/` drift: IntentCard owns styles/constants/helpers
+`2026-10-04` — The frontend-ui-architecture skill says nested `_components/`
+children have no own `styles.ts`/`constants.ts`/`helpers.ts` and a named-only
+`index.ts`, but `IntentCard` (under `OverviewTab/_components/`) and existing
+folders such as SkillsTab and SettingsApiKeys do own them, with the
+named-and-default `index.ts` from AGENTS.md. Follow the repo's actual pattern
+until the skill is reconciled; the skill was deliberately not edited.
+Evidence: `.claude/skills/frontend-ui-architecture/SKILL.md:42`
+
 ## Tool & Library Notes
 <!-- Quirks of Next 15, React 19, TanStack Query, next-intl, the bundler. -->
 

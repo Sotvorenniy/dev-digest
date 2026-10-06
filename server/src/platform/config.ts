@@ -27,6 +27,12 @@ const EnvSchema = z.object({
   // unindexed repo degrades gracefully. Per-agent override: agents.repo_intel.
   REPO_INTEL_ENABLED: z.string().optional(),
   API_PORT: z.coerce.number().int().default(3001),
+  // Bind address. Default keeps the historical all-interfaces bind; set to
+  // 127.0.0.1 to listen on loopback only (required for PROMPT_LOG_VERBOSE).
+  API_HOST: z.preprocess((v) => (v === '' ? undefined : v), z.string().default('0.0.0.0')),
+  // Extra prompt-log METADATA (hashes, line counts, per-skill sizes). Never text.
+  // Honoured only in NODE_ENV=development AND a loopback API_HOST.
+  PROMPT_LOG_VERBOSE: z.string().optional(),
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -41,6 +47,8 @@ const EnvSchema = z.object({
 export type AppConfig = {
   databaseUrl: string;
   apiPort: number;
+  /** Address the API binds to. */
+  apiHost: string;
   webPort: number;
   /** Absolute path where repos are cloned (~/.devdigest/workspace by default). */
   cloneDir: string;
@@ -59,16 +67,44 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /** Effective verbose prompt-log mode (already gated: dev + loopback only). */
+  promptLogVerbose: boolean;
+  /** Set when PROMPT_LOG_VERBOSE was requested but refused; logged once at boot. */
+  promptLogVerboseIgnoredReason: string | null;
 };
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+
+/** Verbose prompt logging is local-only: development mode AND a loopback bind. */
+export function resolvePromptLogVerbose(
+  requested: boolean,
+  nodeEnv: string,
+  host: string,
+): { enabled: boolean; ignoredReason: string | null } {
+  if (!requested) return { enabled: false, ignoredReason: null };
+  if (nodeEnv !== 'development') {
+    return { enabled: false, ignoredReason: 'NODE_ENV is not "development"' };
+  }
+  if (!LOOPBACK_HOSTS.has(host.toLowerCase())) {
+    return { enabled: false, ignoredReason: 'API_HOST is not a loopback address (127.0.0.1, localhost, ::1)' };
+  }
+  return { enabled: true, ignoredReason: null };
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = EnvSchema.parse(env);
   const cloneDirRaw =
     parsed.DEVDIGEST_CLONE_DIR ?? join(homedir(), '.devdigest', 'workspace');
   const cloneDir = isAbsolute(cloneDirRaw) ? cloneDirRaw : resolve(process.cwd(), cloneDirRaw);
+  const verbose = resolvePromptLogVerbose(
+    parsed.PROMPT_LOG_VERBOSE === 'true',
+    parsed.NODE_ENV,
+    parsed.API_HOST,
+  );
   return {
     databaseUrl: parsed.DATABASE_URL,
     apiPort: parsed.API_PORT,
+    apiHost: parsed.API_HOST,
     webPort: parsed.WEB_PORT,
     cloneDir,
     secretsPath: join(homedir(), '.devdigest', 'secrets.json'),
@@ -77,5 +113,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    promptLogVerbose: verbose.enabled,
+    promptLogVerboseIgnoredReason: verbose.ignoredReason,
   };
 }

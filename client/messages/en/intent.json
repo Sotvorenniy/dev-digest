@@ -1,0 +1,48 @@
+{
+  "title": "Intent",
+  "derive": "Derive intent",
+  "rederive": "Re-derive",
+  "loading": "Deriving intent…",
+  "empty": "No intent derived for this pull request yet.",
+  "error": "Couldn't derive the intent.",
+  "disclaimer": "Derived by a model from the PR text; it may be wrong.",
+  "changeType": {
+    "feature": "Feature",
+    "bugfix": "Bug fix",
+    "refactor": "Refactor",
+    "perf": "Performance",
+    "docs": "Docs",
+    "test": "Test",
+    "chore": "Chore",
+    "other": "Other"
+  },
+  "confidence": {
+    "high": "High confidence",
+    "medium": "Medium confidence",
+    "low": "Low confidence"
+  },
+  "basis": {
+    "documented": "Documented",
+    "inferred": "Inferred"
+  },
+  "inScope": "In scope",
+  "outOfScope": "Out of scope",
+  "requirements": "Requirements",
+  "sources": "Sources",
+  "none": "None",
+  "fetched": "fetched",
+  "notFetched": "not fetched",
+  "specUnverified": "Spec not fetched, conformance not verified.",
+  "sourceKind": {
+    "title": "Title",
+    "description": "Description",
+    "branch": "Branch",
+    "commits": "Commits",
+    "files": "Changed files",
+    "label": "Labels",
+    "issue": "Issue",
+    "ticket": "Ticket",
+    "plan": "Plan",
+    "spec": "Spec"
+  }
+}

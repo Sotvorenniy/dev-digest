@@ -25,8 +25,15 @@ async function main() {
     });
   }
 
+  if (config.promptLogVerboseIgnoredReason) {
+    app.log.warn(
+      { event: 'prompt.log.verbose_ignored', reason: config.promptLogVerboseIgnoredReason },
+      'PROMPT_LOG_VERBOSE ignored: verbose prompt logging is local-only',
+    );
+  }
+
   try {
-    await app.listen({ port: config.apiPort, host: '0.0.0.0' });
+    await app.listen({ port: config.apiPort, host: config.apiHost });
     app.log.info(`DevDigest API listening on http://localhost:${config.apiPort}`);
 
     // Warm the live price cache so the FIRST cost read already uses real
