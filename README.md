@@ -135,6 +135,24 @@ cd ../client && pnpm install && pnpm dev               # web on :3000
 `server/`: `dev` · `build` · `db:migrate` · `db:seed` · `db:generate` · `test` · `typecheck`
 (unit/integration split: `pnpm exec vitest run --exclude '**/*.it.test.ts'` / `pnpm exec vitest run .it.test`)
 `client/`: `dev` · `build` · `start` · `test` · `typecheck`
+`mcp/`: `start` · `test` · `typecheck` · `measure`
+
+## MCP server (Claude Code)
+
+[`mcp/`](mcp/README.md) (`@devdigest/mcp`) is a local stdio MCP server that wraps
+the REST API as five tools for Claude Code: `list_agents`, `run_agent_on_pr`
+(blocks up to 120 s and returns verdict + top findings), `get_findings`,
+`get_conventions` and a placeholder `get_blast_radius`.
+
+```sh
+cd mcp && npm ci            # once
+./scripts/dev.sh            # the API must be running on :3001
+```
+
+Claude Code picks the server up from the root [`.mcp.json`](.mcp.json) (approve
+it on first use, check with `/mcp`). Set `DEVDIGEST_API` to point at another API
+URL. Tool table, `npm run measure` and troubleshooting are in
+[`mcp/README.md`](mcp/README.md).
 
 ## Testing & CI
 
