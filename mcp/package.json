@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "description": "DevDigest MCP server: a local stdio wrapper over the dev-digest REST API (default http://localhost:3001).",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "measure": "tsx scripts/measure-tools.ts"
+    "measure": "tsx scripts/measure-tools.ts",
+    "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "~1.32.1",
@@ -20,5 +23,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
-  }
+  },
+  "packageManager": "pnpm@12.6.0+sha512.3ef68f951cb111ac204b4a5a16f0b2ddf0da56a96e0413e81d855d9f0b55ef926714709028e1cd00c405c2c5fb7b9e8ec4dc46777c805d0373c2f2ff00fd20ec"
 }

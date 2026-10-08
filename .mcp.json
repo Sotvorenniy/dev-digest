@@ -7,6 +7,14 @@
       "env": {
         "DEVDIGEST_API": "${DEVDIGEST_API:-http://localhost:3001}"
       }
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "X-MCP-Readonly": "true"
+      }
     }
   }
 }
