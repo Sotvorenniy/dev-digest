@@ -65,7 +65,7 @@ export function findingRowToDto(row: FindingRow): ReviewDtoFinding {
     start_line: row.startLine,
     end_line: row.endLine,
     rationale: row.rationale,
-    suggestion: row.suggestion ?? null,
+    suggestion: row.suggestion?.trim() || null,
     confidence: row.confidence,
     kind: (row.kind as Finding['kind']) ?? 'finding',
     trifecta_components: (row.trifectaComponents as Finding['trifecta_components']) ?? null,

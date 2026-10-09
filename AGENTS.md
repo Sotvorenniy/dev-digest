@@ -7,7 +7,7 @@ Search the relevant package's `<pkg>/docs/`, `<pkg>/specs/`, `<pkg>/INSIGHTS.md`
 Read `<pkg>/INSIGHTS.md` before working in a package and name the entries that apply. Treat them as high-confidence guidance.
 
 ## Packages
-Four standalone packages — **no workspace**, no root lockfile. Cross-package code is *copied* into `src/vendor`, never imported.
+Five standalone packages — **no workspace**, no root lockfile. Cross-package code is *copied* into `src/vendor`, never imported.
 
 | pkg | name | role | stack | pm |
 |---|---|---|---|---|
@@ -15,8 +15,9 @@ Four standalone packages — **no workspace**, no root lockfile. Cross-package c
 | `client` | `@devdigest/web` | the UI: repo import, PR list + detail, reviews, agent authoring | Next 15 App Router · React 19 · TanStack Query · next-intl · Recharts · vitest + jsdom + RTL | pnpm |
 | `reviewer-core` | `@devdigest/reviewer-core` | pure engine: diff → prompt → LLM → grounded findings. No DB, GitHub or FS | `openai` + Zod only. Consumed as **raw TS source** via tsconfig alias — it never emits JS | npm |
 | `e2e` | `@devdigest/e2e` | deterministic browser flows over the main journeys | agent-browser (global CLI) + `run.ts`. **No runtime deps** | npm |
+| `mcp` | `@devdigest/mcp` | local stdio MCP server: five tools over the REST API for Claude Code | `@modelcontextprotocol/sdk` v1 · Zod · tsx · vitest | npm |
 
-`@devdigest/shared` is a fifth, pseudo-package: the Zod contracts at `server/src/vendor/shared`.
+`@devdigest/shared` is one more pseudo-package, not counted above: the Zod contracts at `server/src/vendor/shared`.
 
 Ports: web **3000** · API **3001** · Postgres **5432**. Only Postgres runs in Docker; API and web run on the host.
 Env: `server/.env` + `client/.env`, both copied from `.env.example`. No API key is needed to boot. Secrets never live in `AppConfig` — they pass through `SecretsProvider` (`~/.devdigest/secrets.json`).
@@ -28,13 +29,13 @@ Env: `server/.env` + `client/.env`, both copied from `.env.example`. No API key 
 ./scripts/install-hooks.sh    # once per clone: git pre-push → PR self-review gate
 ```
 
-| | server | client | reviewer-core | e2e |
-|---|---|---|---|---|
-| install | `pnpm install` | `pnpm install` | `npm ci` | `npm ci` |
-| dev | `pnpm dev` (:3001) | `pnpm dev` (:3000) | — | — |
-| typecheck | `pnpm typecheck` | `pnpm typecheck` | `npm run typecheck` | `npm run typecheck` |
-| test | `pnpm test` | `pnpm test` | `npm test` | `npm test` |
-| build | `pnpm build` | `pnpm build` | `npm run build` (type-check only) | — |
+| | server | client | reviewer-core | e2e | mcp |
+|---|---|---|---|---|---|
+| install | `pnpm install` | `pnpm install` | `npm ci` | `npm ci` | `npm ci` |
+| dev | `pnpm dev` (:3001) | `pnpm dev` (:3000) | — | — | `npm start` (stdio) |
+| typecheck | `pnpm typecheck` | `pnpm typecheck` | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` |
+| test | `pnpm test` | `pnpm test` | `npm test` | `npm test` | `npm test` |
+| build | `pnpm build` | `pnpm build` | `npm run build` (type-check only) | — | — |
 
 Server DB: `pnpm db:generate` · `db:migrate` · `db:seed`. The server does **not** migrate on boot — `relation ... does not exist` means migrations were never applied.
 
@@ -46,7 +47,7 @@ Three things that cost the most time here:
 
 ## Conventions (not obvious from code)
 - `server/src/vendor/shared` and `client/src/vendor/shared` are separate copies and have already drifted — a contract change means editing both or neither.
-- pnpm in `server`/`client`, npm in `reviewer-core`/`e2e`. Separate lockfiles; do not unify.
+- pnpm in `server`/`client`, npm in `reviewer-core`/`e2e`/`mcp`. Separate lockfiles; do not unify.
 - In the client, `@devdigest/shared` is **type-only** — importing a runtime value from it breaks the webpack build.
 
 ## Naming conventions
@@ -74,4 +75,5 @@ Three things that cost the most time here:
 - Writing an agent system prompt or picking a template → read `docs/agent-prompts/README.md`
 - Cross-cutting findings → read `INSIGHTS.md`
 - Before opening, pushing or merging a PR → run `/pr-self-review` (`.claude/skills/pr-self-review/`); any CRITICAL blocks it
-- Working inside a package → read `server/AGENTS.md`, `client/AGENTS.md`, `reviewer-core/AGENTS.md`, `e2e/AGENTS.md`
+- Using or changing the MCP server (Claude Code tools over the API) → read `mcp/README.md`, `mcp/AGENTS.md`
+- Working inside a package → read `server/AGENTS.md`, `client/AGENTS.md`, `reviewer-core/AGENTS.md`, `e2e/AGENTS.md`, `mcp/AGENTS.md`
