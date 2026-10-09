@@ -37,7 +37,7 @@ number.
 | `run_agent_on_pr` | `repo`, `pr`, `agent?` | Run a dev-digest review on a pull request and wait up to 120s. Returns verdict, score and top findings per agent. On timeout returns run_ids: call get_findings later instead of re-running. Rate-limited 10/min. |
 | `get_findings` | `repo`, `pr`, `run_id?`, `min_severity?`, `cursor?` | Get findings of a dev-digest review: one run (run_id) or, by default, the latest review per agent on the PR. Sorted by severity, paged; filter with min_severity. Use after run_agent_on_pr. |
 | `get_conventions` | `repo`, `status?`, `cursor?` | Get coding conventions dev-digest extracted for an imported repo (rule, evidence file:lines, confidence). Defaults to accepted rules; status=pending shows unreviewed candidates. Paged. |
-| `get_blast_radius` | `repo`, `pr`, `path?` | Placeholder: will report code affected by a PR's changes (callers, dependents). Not implemented yet; returns an error. Input shape is stable. |
+| `get_blast_radius` | `repo`, `pr`, `path?` | Show what a PR's changes can break: changed symbols, their callers (file:line) and the HTTP endpoints and crons that depend on them. Reads the prebuilt repo index. Use before reviewing a PR; pass path to narrow. |
 
 Typical flow: `list_agents` -> `run_agent_on_pr` -> `get_findings`. To list PRs
 use `gh pr list`; there is deliberately no `list_prs` / `list_repos` tool.

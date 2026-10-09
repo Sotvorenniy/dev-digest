@@ -14,7 +14,7 @@ Read `mcp/INSIGHTS.md` before working here and name the entries that apply. Trea
 - Tool rules: snake_case `verb_noun` names; `description` 150-300 chars (the verbatim strings live in `src/tools/descriptions.ts`; `get_blast_radius` is the one exception at 100-300); flat arguments, at most 5 (`get_findings` uses all five: `repo`, `pr`, `run_id`, `min_severity`, `cursor`; keep other tools at 4 or fewer); every param `.describe()` 40-80 chars; no `outputSchema`; output is one minified-JSON text block capped at 12K chars with paging; `instructions` 300-600 chars.
 - Errors are `isError` results with short text that names the next step ("agent not found; call list_agents"). Handlers never throw and never forward response bodies or trace text.
 - `run_agent_on_pr` blocks up to 120 s by polling `GET /pulls/:id/runs`, and **never cancels a run** (not on timeout, not on abort). On timeout it returns `run_ids` and tells the model to call `get_findings`.
-- `get_blast_radius` is a placeholder: its input shape is frozen, only the body is homework.
+- `get_blast_radius` is implemented (reads `GET /pulls/:id/blast`); its input shape is frozen.
 - No `list_repos` / `list_prs` tools (`gh pr list` covers it). The MCP calls `GET /repos` and `GET /repos/:id/pulls` internally only, to resolve names to ids.
 - npm, ESM, run with tsx. Do not use `pnpm`; use `./node_modules/.bin/<bin>` if needed.
 

@@ -18,10 +18,10 @@ const EXPECTED: Record<string, string> = {
   get_conventions:
     'Get coding conventions dev-digest extracted for an imported repo (rule, evidence file:lines, confidence). Defaults to accepted rules; status=pending shows unreviewed candidates. Paged.',
   get_blast_radius:
-    "Placeholder: will report code affected by a PR's changes (callers, dependents). Not implemented yet; returns an error. Input shape is stable.",
+    "Show what a PR's changes can break: changed symbols, their callers (file:line) and the HTTP endpoints and crons that depend on them. Reads the prebuilt repo index. Use before reviewing a PR; pass path to narrow.",
 };
 const EXPECTED_LEN: Record<string, number> = {
-  list_agents: 182, run_agent_on_pr: 209, get_findings: 188, get_conventions: 184, get_blast_radius: 141,
+  list_agents: 182, run_agent_on_pr: 209, get_findings: 188, get_conventions: 184, get_blast_radius: 211,
 };
 
 const ANNOTATIONS: Record<string, Record<string, boolean>> = {
@@ -110,13 +110,124 @@ describe('tool behaviour', () => {
     expect(all.agents).toHaveLength(2);
   });
 
-  it('get_blast_radius is isError and points at get_findings', async () => {
-    const h = await connect({});
-    const res = await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 });
-    expect(isErr(res)).toBe(true);
-    expect(textOf(res)).toContain('not implemented yet');
-    expect(textOf(res)).toContain('get_findings');
-    expect(h.calls).toHaveLength(0);
+  describe('get_blast_radius', () => {
+    const blastPath = `GET /pulls/${PR_ID}/blast`;
+    const blast = (over: Record<string, unknown> = {}) => ({
+      changed_symbols: [
+        { name: 'rateLimit', file: 'src/rate.ts', kind: 'function' },
+        { name: 'helper', file: 'lib/helper.ts', kind: 'function' },
+        { name: 'lonely', file: 'src/lonely.ts', kind: 'function' },
+      ],
+      downstream: [
+        {
+          symbol: 'rateLimit',
+          callers: [{ name: 'publicRouter', file: 'src/router.ts', line: 23 }],
+          endpoints_affected: ['GET /api/x'],
+          crons_affected: ['nightly'],
+        },
+        { symbol: 'helper', callers: [{ name: 'job', file: 'src/job.ts', line: 4 }], endpoints_affected: [], crons_affected: [] },
+      ],
+      summary: '3 symbols, 2 callers, 1 endpoints, 1 crons',
+      degraded: false,
+      degraded_reason: null,
+      ...over,
+    });
+
+    it('returns compact callers, endpoints and crons for the PR (read-only GETs)', async () => {
+      const h = await connect({ ...repoRoutes(), [blastPath]: { body: blast() } });
+      const res = await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 });
+      expect(isErr(res)).toBe(false);
+      const out = jsonOf(res);
+      expect(out.summary).toBe('3 symbols, 2 callers, 1 endpoints, 1 crons');
+      expect(out.symbols[0]).toEqual({
+        symbol: 'rateLimit',
+        file: 'src/rate.ts',
+        callers: ['publicRouter src/router.ts:23'],
+        endpoints: ['GET /api/x'],
+        crons: ['nightly'],
+      });
+      expect(out.no_callers).toEqual(['lonely']);
+      expect(typeof out.untrusted).toBe('string');
+      expect(out.degraded).toBeUndefined();
+      expect(h.calls.every((c) => c.method === 'GET')).toBe(true);
+    });
+
+    it('filters by path prefix on the declaring file', async () => {
+      const h = await connect({ ...repoRoutes(), [blastPath]: { body: blast() } });
+      const out = jsonOf(await h.call('get_blast_radius', { repo: 'acme/api', pr: 7, path: './lib/' }));
+      expect(out.symbols.map((r: { symbol: string }) => r.symbol)).toEqual(['helper']);
+      expect(out.changed_symbols).toBe(1);
+      const none = jsonOf(await h.call('get_blast_radius', { repo: 'acme/api', pr: 7, path: 'nope/' }));
+      expect(none.symbols).toBeUndefined();
+      expect(none.hint).toMatch(/omit path/);
+    });
+
+    it('flags a degraded index and names the next step', async () => {
+      const h = await connect({
+        ...repoRoutes(),
+        [blastPath]: { body: blast({ downstream: [], degraded: true, degraded_reason: 'flag_off' }) },
+      });
+      const out = jsonOf(await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 }));
+      expect(out.degraded).toBe(true);
+      expect(out.hint).toMatch(/index degraded \(flag_off\).*resync/);
+    });
+
+    it('says so when nothing calls the changed symbols', async () => {
+      const h = await connect({ ...repoRoutes(), [blastPath]: { body: blast({ downstream: [] }) } });
+      const out = jsonOf(await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 }));
+      expect(out.hint).toBe('no downstream callers found for the changed symbols');
+    });
+
+    it('keeps an oversized result under 12K chars, truncated with a narrowing hint', async () => {
+      const many = Array.from({ length: 200 }, (_, i) => ({
+        symbol: `sym${i}`,
+        callers: Array.from({ length: 12 }, (_, j) => ({ name: `caller${j}`, file: `src/some/long/dir/file${i}_${j}.ts`, line: j + 1 })),
+        endpoints_affected: ['GET /x'],
+        crons_affected: [],
+      }));
+      const h = await connect({
+        ...repoRoutes(),
+        [blastPath]: { body: blast({ changed_symbols: many.map((m) => ({ name: m.symbol, file: 'src/a.ts', kind: 'function' })), downstream: many }) },
+      });
+      const res = await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 });
+      expect(isErr(res)).toBe(false);
+      expect(textOf(res).length).toBeLessThanOrEqual(12_000);
+      const out = jsonOf(res);
+      expect(out.truncated).toBe(true);
+      expect(out.hint).toMatch(/pass path to narrow/);
+    });
+
+    it('clips an oversized single symbol instead of exceeding the cap', async () => {
+      const huge = {
+        symbol: 's',
+        callers: Array.from({ length: 2000 }, (_, j) => ({ name: `c${j}`, file: `src/dir/file${j}.ts`, line: j + 1 })),
+        endpoints_affected: [],
+        crons_affected: [],
+      };
+      const h = await connect({ ...repoRoutes(), [blastPath]: { body: blast({ downstream: [huge] }) } });
+      const res = await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 });
+      expect(textOf(res).length).toBeLessThanOrEqual(12_000);
+      expect(jsonOf(res).symbols[0].callers_omitted).toBeGreaterThan(0);
+    });
+
+    it('clips long server strings', async () => {
+      const long = 'x'.repeat(1000);
+      const h = await connect({
+        ...repoRoutes(),
+        [blastPath]: { body: blast({ downstream: [{ symbol: long, callers: [{ name: long, file: long, line: 1 }], endpoints_affected: [long], crons_affected: [] }] }) },
+      });
+      expect(textOf(await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 })).length).toBeLessThan(2000);
+    });
+
+    it('unknown PR and a missing route are errors that name a next step', async () => {
+      const h = await connect({ ...repoRoutes() });
+      const unknown = await h.call('get_blast_radius', { repo: 'acme/api', pr: 99 });
+      expect(isErr(unknown)).toBe(true);
+      expect(textOf(unknown)).toContain('gh pr list');
+      const missing = await h.call('get_blast_radius', { repo: 'acme/api', pr: 7 });
+      expect(isErr(missing)).toBe(true);
+      expect(textOf(missing)).toMatch(NEXT_STEP);
+    });
   });
 
   it('get_conventions defaults to accepted and hints at pending when none are accepted', async () => {
@@ -153,7 +264,9 @@ describe('every error text names a next step', () => {
     ['422', { 'GET /agents': { status: 422 } }, 'list_agents', {}],
     ['404 envelope', { 'GET /agents': { status: 404, body: { error: { message: 'gone' } } } }, 'list_agents', {}],
     ['bad_response', { 'GET /agents': { body: { not: 'array' } } }, 'list_agents', {}],
-    ['blast radius', {}, 'get_blast_radius', { repo: 'acme/api', pr: 7 }],
+    ['blast radius unknown PR', { ...repoRoutes() }, 'get_blast_radius', { repo: 'acme/api', pr: 99 }],
+    ['blast radius 500', { ...repoRoutes(), [`GET /pulls/${PR_ID}/blast`]: { status: 500 } }, 'get_blast_radius', { repo: 'acme/api', pr: 7 }],
+    ['blast radius bad_response', { ...repoRoutes(), [`GET /pulls/${PR_ID}/blast`]: { body: { nope: 1 } } }, 'get_blast_radius', { repo: 'acme/api', pr: 7 }],
     ['conventions unknown repo', { 'GET /repos': { body: [] } }, 'get_conventions', { repo: 'a/b' }],
   ];
   it.each(cases)('%s', async (_label, routes, tool, args) => {
@@ -194,6 +307,7 @@ describe('handlers never throw', () => {
       ['get_findings', { repo: 'a/b', pr: 1 }],
       ['get_conventions', { repo: 'a/b' }],
       ['run_agent_on_pr', { repo: 'a/b', pr: 1 }],
+      ['get_blast_radius', { repo: 'a/b', pr: 1 }],
     ] as const) {
       const res = await client.callTool({ name, arguments: args });
       expect(isErr(res), name).toBe(true);

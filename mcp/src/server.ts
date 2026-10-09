@@ -29,6 +29,6 @@ export function createServer(input: ServerDeps): McpServer {
   server.registerTool(runAgentOnPrTool.name, runAgentOnPrTool.config, runAgentOnPrTool.handler(deps));
   server.registerTool(getFindingsTool.name, getFindingsTool.config, getFindingsTool.handler(deps));
   server.registerTool(getConventionsTool.name, getConventionsTool.config, getConventionsTool.handler(deps));
-  server.registerTool(getBlastRadiusTool.name, getBlastRadiusTool.config, getBlastRadiusTool.handler());
+  server.registerTool(getBlastRadiusTool.name, getBlastRadiusTool.config, getBlastRadiusTool.handler(deps));
   return server;
 }

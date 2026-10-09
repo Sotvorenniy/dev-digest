@@ -84,6 +84,12 @@ describe('AI contracts parse fixtures', () => {
         summary: 's',
       }),
     ).not.toThrow();
+    // degraded fields are nullish: absent, null and populated all parse (PrBrief.blast stays valid)
+    const base = { changed_symbols: [], downstream: [], summary: 's' };
+    expect(() => BlastRadius.parse(base)).not.toThrow();
+    expect(() => BlastRadius.parse({ ...base, degraded: null, degraded_reason: null })).not.toThrow();
+    expect(BlastRadius.parse({ ...base, degraded: true, degraded_reason: 'flag_off' }).degraded_reason).toBe('flag_off');
+    expect(() => BlastRadius.parse({ ...base, degraded: 'yes' })).toThrow();
     expect(() =>
       Risks.parse({
         risks: [{ kind: 'security', title: 't', explanation: 'e', severity: 'high', file_refs: [] }],

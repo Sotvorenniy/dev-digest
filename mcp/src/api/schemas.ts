@@ -107,3 +107,21 @@ export const ConventionsResponse = z.object({
   }),
 });
 export type ConventionsResponse = z.infer<typeof ConventionsResponse>;
+
+// server/src/vendor/shared/contracts/brief.ts:68-110 (BlastRadius). `degraded` and
+// `degraded_reason` are nullish there, so they stay nullish here.
+export const BlastLite = z.object({
+  changed_symbols: z.array(z.object({ name: z.string(), file: z.string(), kind: z.string().nullish() })),
+  downstream: z.array(
+    z.object({
+      symbol: z.string(),
+      callers: z.array(z.object({ name: z.string(), file: z.string(), line: z.number().int() })),
+      endpoints_affected: z.array(z.string()),
+      crons_affected: z.array(z.string()),
+    }),
+  ),
+  summary: z.string().nullish(),
+  degraded: z.boolean().nullish(),
+  degraded_reason: z.string().nullish(),
+});
+export type BlastLite = z.infer<typeof BlastLite>;

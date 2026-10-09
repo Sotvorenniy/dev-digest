@@ -10,7 +10,7 @@ export const TOOL_DESCRIPTIONS = {
   get_conventions:
     'Get coding conventions dev-digest extracted for an imported repo (rule, evidence file:lines, confidence). Defaults to accepted rules; status=pending shows unreviewed candidates. Paged.',
   get_blast_radius:
-    "Placeholder: will report code affected by a PR's changes (callers, dependents). Not implemented yet; returns an error. Input shape is stable.",
+    "Show what a PR's changes can break: changed symbols, their callers (file:line) and the HTTP endpoints and crons that depend on them. Reads the prebuilt repo index. Use before reviewing a PR; pass path to narrow.",
 } as const;
 
 export type ToolName = keyof typeof TOOL_DESCRIPTIONS;

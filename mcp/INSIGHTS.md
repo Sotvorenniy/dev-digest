@@ -56,6 +56,15 @@ but `get_findings` drops `kind === 'summary'` before the newest-per-agent rule
 Evidence: `server/src/modules/reviews/run-executor.ts:320`,
 `server/src/db/seed.ts:147`, `mcp/src/tools/get-findings.ts:46`
 
+### paginate() clips only top-level strings, so get_blast_radius reserves envelope chars
+`2026-10-09` — Nested arrays (callers per symbol) are not measured by
+`paginate`, so a single huge symbol can break the 12K cap. `get_blast_radius`
+reserves `BLAST_ENVELOPE_CHARS` (1500) for the envelope, pages whole symbol
+rows, and trims one symbol's callers when needed (`callers_omitted`). With a
+frozen input shape there is no cursor: `truncated` plus a "pass path to narrow"
+hint is the only way to see more.
+Evidence: `mcp/src/tools/get-blast-radius.ts`, `mcp/src/constants.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of @modelcontextprotocol/sdk v1, zod and Claude Code limits. -->
 

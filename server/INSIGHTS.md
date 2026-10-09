@@ -118,6 +118,23 @@ is honoured solely when `NODE_ENV=development` AND `API_HOST` is loopback
 Evidence: `server/src/platform/prompt-log.ts`, `server/src/platform/config.ts`
 (`resolvePromptLogVerbose`), `server/src/modules/reviews/run-executor.ts`
 
+### MAX_CALLERS_PER_SYMBOL is a global slice, not a per-symbol cap
+`2026-10-09` — On the persistent path `repoIntel.getBlastRadius` sorts all
+callers by rank, then slices to 20 in total. A PR with many changed symbols
+shows 20 callers overall, not 20 each; the ripgrep fallback is uncapped.
+`blast/mapper.ts` deliberately does not re-cap, so the UI shows what the facade
+returns.
+Evidence: `server/src/modules/repo-intel/service.ts` (~372-386),
+`server/src/modules/blast/mapper.ts`
+
+### The persistent blast path has no same-file caller filter
+`2026-10-09` — Only the ripgrep fallback excludes the declaring file from a
+symbol's callers. `blast/mapper.ts` therefore drops callers whose `file` equals
+the declaring file of their `viaSymbol`, so a symbol never lists itself.
+Not confirmed against the persistent-path SQL in `repo-intel/repository.ts`.
+Evidence: `server/src/modules/blast/mapper.ts:17`,
+`server/test/blast-mapper.test.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
@@ -167,6 +184,14 @@ regenerate the baseline to "fix" them (regenerating would GROW it, violating the
 "baseline must only shrink" rule) unless deliberately paying down the repo-intel
 Container-in-service violation itself.
 Evidence: `server/.dependency-cruiser-known-violations.json` (repo-intel cycle entries),
+`.claude/skills/onion-architecture/scripts/check.sh`
+
+### A module's ports.ts importing the repo-intel/index.js barrel adds no-circular violations
+`2026-10-09` — The barrel re-exports `routes.ts`, which pulls in `container.ts`.
+Importing `RepoIntel` from it in `blast/ports.ts` took the onion `check.sh` from
+the 8 baseline violations to 13. Import `repo-intel/types.js` instead (types
+only, no cycle).
+Evidence: `server/src/modules/blast/ports.ts:1`,
 `.claude/skills/onion-architecture/scripts/check.sh`
 
 ## Session Notes
