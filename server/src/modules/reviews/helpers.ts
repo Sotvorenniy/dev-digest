@@ -33,6 +33,11 @@ export function buildSkillTexts(
     );
 }
 
+/** Short label for a finding location, e.g. `src/a.ts:10-12`. */
+export function formatFindingLocation(file: string, startLine: number, endLine: number): string {
+  return startLine === endLine ? `${file}:${startLine}` : `${file}:${startLine}-${endLine}`;
+}
+
 export interface ReviewDtoFinding extends Finding {
   review_id: string;
   accepted_at: string | null;
