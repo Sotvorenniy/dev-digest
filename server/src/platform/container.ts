@@ -40,6 +40,9 @@ import { IntentService } from '../modules/intent/service.js';
 import { SmartDiffRepository } from '../modules/smart-diff/repository.js';
 import type { SmartDiffRepositoryPort } from '../modules/smart-diff/ports.js';
 import { SmartDiffService } from '../modules/smart-diff/service.js';
+import { BlastRepository } from '../modules/blast/repository.js';
+import type { BlastRepositoryPort } from '../modules/blast/ports.js';
+import { BlastService } from '../modules/blast/service.js';
 import type { DocFetcher } from '../ports/doc-fetcher.js';
 import type { RepoIntel } from '../modules/repo-intel';
 import { RepoIntelService } from '../modules/repo-intel';
@@ -98,6 +101,8 @@ export class Container {
   private _intentService?: IntentService;
   private _smartDiffRepo?: SmartDiffRepositoryPort;
   private _smartDiffService?: SmartDiffService;
+  private _blastRepo?: BlastRepositoryPort;
+  private _blastService?: BlastService;
   private _docFetcher?: DocFetcher;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
@@ -201,6 +206,15 @@ export class Container {
   /** Groups PR files by role + current finding lines; ports only (no Container). */
   get smartDiffService(): SmartDiffService {
     return (this._smartDiffService ??= new SmartDiffService({ repo: this.smartDiffRepo }));
+  }
+
+  get blastRepo(): BlastRepositoryPort {
+    return (this._blastRepo ??= new BlastRepository(this.db));
+  }
+
+  /** Reads the blast radius from the repo-intel index; ports only (no Container). */
+  get blastService(): BlastService {
+    return (this._blastService ??= new BlastService({ repo: this.blastRepo, repoIntel: this.repoIntel }));
   }
 
   get docFetcher(): DocFetcher {

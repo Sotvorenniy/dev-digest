@@ -92,6 +92,10 @@ export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
   summary: z.string(),
+  /** True when the index could not serve a full answer (flag off, partial index, ripgrep fallback). */
+  degraded: z.boolean().nullish(),
+  /** DegradedReason from repo-intel (`flag_off`, `index_failed`, ...); null/absent when not degraded. */
+  degraded_reason: z.string().nullish(),
 });
 export type BlastRadius = z.infer<typeof BlastRadius>;
 

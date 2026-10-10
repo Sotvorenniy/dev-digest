@@ -1,4 +1,8 @@
 {
+  "title": "Blast radius",
+  "loading": "Reading the blast radius…",
+  "error": "Could not load the blast radius.",
+  "retry": "Retry",
   "stat": {
     "symbols": "symbols",
     "callers": "callers",
@@ -11,6 +15,24 @@
   },
   "callerCount": "{count} callers",
   "noDownstream": "{count} changed symbol(s), no downstream callers found.",
+  "endpointsLabel": "Endpoints",
+  "cronsLabel": "Cron / jobs",
+  "expand": "Expand",
+  "collapse": "Collapse",
+  "degraded": {
+    "badge": "Degraded",
+    "reason": {
+      "flagOff": "Repo intelligence is turned off, so no index was read.",
+      "indexFailed": "The last index run failed.",
+      "indexPartial": "The index is partial; some callers may be missing.",
+      "repoTooLarge": "The repository is too large to index fully.",
+      "noData": "No index data for this repository yet.",
+      "unknown": "The index could not serve a full answer."
+    }
+  },
+  "resync": "Resync index",
+  "resyncing": "Resyncing…",
+  "resyncQueued": "Resync started; this updates when it finishes.",
   "graph": {
     "empty": "No downstream callers to graph.",
     "ariaLabel": "Blast radius graph"
