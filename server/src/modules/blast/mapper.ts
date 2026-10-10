@@ -6,15 +6,10 @@ import type { BlastResult } from '../repo-intel/types.js';
  * Does not cap: the facade owns every limit (`repo-intel/constants.ts`).
  */
 export function toBlastRadius(result: BlastResult): BlastRadius {
-  const declaringFile = new Map<string, string>();
-  for (const s of result.changedSymbols) if (!declaringFile.has(s.name)) declaringFile.set(s.name, s.file);
-
   type Row = { name: string; file: string; line: number; rank: number };
   const bySymbol = new Map<string, Row[]>();
   const seen = new Set<string>();
   for (const c of result.callers) {
-    // Defensive: a caller living in the file that declares the changed symbol is not downstream.
-    if (declaringFile.get(c.viaSymbol) === c.file) continue;
     const key = `${c.viaSymbol}\0${c.file}:${c.line}:${c.symbol}`;
     if (seen.has(key)) continue;
     seen.add(key);

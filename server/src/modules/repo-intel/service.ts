@@ -353,7 +353,10 @@ export class RepoIntelService implements RepoIntel {
 
     const callers: BlastCallerRow[] = [];
     const seenCaller = new Set<string>();
+    const declFileByName = new Map<string, string>();
+    for (const s of changedSymbols) if (!declFileByName.has(s.name)) declFileByName.set(s.name, s.file);
     for (const c of callerRows) {
+      if (declFileByName.get(c.toSymbol) === c.fromPath) continue; // skip the decl's own file
       const enclosing =
         enclosingFromRows(symsByFile.get(c.fromPath) ?? [], c.line) ??
         c.fromPath.split('/').pop() ??

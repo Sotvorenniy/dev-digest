@@ -33,7 +33,7 @@ number.
 
 | Tool | Args | Description |
 |------|------|-------------|
-| `list_agents` | `include_disabled?` | List configured dev-digest reviewer agents (id, name, enabled, provider/model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents. |
+| `list_agents` | `include_disabled?` | List configured dev-digest reviewer agents (id, name, enabled, model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents. |
 | `run_agent_on_pr` | `repo`, `pr`, `agent?` | Run a dev-digest review on a pull request and wait up to 120s. Returns verdict, score and top findings per agent. On timeout returns run_ids: call get_findings later instead of re-running. Rate-limited 10/min. |
 | `get_findings` | `repo`, `pr`, `run_id?`, `min_severity?`, `cursor?` | Get findings of a dev-digest review: one run (run_id) or, by default, the latest review per agent on the PR. Sorted by severity, paged; filter with min_severity. Use after run_agent_on_pr. |
 | `get_conventions` | `repo`, `status?`, `cursor?` | Get coding conventions dev-digest extracted for an imported repo (rule, evidence file:lines, confidence). Defaults to accepted rules; status=pending shows unreviewed candidates. Paged. |

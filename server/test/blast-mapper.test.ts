@@ -116,18 +116,6 @@ describe('toBlastRadius', () => {
     expect(out.summary).toBe('0 symbols, 0 callers, 0 endpoints, 0 crons');
   });
 
-  it('drops callers located in the declaring file of the symbol they reach', () => {
-    const out = toBlastRadius({
-      changedSymbols: [sym('foo', 'src/lib.ts')],
-      callers: [
-        caller({ viaSymbol: 'foo', file: 'src/lib.ts', symbol: 'self' }),
-        caller({ viaSymbol: 'foo', file: 'src/a.ts', symbol: 'other' }),
-      ],
-      impactedEndpoints: [],
-    });
-    expect(out.downstream[0]!.callers.map((c) => c.file)).toEqual(['src/a.ts']);
-  });
-
   it('does not cap: 25 callers in, 25 out', () => {
     const callers = Array.from({ length: 25 }, (_, i) =>
       caller({ viaSymbol: 'foo', file: `src/f${i}.ts`, symbol: `s${i}` }),

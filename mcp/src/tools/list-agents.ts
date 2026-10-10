@@ -32,7 +32,7 @@ export const listAgentsTool = {
           id: a.id,
           name: a.name,
           enabled: a.enabled,
-          model: [a.provider, a.model].filter(Boolean).join('/'),
+          model: a.model,
           description: clip(a.description, AGENT_DESC_CLIP),
         }));
         return jsonResult(

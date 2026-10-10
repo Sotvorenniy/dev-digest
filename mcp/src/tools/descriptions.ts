@@ -2,7 +2,7 @@
 // the user's approval. test/tools.test.ts pins these as literals.
 export const TOOL_DESCRIPTIONS = {
   list_agents:
-    'List configured dev-digest reviewer agents (id, name, enabled, provider/model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents.',
+    'List configured dev-digest reviewer agents (id, name, enabled, model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents.',
   run_agent_on_pr:
     'Run a dev-digest review on a pull request and wait up to 120s. Returns verdict, score and top findings per agent. On timeout returns run_ids: call get_findings later instead of re-running. Rate-limited 10/min.',
   get_findings:

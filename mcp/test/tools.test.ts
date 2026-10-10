@@ -10,7 +10,7 @@ import {
 // Copied from the plan's "Final tool descriptions" (binding). Literals, not imported from src.
 const EXPECTED: Record<string, string> = {
   list_agents:
-    'List configured dev-digest reviewer agents (id, name, enabled, provider/model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents.',
+    'List configured dev-digest reviewer agents (id, name, enabled, model, short description). Use an id or name with run_agent_on_pr; omit agent there to run all enabled agents.',
   run_agent_on_pr:
     'Run a dev-digest review on a pull request and wait up to 120s. Returns verdict, score and top findings per agent. On timeout returns run_ids: call get_findings later instead of re-running. Rate-limited 10/min.',
   get_findings:
@@ -21,7 +21,7 @@ const EXPECTED: Record<string, string> = {
     "Show what a PR's changes can break: changed symbols, their callers (file:line) and the HTTP endpoints and crons that depend on them. Reads the prebuilt repo index. Use before reviewing a PR; pass path to narrow.",
 };
 const EXPECTED_LEN: Record<string, number> = {
-  list_agents: 182, run_agent_on_pr: 209, get_findings: 188, get_conventions: 184, get_blast_radius: 211,
+  list_agents: 173, run_agent_on_pr: 209, get_findings: 188, get_conventions: 184, get_blast_radius: 211,
 };
 
 const ANNOTATIONS: Record<string, Record<string, boolean>> = {
@@ -105,7 +105,7 @@ describe('tool behaviour', () => {
     expect(textOf(res)).not.toContain('LEAK');
     expect(textOf(res)).not.toContain('output_schema');
     const out = jsonOf(res);
-    expect(out.agents).toEqual([{ id: AGENT_ID, name: 'Sec', enabled: true, model: 'openai/gpt', description: 'd' }]);
+    expect(out.agents).toEqual([{ id: AGENT_ID, name: 'Sec', enabled: true, model: 'gpt', description: 'd' }]);
     const all = jsonOf(await h.call('list_agents', { include_disabled: true }));
     expect(all.agents).toHaveLength(2);
   });
