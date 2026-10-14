@@ -176,16 +176,23 @@ and cost must be checkable in the server log.
   and stored `truncated = true`)_
 - AC9 (US4). IF a generation cannot produce an AI tour, THEN the server (shall) store a
   deterministic skeleton tour with `outcome: "skeleton"` and the matching `skeleton_reason`:
-  - `index_degraded`: the index is `degraded` with a clone present, or 0 files are indexed;
-    no LLM request is made;
+  - `index_degraded`: the index is `degraded` with a clone present, or 0 files are indexed,
+    or files are indexed but the ranked-file set is empty (the graph build failed); no LLM
+    request is made;
   - `index_failed`: the index is `failed`; no LLM request is made;
   - `no_api_key`: the provider key is missing; no LLM request is made;
-  - `ai_failed`: the single LLM request errors, times out after 90 s, or returns output that
-    fails schema validation.
+  - `ai_failed`, in any of three cases:
+    - the single LLM request errors, times out after 90 s, or returns output that fails
+      schema validation (`llm_calls` 1);
+    - the facts still exceed the 12,000-token budget of AC8 after every droppable fact has
+      been removed, so no LLM request is made (`llm_calls` 0);
+    - an infrastructure error happens during generation, for example in the DB or in fact
+      collection. A best-effort skeleton is stored, and the AC11 log line is still written
+      (`llm_calls` 0 or 1, depending on whether the request was sent).
 
-  _(observable: stored tour `outcome = "skeleton"`, the reason above, `llm_calls` 0 for the
-  first three reasons and 1 for `ai_failed`; `architecture.summary` is null and `first_tasks`
-  is empty)_
+  _(observable: stored tour `outcome = "skeleton"`, the reason above; `llm_calls` 0 for
+  `index_degraded`, `index_failed` and `no_api_key`, and 0 or 1 for `ai_failed` as listed;
+  `architecture.summary` is null and `first_tasks` is empty)_
 - AC10 (US4). IF `POST /repos/:id/onboarding/generate` is received for a repo with no clone
   or no index state, THEN the API (shall) return 409 with `error.code`
   `"repo_not_indexed"`, and (shall) not enqueue a generation.
@@ -317,7 +324,12 @@ added to RunStats must be optional, not just nullable").
 | `sections.critical_paths[]` | `{ path: string, why: string \| null }`, ≤ 8 | `why` nullable |
 | `sections.run_locally[]` | `{ command: string, note: string \| null, source: string }`; `source` = the root file it came from | `note` nullable |
 | `sections.reading_path[]` | `{ path: string, reason: string \| null, score: number }`, 6–10 (fewer if fewer files) | `reason` nullable |
-| `sections.first_tasks[]` | `{ title: string, why: string, paths: string[] (≥ 1) }`, 3–5 on `ai`, empty on skeleton | required |
+| `sections.first_tasks[]` | `{ title: string, why: string, paths: string[] (≥ 1) }`, target 3–5 on `ai`, empty on skeleton | required |
+
+Item counts (critical paths ≤ 8, reading path 6–10, first tasks 3–5, nodes ≤ 12) are targets,
+not bounds in the model's output schema. The server enforces the upper bounds. Grounding
+(AC7) may leave fewer items than the lower bound. For example, a tour with
+`outcome = "ai"` may hold fewer than 3 first tasks, or none, and that is valid.
 
 Fact-derived candidate commands (the only commands AC7 accepts) come from these root files
 of the clone:
@@ -358,6 +370,14 @@ of the clone:
 - EC17. Repo deleted. The stored tour is removed with it (FK `onDelete: 'cascade'`,
   `server/src/db/schema/context.ts:123`), and the page shows the existing repo-not-found state.
 - EC18. Cost unknown (no price for the model). Covered by AC11 (`cost_usd: null`).
+- EC19. The index reports files but has no ranked files (the graph build failed). Covered by
+  AC9 (`index_degraded`, no LLM request).
+- EC20. The facts are still over budget after every droppable fact is removed. Covered by AC9
+  (`ai_failed`, `llm_calls` 0).
+- EC21. An infrastructure error (DB, fact collection) happens mid-generation. Covered by AC9
+  (`ai_failed`, best-effort skeleton) and AC11 (the log line is still written).
+- EC22. Grounding leaves fewer first tasks than the 3–5 target. The tour stays valid. Covered
+  by AC7 and Contracts.
 
 ## Non-functional requirements
 - NFR1. Limits: a whole generation (fact collection, LLM request, grounding, store) finishes
@@ -447,11 +467,11 @@ of the clone:
 | AC4 | US2 | G1 | NFR6 | client |
 | AC5 | US2 | G2 | EC4, EC6, NFR1 | server-unit |
 | AC6 | US3 | G1, G3 | NFR10 | server-unit |
-| AC7 | US3 | G3 | EC11, model paths, model commands | server-unit |
+| AC7 | US3 | G3 | EC11, EC22, model paths, model commands | server-unit |
 | AC8 | US2 | G2 | EC5, NFR1 | server-unit |
-| AC9 | US4 | G4 | EC3, EC6, EC7, EC15, NFR10 | server-unit |
+| AC9 | US4 | G4 | EC3, EC6, EC7, EC15, EC19, EC20, EC21, NFR10 | server-unit |
 | AC10 | US4 | G4 | EC2 | server-integration |
-| AC11 | US5 | G5 | EC18, NFR4, NFR9 | server-unit |
+| AC11 | US5 | G5 | EC18, EC21, NFR4, NFR9 | server-unit |
 | AC12 | US1 | G1 | EC16, NFR5, NFR6, NFR7 | client |
 | AC13 | US4 | G4 | EC4, EC7, EC10, EC15 | client |
 | AC14 | US3 | G3 | model paths | client |
@@ -514,6 +534,18 @@ of the clone:
 - Non-blocking answers: English-only prose (NG7); non-JS repos are in scope but degraded
   (NG8, AC9: 0 indexed files → `index_degraded`); one spec, not a split. At 16 ACs this is
   slightly over the guideline of about 15, which is inside the user's 15–17 tolerance.
+- Gap 2 (planner and cross-model review, 2026-10-14) — accepted, decided by the
+  orchestrator: files indexed with an empty ranked-file set → `index_degraded`, no LLM
+  request. Landed in: AC9, EC19.
+- Gap 3 (same review) — accepted, decided by the orchestrator: section counts are targets
+  enforced by grounding and server caps, not bounds in the model schema; fewer than 3 first
+  tasks is valid. Landed in: Contracts, EC22.
+- Gap 6 (same review) — accepted, decided by the orchestrator: facts still over the 12,000
+  token budget after every drop → skip the LLM, skeleton `ai_failed` with `llm_calls` 0.
+  Landed in: AC9, EC20.
+- Gap 7 (same review) — accepted, decided by the orchestrator: an infrastructure error
+  during generation → a best-effort `ai_failed` skeleton, and the log line is still written.
+  Landed in: AC9, EC21.
 
 ## Open questions
 - OQ1. The per-file read cap for the allowlisted root files (for example reusing
@@ -527,3 +559,12 @@ of the clone:
 
 ## Changelog
 - 2026-10-14 — draft created from the user's answers to Q1–Q7 and P1–P13.
+- 2026-10-14 — revision after the planner and cross-model review. AC9 now covers:
+  - an empty ranked-file set → `index_degraded` (Gap 2);
+  - facts over budget after every drop → `ai_failed` with `llm_calls` 0 (Gap 6);
+  - infrastructure errors → best-effort `ai_failed` skeleton with the log line still written
+    (Gap 7).
+
+  The AC9 observable allows `llm_calls` 0 or 1 for `ai_failed`. Contracts state that item
+  counts are targets, not schema bounds (Gap 3). Added EC19–EC22. Status stays `approved`;
+  no IDs were renumbered.
