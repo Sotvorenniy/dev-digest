@@ -33,9 +33,11 @@ import type {
   BlastCallerRow,
   BlastChangedSymbol,
   BlastResult,
+  FileFactsRow,
   FileRankRow,
   IndexResult,
   IndexState,
+  RankedFileRow,
   RefRow,
   RepoIntel,
   RepoMapResult,
@@ -702,6 +704,28 @@ export class RepoIntelService implements RepoIntel {
       paths.push(chain);
     }
     return paths;
+  }
+
+  async hasIndexState(repoId: string): Promise<boolean> {
+    if (!this.container.config.repoIntelEnabled) return false;
+    return (await this.repo.tryGetIndexState(repoId)) !== null;
+  }
+
+  async getRankedFiles(repoId: string): Promise<RankedFileRow[]> {
+    if (!this.container.config.repoIntelEnabled) return [];
+    const rows = await this.repo.getRankedFileRows(repoId);
+    return rows.map((r) => ({
+      path: r.filePath,
+      pagerank: r.pagerank,
+      hotness: r.hotness,
+      junk: isJunkPath(r.filePath),
+    }));
+  }
+
+  async getFileFacts(repoId: string, paths: string[]): Promise<FileFactsRow[]> {
+    if (!this.container.config.repoIntelEnabled) return [];
+    const rows = await this.repo.getFileFacts(repoId, paths);
+    return rows.map((r) => ({ path: r.filePath, endpoints: r.endpoints, crons: r.crons }));
   }
 }
 

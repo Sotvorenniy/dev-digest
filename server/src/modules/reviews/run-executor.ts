@@ -11,6 +11,7 @@ import { buildSkillNames, buildSkillTexts, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { redactSecrets } from '../../platform/redact.js';
 import type { IntentDerivePort } from '../intent/ports.js';
+import type { ProjectContextForRun, ProjectContextRunPort } from '../project-context/ports.js';
 import { withSkillsTokens } from '../../platform/trace-builder.js';
 import { summarizePromptAssembly } from '../../platform/prompt-log.js';
 
@@ -65,6 +66,7 @@ export class ReviewRunExecutor {
     private repo: ReviewRepository,
     private agents: Container['agentsRepo'],
     private intentService: IntentDerivePort,
+    private projectContext: ProjectContextRunPort,
   ) {}
 
   /**
@@ -243,6 +245,17 @@ export class ReviewRunExecutor {
         runLog.info(`skills: ${skillTexts.length} enabled skill(s) attached`);
       }
 
+      // Project context: attached repo docs (agent first, then enabled skills in
+      // order). Never fails the run — on any error the prompt is the no-docs one.
+      // Live Log lines carry paths/status/counts only, never doc text.
+      const pc = await this.resolveProjectContext(
+        workspaceId,
+        repo,
+        agent.id,
+        linkedSkills.filter((l) => l.skill.enabled).map((l) => ({ id: l.skill.id, name: l.skill.name })),
+        runLog,
+      );
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -262,6 +275,8 @@ export class ReviewRunExecutor {
         ...(repoMap ? { repoMap } : {}),
         // Linked skills (Agent editor), same omit-when-empty contract.
         ...(skillTexts.length > 0 ? { skills: skillTexts } : {}),
+        // Attached project docs — untrusted, path-labelled; omitted when none.
+        ...(pc.specs.length > 0 ? { specs: pc.specs } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -301,6 +316,11 @@ export class ReviewRunExecutor {
           provider: agent.provider,
           model: agent.model,
           ...promptSummary,
+          // Counts only — never paths or text.
+          project_context_docs: {
+            included: pc.specs.length,
+            skipped: pc.entries.length - pc.specs.length,
+          },
         },
         'review: prompt assembled',
       );
@@ -390,7 +410,8 @@ export class ReviewRunExecutor {
         ],
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: pc.specsRead,
+        project_context: pc.entries.length > 0 ? pc.entries : null,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
@@ -468,6 +489,43 @@ export class ReviewRunExecutor {
     }
     runLog.info(`callers digest: ${rows.length} caller signature(s) attached`);
     return out.join('\n');
+  }
+
+  /**
+   * Read the agent's and its enabled skills' attached project docs for the
+   * prompt's `## Project context` slot. Never fails the run: on error it logs
+   * a metadata-only line and returns no context.
+   */
+  private async resolveProjectContext(
+    workspaceId: string,
+    repo: { id: string; owner: string; name: string },
+    agentId: string,
+    skills: { id: string; name: string }[],
+    runLog: RunLogger,
+  ): Promise<ProjectContextForRun> {
+    const none: ProjectContextForRun = { specs: [], entries: [], specsRead: [], includedTokens: 0 };
+    try {
+      const pc = await this.projectContext.resolveForRun({
+        workspaceId,
+        repo: { id: repo.id, owner: repo.owner, name: repo.name },
+        agentId,
+        skills,
+      });
+      if (pc.entries.length === 0) return pc;
+      for (const e of pc.entries) {
+        if (e.status !== 'included') runLog.info(`project context: skipped ${e.path} (${e.status})`);
+      }
+      const included = pc.specs.length;
+      runLog.info(
+        `project context: ${included} included, ${pc.entries.length - included} skipped ` +
+          `(~${pc.includedTokens} tokens)`,
+      );
+      return pc;
+    } catch {
+      // Metadata only: no error text (it could echo a path) — never fail the run.
+      runLog.info('project context: unavailable — continuing without it');
+      return none;
+    }
   }
 
   /**

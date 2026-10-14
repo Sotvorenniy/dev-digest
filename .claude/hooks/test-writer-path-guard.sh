@@ -5,7 +5,10 @@
 
 input=$(cat)
 path=$(jq -r '.tool_input.file_path // ""' <<<"$input")
-root=$(jq -r '.cwd // ""' <<<"$input")
+cwd=$(jq -r '.cwd // ""' <<<"$input")
+# Resolve against the repo root, not the session cwd: a subagent launched while the
+# main session sits in server/ would otherwise see every path as outside its allow-list.
+root="${CLAUDE_PROJECT_DIR:-$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$cwd")}"
 rel="${path#"$root"/}"
 
 decide() {

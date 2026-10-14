@@ -41,9 +41,15 @@ function splitSystem(messages: ChatMessage[]): {
 export class AnthropicProvider implements LLMProvider {
   readonly id = 'anthropic' as const;
   private client: Anthropic;
+  /** Undefined = defaults (SDK + `withRetry`); 0 = exactly one HTTP request per attempt. */
+  private transportRetries?: number;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+  constructor(apiKey: string, opts: { transportRetries?: number } = {}) {
+    this.transportRetries = opts.transportRetries;
+    this.client = new Anthropic({
+      apiKey,
+      ...(opts.transportRetries === 0 ? { maxRetries: 0 } : {}),
+    });
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -116,6 +122,7 @@ export class AnthropicProvider implements LLMProvider {
           }),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        this.transportRetries === 0 ? { retries: 0 } : undefined,
       );
       tokensIn += res.usage.input_tokens;
       tokensOut += res.usage.output_tokens;

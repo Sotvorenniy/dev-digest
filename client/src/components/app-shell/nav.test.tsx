@@ -8,7 +8,7 @@ const keysOf = (section: string) => NAV.find((g) => g.section === section)?.item
 
 describe("sidebar grouping", () => {
   it("puts Agents, Skills and Conventions in SKILLS LAB, not in WORKSPACE", () => {
-    expect(keysOf("WORKSPACE")).toEqual(["pulls"]);
+    expect(keysOf("WORKSPACE")).toEqual(["pulls", "context", "onboarding-tour"]);
     expect(keysOf("SKILLS LAB")).toEqual(["agents", "skills", "conventions"]);
   });
 

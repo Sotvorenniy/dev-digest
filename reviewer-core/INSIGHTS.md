@@ -47,6 +47,14 @@ every built-in source silently uncitable.
 Evidence: `reviewer-core/src/review/classify-intent.ts:72`,
 `server/src/modules/intent/service.ts:237`
 
+### `wrapUntrusted` escapes its label, so odd skill names change prompt bytes
+`2026-10-14` — The `source="…"` label is passed through `escapeLabel`
+(`& " < >` CR LF). Labels without those characters are byte-identical to
+before; a skill name or path containing them now yields an escaped label.
+Plain-string `specs` still get `spec-<i>`; `{ label, text }` entries use the
+label.
+Evidence: `reviewer-core/src/prompt.ts:35,48`
+
 ## Tool & Library Notes
 <!-- Quirks of the LLM providers, Zod, and the type-only build. -->
 

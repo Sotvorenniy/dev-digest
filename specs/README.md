@@ -25,5 +25,5 @@ the `implementation-planner` takes a spec as input.
   [`.claude/agents/spec-creator.md`](../.claude/agents/spec-creator.md) (the agent's workflow).
 
 ## Index
-- [SPEC-01 — Project Context](2026-10-14-project-context.md) — approved
-- [SPEC-02 — Onboarding Tour](2026-10-14-onboarding-tour.md) — approved
+- [SPEC-01 — Project Context](2026-10-14-project-context.md) — implemented
+- [SPEC-02 — Onboarding Tour](2026-10-14-onboarding-tour.md) — implemented

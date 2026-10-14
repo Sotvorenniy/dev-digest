@@ -13,6 +13,7 @@ const PACKAGES = {
   client: ['tsc', '--noEmit'],
   'reviewer-core': ['tsc', '--noEmit', '-p', 'tsconfig.json'],
   e2e: ['tsc', '--noEmit', '-p', 'tsconfig.json'],
+  mcp: ['tsc', '--noEmit', '-p', 'tsconfig.json'],
 };
 const MIGRATIONS = 'server/src/db/migrations/';
 

@@ -49,6 +49,21 @@ export interface IndexState extends IndexResult {
   degradedReason?: DegradedReason;
 }
 
+/** A ranked file with its PageRank and hotness (facade `getRankedFiles`). */
+export interface RankedFileRow {
+  path: string;
+  pagerank: number;
+  hotness: number;
+  junk: boolean;
+}
+
+/** Per-file endpoints/crons (facade `getFileFacts`). */
+export interface FileFactsRow {
+  path: string;
+  endpoints: string[];
+  crons: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Blast radius (facade method `getBlastRadius`). Adopted by blast/service.ts in
 // T2; in T1 the facade returns a degraded best-effort over container.codeIndex.
@@ -169,4 +184,12 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+
+  // --- Onboarding tour reads (read-only) ----------------------------------
+  /** True when a persisted index-state row exists (false when repo-intel is off). */
+  hasIndexState(repoId: string): Promise<boolean>;
+  /** All `file_rank` rows, rank DESC; `junk` flags tests/configs/generated paths. */
+  getRankedFiles(repoId: string): Promise<RankedFileRow[]>;
+  /** Precomputed endpoints/crons for the given files. */
+  getFileFacts(repoId: string, paths: string[]): Promise<FileFactsRow[]>;
 }

@@ -34,10 +34,16 @@ feeding it — `skills` (L02), `memory` (L07), `specs` (L05), `callers` — plus
 In the starter the server passes only the diff, system prompt, and repo map; the
 extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
 
+`specs` entries are a `SpecEntry`: a plain string (labelled `spec-<i>`) or
+`{ label, text }`. The server's Project Context feature passes the doc path as
+the label. `wrapUntrusted` escapes every label (`& " < >` and newlines), so a
+label can never break out of the `source="…"` attribute. See
+[`docs/project-context.md`](../docs/project-context.md).
+
 ## Public API
 
 Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` (prompt),
-`groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
+`SpecEntry` (type), `groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
 / `parseWithRepair` (structured output), plus the `run` entrypoint and
 `reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
 `@devdigest/shared`.

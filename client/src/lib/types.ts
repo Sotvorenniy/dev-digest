@@ -29,6 +29,12 @@ export type {
   PrStatus,
   SpecFile,
   IndexStatus,
+  ProjectContextDoc,
+  ProjectContextList,
+  ProjectContextFile,
+  ContextAttachments,
+  ContextAttachmentsInput,
+  ContextAttachmentsSaved,
 } from "@devdigest/shared";
 
 export type { Review, Finding, Severity, Verdict } from "@devdigest/shared";

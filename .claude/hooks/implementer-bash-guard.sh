@@ -3,6 +3,10 @@
 # deny  -> destructive / publishing / broken commands
 # ask   -> npm install-style commands in server/ or client/ (pnpm is authoritative there)
 # allow -> npm ci / npm install in reviewer-core/ or e2e/ (npm packages)
+# deny  -> file writes through the shell (heredoc/redirect into source files, sed -i, perl -i,
+#          tee, python/node file writes): edits go through Edit/Write, where the path guards
+#          apply and each change is a small reviewable diff
+# deny  -> next build (slow; the orchestrator runs it once at the final gate)
 # otherwise no decision: normal permission flow.
 
 input=$(cat)
@@ -26,6 +30,21 @@ if grep -Eq '(^|[;&|(]\s*)rm\s+(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b' <<<"$cmd
 fi
 if grep -Eq '(^|[;&|(]\s*)(pnpm|corepack)\b' <<<"$cmd"; then
   decide deny "pnpm/corepack is broken in this environment. Use ./node_modules/.bin/<bin> (vitest run, tsc --noEmit, next build, tsx ..., drizzle-kit ...)."
+fi
+
+SRC_EXT='(ts|tsx|mts|cts|js|mjs|cjs|json|md|sql|css|scss|yaml|yml)'
+if grep -Eq "(^|[^0-9&>])>{1,2}[[:space:]]*[\"']?[^[:space:];&|]+\.${SRC_EXT}\b" <<<"$cmd"; then
+  decide deny "Shell redirect into a source file. Use Edit (existing file) or Write (new file); scratch output goes to the scratchpad as .log/.txt."
+fi
+if grep -Eq '(^|[;&|(]\s*|\s)(sed\s+(-[a-zA-Z]*i|--in-place)|perl\s+-[a-zA-Z]*i|tee)\b' <<<"$cmd"; then
+  decide deny "In-place shell edits (sed -i, perl -i, tee) bypass the path guards. Use Edit."
+fi
+# Heredoc scripts span lines: match on the command flattened to one line.
+if tr '\n' ' ' <<<"$cmd" | grep -Eq '(^|[;&|(]\s*)(python3?|node)\b.*(open\([^)]*,\s*[\"'"'"'][wa]|writeFile|write_text)'; then
+  decide deny "File writes through python/node scripts bypass the path guards. Use Edit or Write."
+fi
+if grep -Eq '(^|[;&|(]\s*|/)next\s+build\b' <<<"$cmd"; then
+  decide deny "next build is the orchestrator's final gate, not a per-step check. Use .claude/scripts/check-changed.sh client."
 fi
 
 # --- npm install-style commands ---

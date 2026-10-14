@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  OnboardingState,
   Review,
   Finding,
   Intent,
@@ -9,7 +12,7 @@ import {
   SmartDiff,
   SmartDiffRole,
   Conformance,
-  Onboarding,
+  OnboardingTour,
   EvalRun,
   MemoryItem,
   RunTrace,
@@ -141,8 +144,28 @@ describe('AI contracts parse fixtures', () => {
       }),
     ).not.toThrow();
     expect(() =>
-      Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
+      OnboardingTour.parse({
+        generated_at: '2026-10-14T00:00:00.000Z',
+        indexed_sha: 'abc',
+        files_indexed: 1,
+        index_status: 'full',
+        outcome: 'skeleton',
+        skeleton_reason: 'no_api_key',
+        churn_available: false,
+        truncated: false,
+        dropped_paths: 0,
+        model: null,
+        llm_calls: 0,
+        tokens_in: null,
+        tokens_out: null,
+        cost_usd: null,
+        sections: {
+          architecture: { summary: null, nodes: [], edges: [] },
+          critical_paths: [],
+          run_locally: [],
+          reading_path: [],
+          first_tasks: [],
+        },
       }),
     ).not.toThrow();
     expect(() =>
@@ -199,6 +222,68 @@ describe('AI contracts parse fixtures', () => {
     });
     expect(trace.stats.cost_usd ?? null).toBeNull();
   });
+
+  describe('project_context (SPEC-01 AC13, NFR12)', () => {
+    const base = {
+      config: { agent: 'Security Reviewer', model: 'gpt-4.1', pr: 482, source: 'local' },
+      stats: { duration_ms: 8200, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0 passed' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '{}',
+      memory_pulled: [],
+      specs_read: [],
+      log: [],
+    };
+
+    it('a stored trace with no project_context key still parses (old rows)', () => {
+      const trace = RunTrace.parse(base);
+      expect(trace.project_context ?? null).toBeNull();
+    });
+
+    it('project_context: null parses', () => {
+      expect(RunTrace.parse({ ...base, project_context: null }).project_context).toBeNull();
+    });
+
+    it('parses entries with all four statuses', () => {
+      const entry = (status: string, included: boolean) => ({
+        path: `docs/${status}.md`,
+        origin: 'agent',
+        skill_name: null,
+        status,
+        tokens: included ? 12 : null,
+        text: included ? 'doc text' : null,
+      });
+      const trace = RunTrace.parse({
+        ...base,
+        project_context: [
+          entry('included', true),
+          entry('missing', false),
+          entry('rejected', false),
+          entry('over_limit', false),
+        ],
+      });
+      expect(trace.project_context!.map((e) => e.status)).toEqual([
+        'included',
+        'missing',
+        'rejected',
+        'over_limit',
+      ]);
+    });
+
+    it('accepts a skill-origin entry with skill_name and omitted skill_name', () => {
+      const e = { path: 'a.md', origin: 'skill', status: 'included', tokens: 1, text: 't' };
+      expect(() => RunTrace.parse({ ...base, project_context: [{ ...e, skill_name: 'sk' }, e] })).not.toThrow();
+    });
+
+    it('rejects an unknown status', () => {
+      expect(() =>
+        RunTrace.parse({
+          ...base,
+          project_context: [{ path: 'a.md', origin: 'agent', status: 'skipped', tokens: null, text: null }],
+        }),
+      ).toThrow();
+    });
+  });
 });
 
 describe('platform DTOs', () => {
@@ -238,5 +323,82 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('SPEC-02 Onboarding contracts', () => {
+  const sections = {
+    architecture: {
+      summary: 'Markdown summary',
+      nodes: [{ id: 'n1', label: 'API', path: 'src/app.ts' }, { id: 'n2', label: 'DB', path: null }],
+      edges: [{ from: 'n1', to: 'n2' }],
+    },
+    critical_paths: [{ path: 'src/app.ts', why: null }],
+    run_locally: [{ command: 'pnpm install', note: null, source: 'package.json' }],
+    reading_path: [{ path: 'src/app.ts', reason: 'entry', score: 0.5 }],
+    first_tasks: [{ title: 't', why: 'w', paths: ['src/app.ts'] }],
+  };
+  const aiTour = {
+    generated_at: '2026-10-14T00:00:00.000Z',
+    indexed_sha: 'abc',
+    files_indexed: 12,
+    index_status: 'full',
+    outcome: 'ai',
+    skeleton_reason: null,
+    churn_available: false,
+    truncated: false,
+    dropped_paths: 0,
+    model: 'deepseek/deepseek-v4-flash',
+    llm_calls: 1,
+    tokens_in: 100,
+    tokens_out: 50,
+    cost_usd: null,
+    sections,
+  };
+  const skeletonTour = {
+    ...aiTour,
+    outcome: 'skeleton',
+    skeleton_reason: 'ai_failed',
+    model: null,
+    llm_calls: 0,
+    tokens_in: null,
+    tokens_out: null,
+    sections: { ...sections, architecture: { summary: null, nodes: [], edges: [] }, first_tasks: [] },
+  };
+  const index = { status: 'full', usable: true, files_indexed: 12, last_indexed_sha: null };
+
+  it('parses an ai tour and a skeleton tour', () => {
+    expect(OnboardingTour.parse(aiTour).outcome).toBe('ai');
+    expect(OnboardingTour.parse(skeletonTour).sections.architecture.summary).toBeNull();
+  });
+
+  it('parses OnboardingState none / generating / ready', () => {
+    expect(OnboardingState.parse({ status: 'none', job_id: null, index, is_stale: false, tour: null }).status).toBe('none');
+    expect(OnboardingState.parse({ status: 'generating', job_id: 'j', index, is_stale: false, tour: null }).job_id).toBe('j');
+    expect(OnboardingState.parse({ status: 'ready', job_id: null, index, is_stale: true, tour: aiTour }).is_stale).toBe(true);
+  });
+
+  it('EC13: an old-shape { sections: [...] } document does not parse as a tour', () => {
+    const old = { sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }] };
+    expect(OnboardingTour.safeParse(old).success).toBe(false);
+  });
+
+  it('rejects llm_calls above 1 and an unknown skeleton reason', () => {
+    expect(OnboardingTour.safeParse({ ...aiTour, llm_calls: 2 }).success).toBe(false);
+    expect(OnboardingTour.safeParse({ ...skeletonTour, skeleton_reason: 'other' }).success).toBe(false);
+  });
+
+  it('NFR8: the Onboarding block of the server and client contract copies is identical', () => {
+    const block = (p: string) => {
+      const text = readFileSync(resolve(__dirname, p), 'utf8');
+      const start = text.indexOf('// ---- Onboarding ----');
+      const end = text.indexOf('// ---- Eval ----');
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      return text.slice(start, end);
+    };
+    expect(block('../src/vendor/shared/contracts/knowledge.ts')).toBe(
+      block('../../client/src/vendor/shared/contracts/knowledge.ts'),
+    );
   });
 });

@@ -20,6 +20,10 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Project | Recall and record findings in `<pkg>/INSIGHTS.md` (first-party) |
 | [pr-self-review](pr-self-review/SKILL.md) | Project | Pre-PR review of local changes: routes each file to its skills, blocks on CRITICAL (first-party, v1.0.0) |
+| [spec-writing](spec-writing/SKILL.md) | Project | EARS acceptance criteria, spec template, traceability to test lanes, NFRs, IDs, revisions, self-check (first-party, v1.0.0) |
+| [ux-review](ux-review/SKILL.md) | Frontend | UI state matrix, Nielsen heuristics, WCAG 2.2 AA checklist, wording and i18n; outputs proposals, not code (first-party, v1.0.0) |
+| [run-plan](run-plan/SKILL.md) | Project | `/run-plan <slug>`: executes an approved plan to a PR-ready state — implementer per phase, verification, parallel reviews with a bounded fix loop, docs, PR gate; resumable (first-party, v1.0.0) |
+| [workflow-retro](workflow-retro/SKILL.md) | Project | `/workflow-retro [--deep]`: manual-only retrospective of a multi-agent run — tokens, agents, launch order, per-agent hard/easy/duplicated/missed, proposals; ledger in `docs/retro/ledger/` (first-party, v1.0.0) |
 
 Six of the skills above are vendored from GitHub and tracked in
 `skills-lock.json`: `drizzle-orm-patterns`, `fastify-best-practices`,
@@ -30,12 +34,12 @@ which are not currently checked out here.)
 The rest are **first-party — do not add them to the lock file**, or the next sync
 will treat them as drift and clobber them: `engineering-insights`, `pr-self-review`,
 `frontend-ui-architecture`, `onion-architecture`, `react-best-practices`, `react-testing-library`,
-`security` and `mermaid-diagram`.
+`security`, `mermaid-diagram`, `spec-writing`, `ux-review`, `run-plan` and `workflow-retro`.
 
 ## Agent routing
 
-Single source of truth for the agents that read skills (`.claude/agents/`: `planner`, `implementer`,
-`test-writer`, `architecture-reviewer`, `doc-writer`). The planner assigns skills per step from this
+Single source of truth for the agents that read skills (`.claude/agents/`: `spec-creator`, `implementation-planner`, `implementer`,
+`test-writer`, `architecture-reviewer`, `doc-writer`). The implementation-planner assigns skills per step from this
 table; the other agents read them before working. Read the `SKILL.md` of every row that matches the
 files you touch.
 
@@ -54,6 +58,8 @@ files you touch.
 | Input handling, auth, secrets, uploads, new endpoints | `security` (planned in, not reviewed by the implementer) |
 | Hard typing problems in any package | `typescript-expert` |
 | Recording a non-obvious finding | `engineering-insights` |
+| Writing a spec (`specs/`, `<pkg>/specs/`) — requirements only, never implementation choices | `security` (Agentic AI, A06, sink-specific sections) for untrusted inputs · `zod` (object schemas) when the spec has Contracts · `ux-review` when client UI is touched · `mermaid-diagram` for Workflow · `spec-writing` always (spec-creator only) |
+| Reading a spec as input: reviewing it, mapping ACs to steps and tests, verifying ACs (`implementation-planner`, `test-writer`, `plan-verifier`) | `spec-writing` (`references/ears.md` "Verify by", `references/self-check.md` "For reviewers of a spec") — read-only; never edit the spec |
 
 Reading order for both agents: root `AGENTS.md` → `<pkg>/AGENTS.md` → `<pkg>/INSIGHTS.md` → routed
 `SKILL.md` files. Plans live in `.claude/plans/<task-slug>.md` (git-ignored, deleted after the work is

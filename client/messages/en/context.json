@@ -1,24 +1,35 @@
 {
   "title": "Project Context",
-  "chunks": "{count} chunks",
-  "reindex": "Re-index",
-  "indexing": "Indexing…",
-  "resync": "Resync",
-  "resyncing": "Resyncing…",
-  "indexStatus": "Index status: {status}",
-  "loadError": "Couldn’t load specs",
-  "kb": "{kb}kb",
+  "subtitle": "Markdown docs in {repo} that agents and skills can read as grounding context.",
+  "loadError": "Couldn’t load project context",
+  "footer": "{files} files · {tokens} tokens total",
+  "usedBy": "Used by {count} agents",
+  "rescan": "Rescan",
+  "truncated": "Too many files — the list is truncated. Only the first files found are shown.",
+  "cloneUnavailable": "The repository clone isn’t available yet. Refresh the repository and try again.",
+  "retry": "Retry",
+  "previewError": "Couldn’t preview this file.",
+  "previewTooLarge": "This file is too large to preview.",
+  "selectDoc": "Select a document to preview it",
+  "tokens": "~{count} tok",
+  "listLabel": "Project context documents",
   "empty": {
-    "title": "No spec files yet",
-    "body": "Drop your PRDs, tech specs, and acceptance criteria under .devdigest/specs/. Every agent and the PR brief read them as grounding context."
+    "title": "No context docs found",
+    "body": "Add Markdown docs under {roots} in the repository, then rescan. Agents and skills can attach them as grounding context."
   },
-  "mode": {
-    "preview": "preview",
-    "edit": "edit"
-  },
-  "editor": {
-    "loadError": "Couldn’t load spec",
-    "save": "Save",
-    "saving": "Saving…"
+  "picker": {
+    "attachedOfTotal": "{attached} of {total} attached",
+    "attachedCount": "{attached} attached",
+    "footerTokens": "≈ {tokens} tokens per prompt",
+    "filterLabel": "Filter documents",
+    "filterPlaceholder": "Filter by path…",
+    "noMatch": "No documents match your filter",
+    "clearFilter": "Clear filter",
+    "missing": "missing",
+    "preview": "Preview {path}",
+    "closePreview": "Close preview",
+    "empty": "No context docs in this repository yet",
+    "saving": "Saving…",
+    "saveError": "Could not save the attached documents. Try again."
   }
 }

@@ -9,7 +9,7 @@
     "**/package-lock.json",
     "**/*.{png,jpg,jpeg,gif,svg,ico,webp,woff,woff2}"
   ],
-  "notReviewSkills": ["mermaid-diagram", "engineering-insights", "pr-self-review"],
+  "notReviewSkills": ["mermaid-diagram", "engineering-insights", "pr-self-review", "spec-writing", "ux-review", "run-plan"],
   "rules": [
     {
       "skill": "frontend-ui-architecture",

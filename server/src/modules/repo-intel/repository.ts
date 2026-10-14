@@ -458,6 +458,21 @@ export class RepoIntelRepository {
       .limit(limit);
   }
 
+  /** Every `file_rank` row for a repo, ordered rank DESC then path ASC. */
+  async getRankedFileRows(
+    repoId: string,
+  ): Promise<Array<{ filePath: string; pagerank: number; hotness: number }>> {
+    return this.db
+      .select({
+        filePath: t.fileRank.filePath,
+        pagerank: t.fileRank.pagerank,
+        hotness: t.fileRank.hotness,
+      })
+      .from(t.fileRank)
+      .where(eq(t.fileRank.repoId, repoId))
+      .orderBy(desc(t.fileRank.rank), asc(t.fileRank.filePath));
+  }
+
   /** Repo-map candidates: symbols with a signature, joined to rank, ordered. */
   async getRepoMapCandidates(repoId: string): Promise<RepoMapCandidateRow[]> {
     return this.db

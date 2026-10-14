@@ -1,6 +1,6 @@
 # Spec: Onboarding Tour
 Spec ID: SPEC-02
-Status: approved
+Status: implemented
 Supersedes: None
 Modules: server, client, e2e
 

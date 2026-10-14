@@ -35,6 +35,9 @@ const EnvSchema = z.object({
   PROMPT_LOG_VERBOSE: z.string().optional(),
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
+  // Project-context search roots: `;`-separated globs (`**`, `*`, `{a,b}`) matched
+  // against repo-relative paths. `;` because the default glob contains commas.
+  PROJECT_CONTEXT_ROOTS: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
   // valid enum member, so coerce '' → undefined to fall through to the default.
@@ -71,7 +74,11 @@ export type AppConfig = {
   promptLogVerbose: boolean;
   /** Set when PROMPT_LOG_VERBOSE was requested but refused; logged once at boot. */
   promptLogVerboseIgnoredReason: string | null;
+  /** Globs (repo-relative) that select which Markdown docs count as project context. */
+  projectContextRoots: string[];
 };
+
+const DEFAULT_PROJECT_CONTEXT_ROOTS = ['**/{specs,docs,insights}/**/*.md'];
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
@@ -101,6 +108,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     parsed.NODE_ENV,
     parsed.API_HOST,
   );
+  const projectContextRoots = (parsed.PROJECT_CONTEXT_ROOTS ?? '')
+    .split(';')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
   return {
     databaseUrl: parsed.DATABASE_URL,
     apiPort: parsed.API_PORT,
@@ -115,5 +126,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
     promptLogVerbose: verbose.enabled,
     promptLogVerboseIgnoredReason: verbose.ignoredReason,
+    projectContextRoots: projectContextRoots.length > 0 ? projectContextRoots : DEFAULT_PROJECT_CONTEXT_ROOTS,
   };
 }

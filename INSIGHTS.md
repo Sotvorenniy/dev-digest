@@ -47,6 +47,26 @@ any contract that parses persisted JSON rather than a fresh request payload.
 Evidence: `server/src/vendor/shared/contracts/trace.ts:65`,
 `server/test/contracts.test.ts` ("parses a stored trace with no cost_usd key")
 
+### The implementer cannot apply a plan-sanctioned vendor edit
+`2026-10-14` — `implementer-path-guard.sh` denies every `*/src/vendor/*` path
+except the paired `shared` contracts, even when the plan names the edit as an
+approved exception (Project Context added one line to
+`client/src/vendor/ui/nav.ts`). Plan such edits as a main-session step with
+user approval; `client/src/components/app-shell/nav.test.tsx` asserts the
+WORKSPACE keys and must change with it.
+Evidence: `.claude/hooks/implementer-path-guard.sh:23-24`
+
+### Agent path-guard hooks resolve paths against the session cwd, not the repo root
+`2026-10-14` — The `*-path-guard.sh` hooks take `root` from the hook input
+`.cwd` and strip it from the file path. A subagent launched while the main
+session's cwd is `server/` gets every write denied with "test-writer edits
+tests only (<path> is not a test file)": a `reviewer-core/...` path stays
+absolute and `server/test/x` becomes `test/x`. Keep the main session at the
+repo root (no `cd <pkg> && ...`) before spawning a writer agent. The
+implementer, doc-writer, planner and spec-creator guards read `.cwd` the same
+way.
+Evidence: `.claude/hooks/test-writer-path-guard.sh:8`
+
 ## Codebase Patterns
 <!-- Conventions and architectural decisions, with the reason. -->
 

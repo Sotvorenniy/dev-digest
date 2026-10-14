@@ -1,0 +1,9 @@
+[
+{"agent":"architecture-reviewer","findings":[{"severity":"LOW","confidence":"high","rule":"client AGENTS.md: component folder always has Name.tsx + styles.ts + index.ts","file":"client/src/app/agents/[id]/_components/AgentEditor/_components/ContextTab/ContextTab.tsx","symbol":"ContextTab","line":1,"summary":"New component folders (agent/skill ContextTab, DocList, DocPreview, ProjectContextSection) lack styles.ts; sibling tabs have one."}]},
+{"agent":"security-reviewer","findings":[
+{"severity":"LOW","confidence":"medium","rule":"A03-prompt-injection-delimiter","file":"reviewer-core/src/prompt.ts","symbol":"wrapUntrusted","line":47,"summary":"Only exact lowercase </untrusted> is neutralised; case or whitespace variants in doc text can close the block"},
+{"severity":"LOW","confidence":"medium","rule":"A04-sensitive-data-persistence","file":"server/src/modules/project-context/domain.ts","symbol":"buildProjectContext","line":103,"summary":"Full doc text persisted in run trace without redactSecrets"},
+{"severity":"LOW","confidence":"medium","rule":"A01-toctou-symlink","file":"server/src/adapters/project-docs/fs-project-docs.ts","symbol":"FsProjectDocs.read/resolveDoc","line":183,"summary":"Realpath check and read are separate steps; a symlink swap between them could escape the clone (needs a race against git ops)"},
+{"severity":"LOW","confidence":"medium","rule":"A05-link-handling","file":"client/src/vendor/ui/primitives/Markdown.tsx","symbol":"Markdown","line":32,"summary":"Doc links render as live anchors without rel attributes; no XSS since raw HTML is off"}
+]}
+]

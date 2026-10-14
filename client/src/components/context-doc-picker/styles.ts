@@ -1,0 +1,52 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for ContextDocPicker and its DocPreviewPanel child. */
+export const s = {
+  wrap: { maxWidth: 760 } satisfies CSSProperties,
+  header: { display: "flex", alignItems: "center", gap: 12, marginBottom: 12 } satisfies CSSProperties,
+  count: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  saveError: { fontSize: 13, color: "var(--crit)", marginBottom: 12 } satisfies CSSProperties,
+  filter: { marginBottom: 14 } satisfies CSSProperties,
+  filterLabel: { display: "block", fontSize: 12, color: "var(--text-muted)", marginBottom: 6 } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+  row: (attached: boolean): CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+    opacity: attached ? 1 : 0.85,
+  }),
+  checkbox: { width: 16, height: 16, flexShrink: 0, cursor: "pointer" } satisfies CSSProperties,
+  path: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  tokens: { fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  noMatch: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    padding: "12px 0",
+  } satisfies CSSProperties,
+  footer: { marginTop: 12, fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  panel: {
+    marginTop: 14,
+    padding: 16,
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--bg-elevated)",
+  } satisfies CSSProperties,
+  panelHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } satisfies CSSProperties,
+  panelPath: { flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-all" } satisfies CSSProperties,
+  panelBody: { fontSize: 13, maxHeight: "40vh", overflowY: "auto", overflowWrap: "anywhere" } satisfies CSSProperties,
+  panelMessage: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+} as const;

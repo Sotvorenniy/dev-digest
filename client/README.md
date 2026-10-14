@@ -27,12 +27,16 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
+  PULLS --> CONTEXT["/repos/:repoId/context<br/>Project Context docs"]
+  PULLS --> TOUR["/repos/:repoId/onboarding<br/>Onboarding Tour"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · context)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
-  AGENTS -->|"/agents · /agents/:id"| API
+  AGENTS -->|"/agents · /agents/:id · /agents/:id/context"| API
+  CONTEXT -->|"GET /repos/:id/context · /repos/:id/context/file"| API
+  TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 

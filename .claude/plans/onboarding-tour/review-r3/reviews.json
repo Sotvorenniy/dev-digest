@@ -1,0 +1,10 @@
+[
+  {
+    "agent": "security-reviewer",
+    "findings": [],
+    "confirmed_fixed": [
+      "S-1",
+      "S-3"
+    ]
+  }
+]
