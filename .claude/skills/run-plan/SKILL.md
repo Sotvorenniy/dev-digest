@@ -44,6 +44,19 @@ Then create `.claude/plans/<slug>/` with `state.json` (schema in
 root `INSIGHTS.md` and name the entries that apply. On `--resume`, a changed plan hash is a
 question to the user (restart from `build`, or continue).
 
+Also record at intake (once; `--resume` keeps the stored values):
+
+- **`base_sha`** = `git rev-parse HEAD`, taken after the spec and plan are committed. Every
+  `bundle.mjs` and pr-self-review command in this run is prefixed with
+  `PR_SELF_REVIEW_BASE=<base_sha>`. Without the prefix both diff against `origin/main`, which
+  pulls in earlier commits on the branch that are not part of this run (one run reviewed 276 files
+  instead of 51). Say in the R7 summary that the review covers `base_sha..HEAD` only.
+- **`push_ready`** (preflight; it warns and never stops the run): `command -v gh`, then
+  `gh auth status` when `gh` exists. If `gh` is missing and `git remote get-url origin` is
+  `https://…` with no `git config --get credential.helper`, set `push_ready: false` and tell the
+  user now that they will push and open the PR themselves at G2. Never print or read credential
+  values, and never run `git push` here, not even with `--dry-run`: the gate hooks block it.
+
 ## Run folder
 
 ```
@@ -74,7 +87,7 @@ or blocked stage stays current, so `--resume` restarts it.
 
 ### R3 — Review loop (max `--max-review-rounds`, default 3)
 Follow [`references/review-loop.md`](references/review-loop.md) exactly. In short:
-1. `node .claude/skills/pr-self-review/scripts/bundle.mjs write`; round 2+ compares `hashes.json` with the previous round to list touched files.
+1. `PR_SELF_REVIEW_BASE=<base_sha> node .claude/skills/pr-self-review/scripts/bundle.mjs write`; round 2+ compares `hashes.json` with the previous round to list touched files.
 2. `architecture-reviewer` and `security-reviewer` **in parallel** (one message, two Agent calls).
 3. Merge into `findings.json` with stable IDs; confirm or reopen findings of earlier rounds; save the reviewers' Findings JSON to `reviews.json`.
 4. Triage: CRITICAL / HIGH must be fixed. **MEDIUM: ask the user every round** (fix / accept / defer). LOW: logged only.
@@ -97,8 +110,8 @@ and the files changed since it. Missing tests go back to `test-writer`, missing 
 - Run `/engineering-insights` (capture phase) with the "suggested INSIGHTS entries" from the reports.
 
 ### R7 — PR gate
-- Run `/pr-self-review`. It reuses `reviews.json` for files unchanged since the last bundle. A CRITICAL there gets the same triage and routing as R3 (one extra round, same escalation rules).
-- **Gate G2:** show the summary below and ask before any commit, push or `gh pr create`. Commit and PR text follow the root `AGENTS.md` Git rules and the user's PR-description preference.
+- Run `/pr-self-review` with `PR_SELF_REVIEW_BASE=<base_sha>` exported for every script it runs. It reuses `reviews.json` for files unchanged since the last bundle. A CRITICAL there gets the same triage and routing as R3 (one extra round, same escalation rules).
+- **Gate G2:** show the summary below and ask before any commit, push or `gh pr create`. Push as `PR_SELF_REVIEW_BASE=<base_sha> git push …`, so the git `pre-push` gate checks the same base as the verdict. With `push_ready: false`, hand the user that exact command (as `! …`) and the PR description file instead of trying. Commit and PR text follow the root `AGENTS.md` Git rules and the user's PR-description preference.
 - After the PR is open, ask whether to delete `.claude/plans/<slug>*`.
 
 ## Final summary (end of run or on stop)

@@ -12,6 +12,8 @@ Both files live in `.claude/plans/<slug>/` and are written only by the main sess
   "stage": "review",
   "stage_status": "running",
   "plan": { "path": ".claude/plans/pr-filters.md", "sha256": "…", "mode": "multi-agent", "phases_done": [1, 2] },
+  "base_sha": "f6bde8df618cca5c63aced15199b2648ad270ee2",
+  "push_ready": true,
   "spec": { "path": "client/specs/2026-10-10-pr-filters.md", "id": "SPEC-07" },
   "options": { "with_tests": false, "docs": true, "max_review_rounds": 3 },
   "gates": { "G1": [], "G2": null },
@@ -22,6 +24,8 @@ Both files live in `.claude/plans/<slug>/` and are written only by the main sess
 ```
 
 - `stage`: `intake | build | verify | review | reverify | tests | docs | pr | done | stopped`.
+- `base_sha`: `HEAD` at intake (after the spec and plan commits). It is the `PR_SELF_REVIEW_BASE` for every bundle and self-review command in the run.
+- `push_ready`: result of the R0 push preflight. When it is `false`, the user pushes and opens the PR at G2.
 - `stage_status`: `running | blocked | waiting_user | done`.
 - `review.open_critical_high`: count per round. The loop compares the last two values for the
   "growing count" escalation.

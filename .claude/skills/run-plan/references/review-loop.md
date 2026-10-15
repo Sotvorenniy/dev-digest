@@ -13,7 +13,7 @@ loop:
 ## 1. Build the input
 
 ```bash
-node .claude/skills/pr-self-review/scripts/bundle.mjs write
+PR_SELF_REVIEW_BASE=<base_sha> node .claude/skills/pr-self-review/scripts/bundle.mjs write   # base_sha from state.json
 cp .devdigest/cache/review-bundle/hashes.json .claude/plans/<slug>/review-r<N>/hashes.json
 ```
 
