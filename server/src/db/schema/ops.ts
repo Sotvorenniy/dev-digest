@@ -18,6 +18,8 @@ export const jobs = pgTable(
       .notNull()
       .default('queued'),
     attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(5),
+    lastRetryAt: timestamp('last_retry_at', { withTimezone: true }),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }).defaultNow().notNull(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),

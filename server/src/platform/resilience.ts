@@ -1,3 +1,5 @@
+import pRetry from 'p-retry';
+
 /**
  * resilience primitives: timeouts on every external call + retry with
  * exponential backoff on transient failures (rate-limit / 5xx).
@@ -27,9 +29,17 @@ export interface RetryOptions {
   retries?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
-  /** Decide whether an error is retryable (rate-limit / 5xx by default). */
+  /** Decide whether an error is retryable (rate-limit / 5xx / network by default). */
   isRetryable?: (err: unknown) => boolean;
   onRetry?: (attempt: number, err: unknown) => void;
+}
+
+/** Process-wide defaults, set once at boot from AppConfig. */
+const defaults = { retries: 5, maxDelayMs: 30_000 };
+
+export function configureRetryDefaults(opts: { retries: number; maxDelayMs: number }): void {
+  defaults.retries = opts.retries;
+  defaults.maxDelayMs = opts.maxDelayMs;
 }
 
 function defaultIsRetryable(err: unknown): boolean {
@@ -37,29 +47,21 @@ function defaultIsRetryable(err: unknown): boolean {
     (err as { status?: number })?.status ??
     (err as { statusCode?: number })?.statusCode ??
     (err as { response?: { status?: number } })?.response?.status;
-  if (typeof status === 'number') return status === 429 || status >= 500;
-  // network-ish errors
-  const code = (err as { code?: string })?.code;
-  return code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND';
+  if (typeof status === 'number') return status === 408 || status === 429 || status >= 500;
+  // No HTTP status: treat as a transient network failure and retry.
+  return true;
 }
 
 export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions = {}): Promise<T> {
-  const retries = opts.retries ?? 3;
-  const base = opts.baseDelayMs ?? 250;
-  const max = opts.maxDelayMs ?? 8000;
   const isRetryable = opts.isRetryable ?? defaultIsRetryable;
-
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      if (attempt === retries || !isRetryable(err)) break;
-      opts.onRetry?.(attempt + 1, err);
-      const delay = Math.min(max, base * 2 ** attempt) + Math.random() * base;
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  throw lastErr;
+  return pRetry(fn, {
+    retries: opts.retries ?? defaults.retries,
+    minTimeout: opts.baseDelayMs ?? 250,
+    maxTimeout: opts.maxDelayMs ?? defaults.maxDelayMs,
+    randomize: true,
+    shouldRetry: (err) => isRetryable(err),
+    onFailedAttempt: (err) => {
+      if (isRetryable(err)) opts.onRetry?.(err.attemptNumber, err);
+    },
+  });
 }
