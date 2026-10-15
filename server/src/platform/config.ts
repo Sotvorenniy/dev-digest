@@ -34,6 +34,10 @@ const EnvSchema = z.object({
   // Honoured only in NODE_ENV=development AND a loopback API_HOST.
   PROMPT_LOG_VERBOSE: z.string().optional(),
   WEB_PORT: z.coerce.number().int().default(3000),
+  // Global retry budget for external calls (GitHub, LLM providers, jobs).
+  // Applied by platform/resilience.ts when a caller passes no explicit `retries`.
+  RETRY_MAX_ATTEMPTS: z.coerce.number().int().min(0).default(5),
+  RETRY_MAX_DELAY_MS: z.coerce.number().int().min(0).default(30_000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
@@ -67,6 +71,10 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /** Default retry count for external calls (RETRY_MAX_ATTEMPTS). */
+  retryMaxAttempts: number;
+  /** Upper bound for a single backoff delay (RETRY_MAX_DELAY_MS). */
+  retryMaxDelayMs: number;
   /** Effective verbose prompt-log mode (already gated: dev + loopback only). */
   promptLogVerbose: boolean;
   /** Set when PROMPT_LOG_VERBOSE was requested but refused; logged once at boot. */
@@ -113,6 +121,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    retryMaxAttempts: parsed.RETRY_MAX_ATTEMPTS,
+    retryMaxDelayMs: parsed.RETRY_MAX_DELAY_MS,
     promptLogVerbose: verbose.enabled,
     promptLogVerboseIgnoredReason: verbose.ignoredReason,
   };

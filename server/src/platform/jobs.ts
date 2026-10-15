@@ -70,7 +70,7 @@ export class JobRunner {
 
     const [row] = await this.db
       .insert(t.jobs)
-      .values({ workspaceId, kind, payload: payload as object, status: 'queued' })
+      .values({ workspaceId, kind, payload: payload as object, status: 'queued', maxAttempts: (this.kindOptions.get(kind)?.retries ?? this.retries) + 1 })
       .returning({ id: t.jobs.id });
     const jobId = row!.id;
     const kindOpts = this.kindOptions.get(kind);
@@ -96,7 +96,7 @@ export class JobRunner {
             onRetry: async (attempt) => {
               await this.db
                 .update(t.jobs)
-                .set({ attempts: attempt })
+                .set({ attempts: attempt, lastRetryAt: new Date() })
                 .where(eq(t.jobs.id, jobId));
             },
           },

@@ -11,6 +11,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { configureRetryDefaults } from './platform/resilience.js';
 import { loadConfig, type AppConfig } from './platform/config.js';
 import { createDb, type Db } from './db/client.js';
 import { Container, type ContainerOverrides } from './platform/container.js';
@@ -40,6 +41,7 @@ export interface BuildAppOptions {
  */
 export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInstance> {
   const config = opts.config ?? loadConfig();
+  configureRetryDefaults({ retries: config.retryMaxAttempts, maxDelayMs: config.retryMaxDelayMs });
   const handle = opts.db ? null : createDb(config.databaseUrl);
   const db = opts.db ?? handle!.db;
 
