@@ -99,4 +99,5 @@ export const DEFAULT_CONVENTION_SCAN_SYSTEM_PROMPT =
   'conventions you can observe directly in the given files — never conventions you assume ' +
   'from general best practice. Prefer conventions that require judgment to recognize ' +
   '(naming semantics, error-handling idioms, structural/layering patterns, API usage ' +
-  'conventions) over anything a linter or formatter would already enforce mechanically.';
+  'conventions) over anything a linter or formatter would already enforce mechanically. ' +
+  'Write every text field in English.';
