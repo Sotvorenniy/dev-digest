@@ -71,6 +71,14 @@ named-and-default `index.ts` from AGENTS.md. Follow the repo's actual pattern
 until the skill is reconciled; the skill was deliberately not edited.
 Evidence: `.claude/skills/frontend-ui-architecture/SKILL.md:42`
 
+### A FileCard "start open" rule must live in the derived default, not in useState's initial value
+`2026-10-15` — `FileCard` keeps `manualOpen` (null until the user toggles)
+and derives `open = manualOpen ?? default`. A `useState` initial value ignores
+later prop changes, so a focus target that arrives after the list mounted
+(late Smart Diff load) would stay collapsed. Put any new auto-open condition in
+the default expression.
+Evidence: `client/src/components/diff-viewer/FileCard/FileCard.tsx:53-54`
+
 ## Tool & Library Notes
 <!-- Quirks of Next 15, React 19, TanStack Query, next-intl, the bundler. -->
 
@@ -158,6 +166,14 @@ still gets exercised: `vi.mock("@uiw/react-codemirror", () => ({ default: (p)
 /> }))`.
 Evidence: `client/src/components/skill-body-editor/SkillBodyEditor/SkillBodyEditor.tsx`,
 `client/src/app/skills/[id]/_components/SkillEditor/SkillEditor.test.tsx`
+
+### `@testing-library/user-event` is not installed — use `fireEvent` and `el.focus()`
+`2026-10-15` — `client/package.json` has no `user-event`, so
+`userEvent.click()` / `userEvent.tab()` fail to import. Use `fireEvent`, as the
+neighbouring tests do. For keyboard reachability, assert `el.focus()` plus
+`toHaveFocus()`. Adding the dependency needs the pnpm workaround.
+Evidence: `client/package.json`,
+`client/src/app/repos/[repoId]/pulls/[number]/_components/OverviewTab/_components/PrBriefCard/PrBriefCard.test.tsx`
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->

@@ -1,0 +1,54 @@
+{
+  "slug": "pr-why-risk-brief",
+  "created_at": "2026-10-15T00:00:00Z",
+  "updated_at": "2026-10-15T19:04:03.796124Z",
+  "stage": "done",
+  "stage_status": "done",
+  "plan": {
+    "path": ".claude/plans/pr-why-risk-brief.md",
+    "sha256": "2a590f516aaded11749b4a27022e285dcf2eee3a5a3f8397d877d79bfcab8ef0",
+    "mode": "multi-agent",
+    "phases_done": [
+      1,
+      2,
+      "3a",
+      "3b"
+    ]
+  },
+  "spec": {
+    "path": "specs/2026-10-15-pr-why-risk-brief.md",
+    "id": "SPEC-03"
+  },
+  "options": {
+    "with_tests": true,
+    "docs": true,
+    "max_review_rounds": 3
+  },
+  "gates": {
+    "G1": [],
+    "G2": {
+      "answer": "commit + push + PR; MEDIUM page.test.tsx deferred",
+      "at": "2026-10-15"
+    }
+  },
+  "verify": {
+    "code_rounds": 1,
+    "code_verdict": "COMPLETE",
+    "final_verdict": "COMPLETE"
+  },
+  "review": {
+    "round": 1,
+    "open_critical_high": [
+      0
+    ]
+  },
+  "reports": [
+    "reports/implementation-p1.md",
+    "reports/implementation-p2.md",
+    "reports/implementation-p3a.md",
+    "reports/implementation-p3b.md",
+    "reports/verify-code-r1.md",
+    "reports/tests.md",
+    "reports/verify-final-r1.md"
+  ]
+}

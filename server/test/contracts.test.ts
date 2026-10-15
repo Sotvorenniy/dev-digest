@@ -19,6 +19,7 @@ import {
   Settings,
   Repo,
   PrDetail,
+  PrBrief,
 } from '@devdigest/shared';
 
 /**
@@ -399,6 +400,58 @@ describe('SPEC-02 Onboarding contracts', () => {
     };
     expect(block('../src/vendor/shared/contracts/knowledge.ts')).toBe(
       block('../../client/src/vendor/shared/contracts/knowledge.ts'),
+    );
+  });
+});
+
+describe('PrBrief contract (SPEC-03)', () => {
+  const risk = { kind: 'k', title: 't', explanation: 'e', severity: 'low' as const, file_refs: ['a.ts:1'] };
+  const full = {
+    summary: 's',
+    intent: { intent: 'i', in_scope: [], out_of_scope: [] },
+    blast: null,
+    risks: { risks: [risk] },
+    history: null,
+    review_focus: [{ file: 'a.ts', line: 3, reason: 'r' }],
+    head_sha: 'abc',
+    generated_at: '2026-01-01T00:00:00.000Z',
+    missing_inputs: [{ input: 'intent', reason: 'stale' }],
+    specs_used: ['docs/a.md'],
+    truncated: { files: 1, description: false, issue_body: true, callers: 400, blast_summary: true },
+    dropped: { review_focus: 1, risks: 0, file_refs: 2 },
+    model: 'm',
+    tokens_in: 10,
+    tokens_out: 5,
+    cost_usd: 0.01,
+  };
+
+  it('parses a full fixture including truncated.callers and truncated.blast_summary', () => {
+    const r = PrBrief.safeParse(full);
+    expect(r.success).toBe(true);
+    expect(r.data?.truncated?.callers).toBe(400);
+    expect(r.data?.truncated?.blast_summary).toBe(true);
+  });
+
+  it('parses a minimal old-shape JSON (later fields are nullish)', () => {
+    expect(PrBrief.safeParse({ intent: null, blast: null, risks: { risks: [] } }).success).toBe(true);
+  });
+
+  it('rejects 9 risks and 9 focus items', () => {
+    expect(PrBrief.safeParse({ ...full, risks: { risks: Array(9).fill(risk) } }).success).toBe(false);
+    expect(PrBrief.safeParse({ ...full, review_focus: Array(9).fill(full.review_focus[0]) }).success).toBe(false);
+  });
+
+  it('rejects focus line 0 and an unknown missing-input reason', () => {
+    expect(PrBrief.safeParse({ ...full, review_focus: [{ file: 'a', line: 0, reason: 'r' }] }).success).toBe(false);
+    expect(
+      PrBrief.safeParse({ ...full, missing_inputs: [{ input: 'intent', reason: 'weird' }] }).success,
+    ).toBe(false);
+  });
+
+  it('the server and client brief.ts copies are byte-identical', () => {
+    const read = (p: string) => readFileSync(resolve(__dirname, p), 'utf8');
+    expect(read('../src/vendor/shared/contracts/brief.ts')).toBe(
+      read('../../client/src/vendor/shared/contracts/brief.ts'),
     );
   });
 });

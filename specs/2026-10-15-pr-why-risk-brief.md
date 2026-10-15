@@ -1,6 +1,6 @@
 # Spec: PR Why + Risk Brief
 Spec ID: SPEC-03
-Status: approved
+Status: implemented
 Supersedes: None
 Modules: server, client, e2e
 

@@ -10,6 +10,7 @@ import {
   API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 import { seedSkills } from './seed-skills.js';
+import { SEED_PR_482_CONFIG_PATCH, seedBrief } from './seed-brief.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -126,7 +127,7 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     await db.insert(t.prFiles).values([
       { prId: pr!.id, path: 'src/middleware/ratelimit.ts', additions: 84, deletions: 0 },
       { prId: pr!.id, path: 'src/api/public/webhooks.ts', additions: 31, deletions: 6 },
-      { prId: pr!.id, path: 'src/config.ts', additions: 4, deletions: 0 },
+      { prId: pr!.id, path: 'src/config.ts', additions: 4, deletions: 0, patch: SEED_PR_482_CONFIG_PATCH },
       { prId: pr!.id, path: 'src/api/users.ts', additions: 7, deletions: 2 },
     ]);
 
@@ -179,6 +180,8 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         confidence: 0.86,
       },
     ]);
+
+    await seedBrief(db, pr!.id);
   }
 
   // ---- built-in agents (the three starter presets) ----

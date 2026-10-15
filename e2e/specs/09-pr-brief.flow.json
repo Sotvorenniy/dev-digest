@@ -1,0 +1,25 @@
+{
+  "name": "PR detail Overview shows the seeded Why & risk brief and a focus link opens the diff",
+  "description": "From PR #482, the Overview tab renders the seeded brief (summary, a risk title, review-focus links) without any model call, the brief survives a reload, and clicking the review-focus link src/config.ts:11 lands on the Files changed tab with ?tab=diff&file=src%2Fconfig.ts and the file rendered. Read-only: Generate and Refresh are never clicked, so no key and no LLM are needed. Assumes a freshly-seeded DB where PR #482 carries the seed brief (see e2e/README.md). The scroll and highlight of the focused line are not asserted here (the runner has no layout check); they are covered in DiffTab.test.tsx.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail and brief fetch settle" },
+    { "cmd": ["wait", "--text", "Why & risk brief"], "label": "the brief card renders on the Overview tab" },
+    { "cmd": ["wait", "--text", "Adds a token-bucket rate limiter in front of the public API"], "label": "the seeded summary renders" },
+    { "cmd": ["wait", "--text", "Limits are hard-coded defaults"], "label": "a seeded risk title renders" },
+    { "cmd": ["wait", "--text", "Review focus"], "label": "the review focus block renders" },
+    { "cmd": ["open", "{BASE}/"], "label": "re-open the app root (stands in for a reload)" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list again" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row again" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "back on the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "the stored brief is fetched again" },
+    { "cmd": ["wait", "--text", "Adds a token-bucket rate limiter in front of the public API"], "label": "the brief is still there, read from storage rather than regenerated" },
+    { "cmd": ["find", "text", "src/config.ts:11", "click"], "label": "click the review-focus link" },
+    { "cmd": ["wait", "--url", "tab=diff"], "label": "the diff tab is active in the URL" },
+    { "cmd": ["wait", "--url", "file=src%2Fconfig.ts"], "label": "the focus file is in the URL" },
+    { "cmd": ["wait", "--text", "src/config.ts"], "label": "the focused file renders in the diff viewer" }
+  ]
+}

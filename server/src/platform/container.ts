@@ -49,6 +49,8 @@ import { ProjectContextRepository } from '../modules/project-context/repository.
 import { ProjectContextService } from '../modules/project-context/service.js';
 import { OnboardingRepository } from '../modules/onboarding/repository.js';
 import { OnboardingService } from '../modules/onboarding/service.js';
+import { BriefRepository } from '../modules/brief/repository.js';
+import { BriefService } from '../modules/brief/service.js';
 import { LLM_TIMEOUT_MS, ONBOARDING_JOB_KIND } from '../modules/onboarding/constants.js';
 import { loadPromptTemplate } from './prompts.js';
 import { EXCLUDED_DIRS } from '../modules/repo-intel/constants.js';
@@ -123,6 +125,7 @@ export class Container {
   private _rootFiles?: RootFilesPort;
   private _projectContextService?: ProjectContextService;
   private _onboardingService?: OnboardingService;
+  private _briefService?: BriefService;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -279,6 +282,23 @@ export class Container {
       llm: (provider) => this.llmSingleShot(provider),
       resolveModel: (workspaceId) => this.resolveFeatureModelFor(workspaceId, 'onboarding'),
       systemPrompt: () => loadPromptTemplate('onboarding.system.md'),
+    }));
+  }
+
+  /**
+   * PR brief. MUST be memoized: the in-flight map lives on the instance and joining
+   * a running generation depends on a single instance.
+   */
+  get briefService(): BriefService {
+    return (this._briefService ??= new BriefService({
+      repo: new BriefRepository(this.db),
+      intent: this.intentRepo,
+      blast: this.blastService,
+      issues: { getIssue: async (r, n) => (await this.github()).getIssue(r, n) },
+      docs: this.projectDocs,
+      llm: (provider) => this.llmSingleShot(provider),
+      resolveModel: (workspaceId) => this.resolveFeatureModelFor(workspaceId, 'risk_brief'),
+      systemPrompt: () => loadPromptTemplate('brief.system.md'),
     }));
   }
 

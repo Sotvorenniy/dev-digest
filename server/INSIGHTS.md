@@ -152,6 +152,13 @@ terminal. Security review raised it twice (MEDIUM, then LOW for `&`, `>`,
 Evidence: `server/src/modules/onboarding/domain.ts:120`,
 `server/test/onboarding-domain.test.ts`
 
+### Seed fixture changes reach only a fresh DB — PR #482 rows are written inside `if (!pr)`
+`2026-10-15` — `seed.ts` inserts PR #482's files, review and brief only when
+the PR does not exist yet, so editing a seeded patch or adding a seeded row
+does nothing on an existing dev DB. The hermetic e2e stack (fresh DB) sees the
+change; your dev DB does not. Check a seed change against a fresh DB.
+Evidence: `server/src/db/seed.ts:106`, `server/src/db/seed-brief.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
@@ -238,6 +245,17 @@ classifier or a longer timeout. In the same `--it` lane
 `conventions-rescan-preserves-decisions.it.test.ts:144` failed reproducibly
 with no conventions change.
 Evidence: `server/test/reviews.it.test.ts` (`waitForPrRuns`)
+`2026-10-15` — The trigger is the local `server/.env`: a clean HEAD worktree
+without it passes `reviews.it` 6/6, and copying `server/.env` into that
+worktree reproduces the `waitForPrRuns` hang. Run the lane without
+`server/.env` to tell a real regression from this flake.
+
+### A per-route `rateLimit` never fires under NODE_ENV=test — a 429 test needs its own dev app
+`2026-10-15` — `app.ts` registers `@fastify/rate-limit` only when
+`nodeEnv !== 'test'`, so a route's `config.rateLimit` is silently ignored in
+the normal test app and the 11th POST still returns 200. For the 429 case,
+build a separate app with `NODE_ENV=development` and `API_HOST=127.0.0.1`.
+Evidence: `server/src/app.ts:110`, `server/test/brief.it.test.ts:256`
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->

@@ -8,6 +8,15 @@ export interface Line {
   newNo?: number;
 }
 
+/** A file (and optionally a new-side line) the viewer should expand, scroll to and highlight. */
+export interface DiffFocus {
+  file: string;
+  line: number | null;
+}
+
+/** Claims a one-time scroll for a `file:line` key; true only the first time. */
+export type ClaimScroll = (key: string) => boolean;
+
 /** Parse unified-diff patch text into renderable lines with old/new line numbers. */
 export function parsePatch(patch: string | null | undefined): Line[] {
   if (!patch) return [];

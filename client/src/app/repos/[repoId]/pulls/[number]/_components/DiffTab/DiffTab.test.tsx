@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, afterAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord, PrFile, ReviewRecord, SmartDiff } from "@devdigest/shared";
@@ -8,12 +8,13 @@ import shell from "../../../../../../../../messages/en/shell.json";
 const action = vi.fn();
 let smartData: SmartDiff | undefined;
 let reviewData: ReviewRecord[] = [];
+let smartPending = false;
 
 vi.mock("@/lib/hooks/reviews", () => ({
   usePrComments: () => ({ data: [] }),
   useCreatePrComment: () => ({ isPending: false, mutateAsync: vi.fn() }),
   usePrReviews: () => ({ data: reviewData }),
-  useSmartDiff: () => ({ data: smartData }),
+  useSmartDiff: () => ({ data: smartData, isPending: smartPending }),
   useFindingAction: () => ({ isPending: false, variables: undefined, mutate: action }),
 }));
 
@@ -22,6 +23,7 @@ import { DiffTab } from "./DiffTab";
 afterEach(() => {
   cleanup();
   action.mockClear();
+  smartPending = false;
 });
 
 const PATCH = "@@ -10,3 +10,4 @@\n a\n b\n+secret\n c";
@@ -174,5 +176,118 @@ describe("DiffTab", () => {
     expect(container.querySelector("[data-role-group]")).toBeNull();
     expect(screen.getByText("README.md")).toBeInTheDocument();
     expect(container.querySelector("[data-diff-order='original']")!.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("DiffTab — Review focus (?file / ?line)", () => {
+  const scroll = vi.fn();
+  const original = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    scroll.mockReset();
+    Element.prototype.scrollIntoView = scroll;
+  });
+  afterAll(() => {
+    Element.prototype.scrollIntoView = original;
+  });
+
+  const tree = (focusFile?: string | null, focusLine?: string | null) => (
+    <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
+      <DiffTab prId="p" filesCount={4} files={FILES} canComment={false} focusFile={focusFile} focusLine={focusLine} />
+    </NextIntlClientProvider>
+  );
+  const renderFocus = (focusFile?: string | null, focusLine?: string | null) => {
+    smartData = SMART;
+    reviewData = [];
+    return render(tree(focusFile, focusLine));
+  };
+  const scrolledEl = (i = 0) => scroll.mock.contexts[i] as HTMLElement;
+
+  it("AC8: the focus line carries data-focus-line and is the element scrolled into view", () => {
+    const { container } = renderFocus("src/config.ts", "12");
+    const line = container.querySelector("[data-focus-line]") as HTMLElement;
+    expect(line).not.toBeNull();
+    expect(line.textContent).toContain("secret");
+    expect(container.querySelector("[data-focus-file]")).toContainElement(line);
+    expect(scroll).toHaveBeenCalledTimes(1);
+    // the scrolled node is the line row (its wrapper), not the file header
+    expect(scrolledEl()).toContainElement(line);
+    expect(scrolledEl().textContent).toContain("secret");
+  });
+
+  it("AC8: a collapsed group (docs) is opened for a focused file inside it", () => {
+    const { container } = renderFocus("README.md", "12");
+    const docs = container.querySelector('[data-role-group="docs"]') as HTMLElement;
+    expect(docs.querySelector("button[aria-expanded]")!.getAttribute("aria-expanded")).toBe("true");
+    expect(docs.querySelector("[data-focus-line]")).not.toBeNull();
+    expect(scroll).toHaveBeenCalledTimes(1);
+  });
+
+  it("a line that is not rendered scrolls the file header instead", () => {
+    const { container } = renderFocus("src/config.ts", "999");
+    expect(container.querySelector("[data-focus-line]")).toBeNull();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scrolledEl().textContent).toContain("src/config.ts");
+    expect(scrolledEl().querySelector("[data-focus-line]")).toBeNull();
+  });
+
+  it("EC18: a file that is not in the PR is ignored: nothing is highlighted or scrolled", () => {
+    const { container } = renderFocus("ghost.ts", "12");
+    expect(scroll).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-focus-file]")).toBeNull();
+    expect(container.querySelector("[data-focus-line]")).toBeNull();
+  });
+
+  it("NFR8: line=abc keeps the file focus and falls back to the header", () => {
+    const { container } = renderFocus("src/config.ts", "abc");
+    expect(container.querySelector("[data-focus-file]")).not.toBeNull();
+    expect(container.querySelector("[data-focus-line]")).toBeNull();
+    expect(scroll).toHaveBeenCalledTimes(1);
+  });
+
+  it("with no focus nothing is scrolled or marked, and the usual collapse rules hold", () => {
+    const { container } = renderFocus();
+    expect(scroll).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-focus-file]")).toBeNull();
+    expect(
+      container.querySelector('[data-role-group="docs"] button[aria-expanded]')!.getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
+
+  it("F6: re-rendering with the same props does not scroll again; a new line does", () => {
+    const { rerender } = renderFocus("src/config.ts", "12");
+    expect(scroll).toHaveBeenCalledTimes(1);
+    rerender(tree("src/config.ts", "12"));
+    rerender(tree("src/config.ts", "12"));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    rerender(tree("src/config.ts", "13"));
+    expect(scroll).toHaveBeenCalledTimes(2);
+    expect(scrolledEl(1).textContent).toContain("c");
+  });
+
+  it("F6: while Smart Diff is loading nothing scrolls; when it arrives there is exactly one scroll", () => {
+    smartData = undefined;
+    smartPending = true;
+    reviewData = [];
+    const { rerender, container } = render(tree("src/config.ts", "12"));
+    expect(scroll).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-role-group]")).toBeNull();
+    smartData = SMART;
+    smartPending = false;
+    rerender(tree("src/config.ts", "12"));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scrolledEl()).toContainElement(container.querySelector("[data-focus-line]") as HTMLElement);
+    rerender(tree("src/config.ts", "12"));
+    expect(scroll).toHaveBeenCalledTimes(1);
+  });
+
+  it("F7: the same (file, line) remounting from the flat list into groups still scrolls once", () => {
+    smartData = undefined;
+    smartPending = false; // settled without data -> flat list
+    reviewData = [];
+    const { rerender } = render(tree("src/config.ts", "12"));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    smartData = SMART;
+    rerender(tree("src/config.ts", "12"));
+    expect(scroll).toHaveBeenCalledTimes(1);
   });
 });

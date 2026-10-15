@@ -1,0 +1,7 @@
+# Implementation Report — Phase 3b (Steps 14-15) — done
+Step 14 files: client/src/components/diff-viewer/{helpers.ts (DiffFocus, ClaimScroll), index.ts, styles.ts (focusLineStyle), DiffViewer/DiffViewer.tsx, FileCard/FileCard.tsx, CodeLine/CodeLine.tsx}; pulls/[number]/_components/DiffTab/{DiffTab.tsx, helpers.ts (parseDiffFocus), _components/RoleGroup/RoleGroup.tsx}; page.tsx (focusFile/focusLine passed).
+F6: focus passed only after Smart Diff settles; file not in files ignored (EC18); scrolledKey ref + claimScroll in DiffTab; FileCard effect deps [focusFile, focusLine, lines.length]; refs (headerRef, CodeLine ref), no querySelector; header fallback; data-focus-file/data-focus-line; RoleGroup/FileCard force-open on focus, manual toggle wins.
+Step 15 files: PrBriefCard/{PrBriefCard.tsx, helpers.ts (latestVerdictInfo), styles.ts, _components/RiskRow/RiskRow.tsx}; brief.json. VerdictBanner above summary (summary=null); meta line formatCost + tokens; RiskRow collapsed toggle aria-expanded.
+Deviations (no decision): risk.expand "Show explanation for {title}", added meta.tokensInOut; DiffFocus/ClaimScroll in diff-viewer/helpers.ts (shared viewer cannot import app route); focusLineStyle export in diff-viewer/styles.ts; scrollIntoView?.() for jsdom; eslint-disable exhaustive-deps on FileCard effect (primitive deps).
+Checks: check-changed client --full PASS (typecheck, 250 tests). next build and e2e not run.
+Suggested INSIGHTS: FileCard open = manualOpen ?? default (useState initial ignores later props); claimScroll in DiffTab ref survives remounts.
