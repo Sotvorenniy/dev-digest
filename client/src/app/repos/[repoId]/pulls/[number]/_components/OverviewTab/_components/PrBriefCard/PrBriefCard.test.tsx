@@ -101,6 +101,14 @@ describe("PrBriefCard — no brief", () => {
     expect(screen.getByRole("button", { name: new RegExp(brief.generate) })).toBeDisabled();
     expect(status(container)).toHaveTextContent(brief.generating);
   });
+
+  it("P3: while the first brief generates, a skeleton replaces the empty message", () => {
+    query = { data: null, isLoading: false };
+    gen = { isPending: true, isError: false, error: null };
+    const { container } = renderCard();
+    expect(container.querySelector("[data-brief-skeleton]")).not.toBeNull();
+    expect(screen.queryByText(brief.empty)).toBeNull();
+  });
 });
 
 describe("PrBriefCard — shown brief", () => {
@@ -137,14 +145,28 @@ describe("PrBriefCard — shown brief", () => {
     expect(screen.getByText("Check the maximum.")).toBeInTheDocument();
   });
 
-  it("AC8: a focus item with an unusable line is plain text, not a link", () => {
+  it("AC8: a focus item with an unusable line still links to the file", () => {
     query = {
-      data: { ...BRIEF, review_focus: [{ file: "src/x.ts", line: 0, reason: "odd" }] },
+      data: { ...BRIEF, risks: { risks: [] }, review_focus: [{ file: "src/x.ts", line: 0, reason: "odd" }] },
       isLoading: false,
     };
     renderCard();
-    expect(screen.getByText("src/x.ts:0")).toBeInTheDocument();
-    expect(screen.queryByRole("link")).toBeNull();
+    const link = screen.getByRole("link", { name: "Open src/x.ts in the diff" });
+    expect(link).toHaveTextContent(/^src\/x\.ts$/);
+    expect(link).toHaveAttribute("href", "/repos/r1/pulls/482?tab=diff&file=src%2Fx.ts");
+  });
+
+  it("P3: each risk file ref links into the diff tab, at its first line when it has one", () => {
+    query = { data: BRIEF, isLoading: false };
+    renderCard();
+    expect(screen.getByRole("link", { name: "Open src/config.ts:10-13 in the diff" })).toHaveAttribute(
+      "href",
+      "/repos/r1/pulls/482?tab=diff&file=src%2Fconfig.ts&line=10",
+    );
+    expect(screen.getByRole("link", { name: "Open src/api/users.ts in the diff" })).toHaveAttribute(
+      "href",
+      "/repos/r1/pulls/482?tab=diff&file=src%2Fapi%2Fusers.ts",
+    );
   });
 
   it("AC9: Refresh regenerates", () => {

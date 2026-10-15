@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord, ReviewRecord } from "@devdigest/shared";
 import { ApiError } from "@/lib/api";
-import { briefErrorKind, isStale, latestVerdictInfo, reviewFocusHref } from "./helpers";
+import { briefErrorKind, isStale, latestVerdictInfo, parseFileRef, reviewFocusHref } from "./helpers";
 
 describe("reviewFocusHref", () => {
   it("links into the diff tab with file and line, URL-encoding the path", () => {
@@ -9,8 +9,22 @@ describe("reviewFocusHref", () => {
       "/repos/r1/pulls/482?tab=diff&file=src%2Fconfig.ts&line=12",
     );
   });
-  it.each([0, -3, 1.5, NaN, null, undefined])("is null for the unusable line %s", (line) => {
-    expect(reviewFocusHref("r1", 1, "a.ts", line as number | null | undefined)).toBeNull();
+  it.each([0, -3, 1.5, NaN, null, undefined])("opens the file alone for the unusable line %s", (line) => {
+    expect(reviewFocusHref("r1", 1, "a.ts", line as number | null | undefined)).toBe(
+      "/repos/r1/pulls/1?tab=diff&file=a.ts",
+    );
+  });
+});
+
+describe("parseFileRef", () => {
+  it.each([
+    ["src/a.ts", { file: "src/a.ts", line: null }],
+    ["src/a.ts:12", { file: "src/a.ts", line: 12 }],
+    ["src/a.ts:12-18", { file: "src/a.ts", line: 12 }],
+    ["src/a.ts:0", { file: "src/a.ts", line: null }],
+    ["C:/odd:path.ts", { file: "C:/odd:path.ts", line: null }],
+  ])("splits %s", (ref, expected) => {
+    expect(parseFileRef(ref)).toEqual(expected);
   });
 });
 

@@ -230,11 +230,17 @@ describe("DiffTab — Review focus (?file / ?line)", () => {
     expect(scrolledEl().querySelector("[data-focus-line]")).toBeNull();
   });
 
-  it("EC18: a file that is not in the PR is ignored: nothing is highlighted or scrolled", () => {
+  it("EC18: a file that is not in the PR is not highlighted or scrolled, and a notice says so", () => {
     const { container } = renderFocus("ghost.ts", "12");
     expect(scroll).not.toHaveBeenCalled();
     expect(container.querySelector("[data-focus-file]")).toBeNull();
     expect(container.querySelector("[data-focus-line]")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("File not in this PR's diff: ghost.ts");
+  });
+
+  it("a focused file that is in the PR shows no not-in-diff notice", () => {
+    const { container } = renderFocus("src/config.ts", "12");
+    expect(container.querySelector("[data-focus-not-in-diff]")).toBeNull();
   });
 
   it("NFR8: line=abc keeps the file focus and falls back to the header", () => {

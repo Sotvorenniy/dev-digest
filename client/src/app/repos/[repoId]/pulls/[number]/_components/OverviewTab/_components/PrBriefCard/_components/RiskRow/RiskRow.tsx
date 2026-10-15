@@ -1,13 +1,21 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { Risk } from "@/lib/types";
 import { SEVERITY_META } from "../../constants";
+import { parseFileRef, reviewFocusHref } from "../../helpers";
 import { s } from "../../styles";
 
-export function RiskRow({ risk }: { risk: Risk }) {
+interface RiskRowProps {
+  risk: Risk;
+  repoId: string;
+  prNumber: number;
+}
+
+export function RiskRow({ risk, repoId, prNumber }: RiskRowProps) {
   const t = useTranslations("brief");
   const [expanded, setExpanded] = React.useState(false);
   const meta = SEVERITY_META[risk.severity];
@@ -41,7 +49,22 @@ export function RiskRow({ risk }: { risk: Risk }) {
         {expanded && risk.explanation && <span style={s.riskExplanation}>{risk.explanation}</span>}
         {risk.file_refs.length > 0 && (
           <span className="mono" style={s.riskRefs}>
-            {risk.file_refs.join(", ")}
+            {risk.file_refs.map((ref, i) => {
+              const { file, line } = parseFileRef(ref);
+              return (
+                <React.Fragment key={`${ref}:${i}`}>
+                  {i > 0 && ", "}
+                  <Link
+                    href={reviewFocusHref(repoId, prNumber, file, line)}
+                    style={s.focusLink}
+                    aria-label={t("openFile", { file: ref })}
+                    data-risk-ref
+                  >
+                    {ref}
+                  </Link>
+                </React.Fragment>
+              );
+            })}
           </span>
         )}
       </div>

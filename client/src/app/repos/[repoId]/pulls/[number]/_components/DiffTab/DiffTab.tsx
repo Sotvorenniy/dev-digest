@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import type { FindingActionKind, FindingRecord, PrFile } from "@devdigest/shared";
 import { DiffViewer, type DiffCommentApi, type DiffFindingApi, type DiffFocus } from "@/components/diff-viewer";
 import { usePrComments, useCreatePrComment, usePrReviews, useSmartDiff, useFindingAction } from "@/lib/hooks/reviews";
@@ -23,6 +24,7 @@ interface DiffTabProps {
 }
 
 export function DiffTab({ prId, filesCount, files, canComment, focusFile, focusLine }: DiffTabProps) {
+  const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
   const { data: reviews } = usePrReviews(prId);
@@ -44,9 +46,10 @@ export function DiffTab({ prId, filesCount, files, canComment, focusFile, focusL
 
   // Focus is handed down only once Smart Diff has settled (loaded or errored), so
   // cards don't scroll in the flat list and then remount inside groups. A focus
-  // whose file is not in this PR is ignored.
+  // whose file is not in this PR gets a short notice instead.
   const parsed = React.useMemo(() => parseDiffFocus(focusFile, focusLine), [focusFile, focusLine]);
   const focusInFiles = !!parsed && files.some((f) => f.path === parsed.file);
+  const focusMissing = !!parsed && files.length > 0 && !focusInFiles;
   const pFile = parsed?.file;
   const pLine = parsed?.line ?? null;
   const focus = React.useMemo<DiffFocus | undefined>(
@@ -103,6 +106,11 @@ export function DiffTab({ prId, filesCount, files, canComment, focusFile, focusL
         showComments={showComments}
         onToggleComments={() => setShowComments((v) => !v)}
       />
+      {focusMissing && parsed && (
+        <div role="status" style={s.notice} data-focus-not-in-diff>
+          {t("smartDiff.focusNotInDiff", { file: parsed.file })}
+        </div>
+      )}
       {showGroups ? (
         <div style={s.groups}>
           {groups.map((g) => (

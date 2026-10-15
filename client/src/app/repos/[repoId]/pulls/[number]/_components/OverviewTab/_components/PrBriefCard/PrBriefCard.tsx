@@ -63,7 +63,7 @@ function BriefBody({
         ) : (
           <ul style={s.list}>
             {risks.map((r, i) => (
-              <RiskRow key={`${r.title}:${i}`} risk={r} />
+              <RiskRow key={`${r.title}:${i}`} risk={r} repoId={repoId} prNumber={prNumber} />
             ))}
           </ul>
         )}
@@ -154,7 +154,13 @@ export function PrBriefCard({ prId, repoId, prNumber, headSha, hasFiles, latestR
         <BriefBody brief={brief} repoId={repoId} prNumber={prNumber} latestReview={latestReview} />
       ) : (
         <>
-          <span style={s.none}>{hasFiles ? t("empty") : t("emptyPr")}</span>
+          {pending ? (
+            <div data-brief-skeleton>
+              <Skeleton height={60} />
+            </div>
+          ) : (
+            <span style={s.none}>{hasFiles ? t("empty") : t("emptyPr")}</span>
+          )}
           <div>
             <Button
               kind="primary"

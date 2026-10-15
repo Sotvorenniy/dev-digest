@@ -38,14 +38,26 @@ export function latestVerdictInfo(review: ReviewRecord | null | undefined): Verd
   };
 }
 
-/** Link into the Files changed tab at a line, or null when the line is not a usable anchor. */
+/**
+ * Link into the Files changed tab for a file. The line is added only when it is a
+ * usable anchor (a positive integer); otherwise the link opens the file alone.
+ */
 export function reviewFocusHref(
   repoId: string,
   prNumber: number,
   file: string,
-  line: number | null | undefined,
-): string | null {
-  if (typeof line !== "number" || !Number.isInteger(line) || line < 1) return null;
-  const qs = new URLSearchParams({ tab: "diff", file, line: String(line) });
+  line?: number | null,
+): string {
+  const params: Record<string, string> = { tab: "diff", file };
+  if (typeof line === "number" && Number.isInteger(line) && line >= 1) params.line = String(line);
+  const qs = new URLSearchParams(params);
   return `/repos/${encodeURIComponent(repoId)}/pulls/${prNumber}?${qs.toString()}`;
+}
+
+/** Splits a risk file ref `path[:N[-M]]` into the path and its first line, if any. */
+export function parseFileRef(ref: string): { file: string; line: number | null } {
+  const m = /^(.*?):(\d+)(?:-\d+)?$/.exec(ref);
+  if (!m) return { file: ref, line: null };
+  const n = Number(m[2]);
+  return { file: m[1]!, line: n > 0 ? n : null };
 }

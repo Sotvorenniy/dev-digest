@@ -18,22 +18,21 @@ export function ReviewFocusList({ items, repoId, prNumber }: ReviewFocusListProp
   return (
     <ol style={s.focusList}>
       {items.map((item, i) => {
-        const href = reviewFocusHref(repoId, prNumber, item.file, item.line);
-        const label = `${item.file}:${item.line}`;
+        // Without a usable line the link still opens the file.
+        const hasLine = typeof item.line === "number" && Number.isInteger(item.line) && item.line >= 1;
+        const label = hasLine ? `${item.file}:${item.line}` : item.file;
         return (
           <li key={`${item.file}:${item.line}:${i}`} data-review-focus>
-            {href ? (
-              <Link
-                href={href}
-                className="mono"
-                style={s.focusLink}
-                aria-label={t("focusItem", { file: item.file, line: item.line })}
-              >
-                {label}
-              </Link>
-            ) : (
-              <span className="mono">{label}</span>
-            )}{" "}
+            <Link
+              href={reviewFocusHref(repoId, prNumber, item.file, item.line)}
+              className="mono"
+              style={s.focusLink}
+              aria-label={
+                hasLine ? t("focusItem", { file: item.file, line: item.line }) : t("openFile", { file: item.file })
+              }
+            >
+              {label}
+            </Link>{" "}
             <span style={s.focusReason}>{item.reason}</span>
           </li>
         );

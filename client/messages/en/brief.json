@@ -48,6 +48,7 @@
   "settingsLink": "Open settings",
   "retry": "Retry",
   "focusItem": "Open {file} line {line} in the diff",
+  "openFile": "Open {file} in the diff",
   "meta": {
     "cost": "Cost {cost}",
     "tokens": "{count} tokens",
