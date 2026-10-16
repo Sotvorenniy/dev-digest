@@ -7,6 +7,7 @@ import type { Skill } from "@devdigest/shared";
 import { useActiveRepo } from "@/lib/repo-context";
 import { useContextDocs, useSkillContext, useSetSkillContext } from "@/lib/hooks";
 import { ContextDocPicker } from "@/components/context-doc-picker";
+import { SerializesAs } from "./_components/SerializesAs";
 
 /** Context tab — "Project context to use": docs from the active repo that ride
  *  along whenever this skill is attached to an agent. */
@@ -36,16 +37,23 @@ export function ContextTab({ skill }: { skill: Skill }) {
           }}
         />
       ) : (
-        <ContextDocPicker
-          repoId={repoId}
-          docs={docs.data.docs}
-          attached={attachments.data.paths}
-          missing={attachments.data.missing}
-          onChange={(paths) => save.mutate(paths)}
-          saving={save.isPending}
-          saveError={save.isError}
-          header="count"
-        />
+        <>
+          <ContextDocPicker
+            repoId={repoId}
+            docs={docs.data.docs}
+            attached={attachments.data.paths}
+            missing={attachments.data.missing}
+            onChange={(paths) => save.mutate(paths)}
+            saving={save.isPending}
+            saveError={save.isError}
+            header="count"
+          />
+          <SerializesAs
+            attached={attachments.data.paths}
+            docs={docs.data.docs}
+            missing={attachments.data.missing}
+          />
+        </>
       )}
     </div>
   );

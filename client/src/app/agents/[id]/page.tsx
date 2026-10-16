@@ -12,8 +12,10 @@ import { AgentCard } from "../_components/AgentCard";
 import { AgentEditor } from "./_components/AgentEditor";
 import { useAgents, useAgent, useAgentSkills, useUpdateAgent } from "../../../lib/hooks/agents";
 import { ApiError } from "../../../lib/api";
+import { TABS } from "./_components/AgentEditor/constants";
 
-const VALID_TABS = ["config", "skills"];
+// Derived from the editor tabs, so a new tab is reachable through ?tab= too.
+const VALID_TABS = TABS.map((tb) => tb.key);
 
 /** Wraps AgentCard with its own `useAgentSkills` — one query per rendered card,
  *  so each list item is its own component (a hook can't be called from inside

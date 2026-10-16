@@ -22,9 +22,11 @@ import {
   ContextPathInvalidError,
   RepoNotFoundError,
   buildProjectContext,
+  groupCandidates,
   orderCandidates,
 } from './domain.js';
 import type {
+  ContextClonePort,
   ContextOwnerKind,
   ContextRepoRef,
   ProjectContextForRun,
@@ -35,6 +37,7 @@ import type {
 export interface ProjectContextDeps {
   repo: ProjectContextRepositoryPort;
   docs: ProjectDocsPort;
+  clone: ContextClonePort;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -77,6 +80,20 @@ export class ProjectContextService implements ProjectContextRunPort {
       search_roots: [...this.deps.docs.roots],
       truncated: scan.truncated,
     };
+  }
+
+  /**
+   * Pulls the clone up to its remote default branch, then rescans. A failed
+   * sync (no network, no clone yet) answers 409 like a missing clone.
+   */
+  async reindex(workspaceId: string, repoId: string): Promise<ProjectContextList> {
+    const repo = await this.requireRepo(workspaceId, repoId);
+    try {
+      await this.deps.clone.sync(repo, repo.defaultBranch ?? 'main');
+    } catch {
+      throw new CloneUnavailableError('repository clone could not be synced');
+    }
+    return this.listDocs(workspaceId, repoId);
   }
 
   async getDoc(workspaceId: string, repoId: string, path: string): Promise<ProjectContextFile> {
@@ -168,9 +185,12 @@ export class ProjectContextService implements ProjectContextRunPort {
       input.skills.map((s) => s.id),
       input.repo.id,
     );
-    const candidates = orderCandidates(
-      agentPaths,
-      input.skills.map((s) => ({ name: s.name, paths: byskill.get(s.id) ?? [] })),
+    const candidates = groupCandidates(
+      orderCandidates(
+        agentPaths,
+        input.skills.map((s) => ({ name: s.name, paths: byskill.get(s.id) ?? [] })),
+      ),
+      (path) => docTypeFor(path, docs.roots),
     );
     const reads = new Map<string, DocRead>();
     for (const c of candidates) {

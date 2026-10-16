@@ -115,6 +115,7 @@ function setup(opts: SetupOpts = {}) {
       excludedDirs: ['node_modules', '.git'],
       maxVisitedFiles: 5_000,
     }),
+    clone: { sync: async () => undefined },
   });
   const executor = new ReviewRunExecutor(
     container as never,
@@ -251,12 +252,27 @@ describe('project context in the review run', () => {
     const t = setup({ attach: { agent: ['../../etc/passwd.md', 'docs/huge.md', 'docs/b.md'], skills: {} } });
     await t.run();
     expect(t.saved.status).toBe('done');
+    // The traversal path matches no known group, so grouping moves it last.
     expect(t.saved.trace!.project_context!.map((e) => [e.path, e.status])).toEqual([
-      ['../../etc/passwd.md', 'rejected'],
       ['docs/huge.md', 'over_limit'],
       ['docs/b.md', 'included'],
+      ['../../etc/passwd.md', 'rejected'],
     ]);
     expect(t.saved.trace!.specs_read).toEqual(['docs/b.md']);
+  });
+
+  it('groups included docs as specs, docs, insights, attach order kept inside a group', async () => {
+    await mkdir(join(tmp, 'insights'), { recursive: true });
+    await writeFile(join(tmp, 'insights', 'i.md'), '# Insight\nDOC-I-BODY-MARKER');
+    const t = setup({
+      attach: { agent: ['insights/i.md', 'docs/b.md', 'specs/a.md'], skills: { s1: ['docs/s.md'] } },
+      skills: [{ id: 's1', name: 'skill-one', enabled: true }],
+    });
+    await t.run();
+    expect(t.saved.trace!.specs_read).toEqual(['specs/a.md', 'docs/b.md', 'docs/s.md', 'insights/i.md']);
+    const msg = t.userMessage();
+    expect(msg.indexOf('DOC-A-BODY-MARKER')).toBeLessThan(msg.indexOf('DOC-B-BODY-MARKER'));
+    expect(msg.indexOf('DOC-S-BODY-MARKER')).toBeLessThan(msg.indexOf('DOC-I-BODY-MARKER'));
   });
 
   it('the run token cap skips the crossing doc and keeps going (AC11)', async () => {

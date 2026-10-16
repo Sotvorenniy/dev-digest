@@ -79,6 +79,14 @@ later prop changes, so a focus target that arrives after the list mounted
 the default expression.
 Evidence: `client/src/components/diff-viewer/FileCard/FileCard.tsx:53-54`
 
+### "Serializes as" prompt groups are hand-mirrored from the server
+`2026-10-16` — `PROMPT_GROUP_ORDER` (specs, docs, insights, then other) in the
+skill editor's `SerializesAs/constants.ts` copies `CONTEXT_GROUP_ORDER` in
+`server/src/modules/project-context/domain.ts`, which orders the real prompt.
+The wire carries no group, so a server-only change makes the block show a
+prompt shape that is no longer sent. Change both together.
+Evidence: `server/src/modules/project-context/domain.ts` (`groupCandidates`)
+
 ## Tool & Library Notes
 <!-- Quirks of Next 15, React 19, TanStack Query, next-intl, the bundler. -->
 

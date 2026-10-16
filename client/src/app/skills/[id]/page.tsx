@@ -11,8 +11,10 @@ import { SkillsRail } from "../_components/SkillsRail";
 import { SkillEditor } from "./_components/SkillEditor";
 import { useSkill, useUpdateSkill } from "../../../lib/hooks/skills";
 import { ApiError } from "../../../lib/api";
+import { TABS } from "./_components/SkillEditor/constants";
 
-const VALID_TABS = ["config", "preview", "versions", "evals"];
+// Derived from the editor tabs, so a new tab is reachable through ?tab= too.
+const VALID_TABS = TABS.map((tb) => tb.key);
 
 export default function SkillEditorPage() {
   const params = useParams<{ id: string }>();

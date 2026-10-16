@@ -266,6 +266,7 @@ export class Container {
     return (this._projectContextService ??= new ProjectContextService({
       repo: new ProjectContextRepository(this.db),
       docs: this.projectDocs,
+      clone: this.git,
     }));
   }
 

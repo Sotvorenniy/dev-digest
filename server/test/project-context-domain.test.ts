@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildProjectContext, orderCandidates, type Candidate } from '../src/modules/project-context/domain.js';
+import { buildProjectContext, groupCandidates, orderCandidates, type Candidate } from '../src/modules/project-context/domain.js';
 import { CONTEXT_RUN_MAX_TOKENS, estimateTokens, type DocRead } from '../src/ports/project-docs.js';
 
 /** SPEC-01 AC9 (order), AC10, AC11, AC13, EC11, NFR2, NFR3. Pure domain, no fakes needed. */
@@ -117,5 +117,25 @@ describe('buildProjectContext — 24,000 token run cap', () => {
     const built = buildProjectContext([cand('a.md')], reads);
     expect(built.entries[0]!.status).toBe('included');
     expect(built.includedTokens).toBe(CONTEXT_RUN_MAX_TOKENS);
+  });
+});
+
+describe('groupCandidates', () => {
+  const c = (path: string): Candidate => ({ path, origin: 'agent', skillName: null });
+  const typeOf = (p: string) => p.split('/')[0]!;
+
+  it('orders specs, docs, insights, then other types; stable inside each group', () => {
+    const out = groupCandidates(
+      [c('notes/x.md'), c('insights/i.md'), c('docs/b.md'), c('specs/a.md'), c('docs/a.md'), c('specs/z.md')],
+      typeOf,
+    );
+    expect(out.map((x) => x.path)).toEqual([
+      'specs/a.md',
+      'specs/z.md',
+      'docs/b.md',
+      'docs/a.md',
+      'insights/i.md',
+      'notes/x.md',
+    ]);
   });
 });

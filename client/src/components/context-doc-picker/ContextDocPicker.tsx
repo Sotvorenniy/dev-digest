@@ -2,15 +2,19 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Button, EmptyState, IconBtn, TextInput } from "@devdigest/ui";
+import { Button, EmptyState, TextInput } from "@devdigest/ui";
 import type { ProjectContextDoc } from "@/lib/types";
 import { DocPreviewPanel } from "./_components/DocPreviewPanel";
-import { buildRows, filterRows, sumAttachedTokens, toggleAttached } from "./helpers";
+import { DocRow } from "./_components/DocRow";
+import { CONTEXT_TOKEN_WARN } from "./constants";
+import { buildRows, filterRows, moveBy, movePath, sumAttachedTokens, toggleAttached } from "./helpers";
 import { s } from "./styles";
 
-/** Checklist of a repo's context docs for an agent or skill. Every toggle calls
- *  `onChange` with the whole next attach-order list (full-replace PUT, last save
- *  wins). Attached docs missing on disk stay as checked "missing" rows. */
+/** Checklist of a repo's context docs for an agent or skill. Attached docs come
+ *  first in attach order (= prompt order) and can be dragged to reorder; the
+ *  rest follow. Every toggle or move calls `onChange` with the whole next
+ *  attach-order list (full-replace PUT, last save wins). Attached docs missing
+ *  on disk stay as checked "missing" rows. */
 export function ContextDocPicker({
   repoId,
   docs,
@@ -34,12 +38,17 @@ export function ContextDocPicker({
   const t = useTranslations("context");
   const [filter, setFilter] = React.useState("");
   const [previewPath, setPreviewPath] = React.useState<string | null>(null);
+  const [dragPath, setDragPath] = React.useState<string | null>(null);
   const filterId = React.useId();
 
   const rows = buildRows(docs, attached, missing);
   const visible = filterRows(rows, filter);
   const attachedSet = new Set(attached);
+  const byPath = new Map(visible.map((r) => [r.path, r]));
+  const attachedRows = attached.flatMap((p) => byPath.get(p) ?? []);
+  const availableRows = visible.filter((r) => !attachedSet.has(r.path));
   const tokens = sumAttachedTokens(docs, attached);
+  const overBudget = tokens > CONTEXT_TOKEN_WARN;
   const countText =
     header === "ofTotal"
       ? t("picker.attachedOfTotal", { attached: attached.length, total: docs.length })
@@ -49,6 +58,36 @@ export function ContextDocPicker({
     if (saving) return;
     onChange(toggleAttached(attached, path));
   };
+
+  const reorder = (next: string[]) => {
+    if (saving || next === attached) return;
+    onChange(next);
+  };
+
+  const renderRow = (r: (typeof rows)[number], withReorder: boolean) => (
+    <DocRow
+      key={r.path}
+      row={r}
+      attached={attachedSet.has(r.path)}
+      saving={saving}
+      dragging={dragPath === r.path}
+      onToggle={() => toggle(r.path)}
+      onPreview={() => setPreviewPath(r.path)}
+      reorder={
+        withReorder
+          ? {
+              onDragStart: () => setDragPath(r.path),
+              onDragEnd: () => setDragPath(null),
+              onDrop: () => {
+                if (dragPath) reorder(movePath(attached, dragPath, r.path));
+                setDragPath(null);
+              },
+              onMove: (delta) => reorder(moveBy(attached, r.path, delta)),
+            }
+          : undefined
+      }
+    />
+  );
 
   if (rows.length === 0) {
     return <EmptyState icon="FileText" title={t("picker.empty")} />;
@@ -82,50 +121,37 @@ export function ContextDocPicker({
           </Button>
         </div>
       ) : (
-        <div style={s.list}>
-          {visible.map((r) => {
-            const isAttached = attachedSet.has(r.path);
-            return (
-              <div
-                key={r.path}
-                data-context-row={r.path}
-                data-context-missing={r.missing ? "" : undefined}
-                style={s.row(isAttached)}
-              >
-                <input
-                  type="checkbox"
-                  aria-label={r.path}
-                  checked={isAttached}
-                  disabled={saving}
-                  onChange={() => toggle(r.path)}
-                  style={s.checkbox}
-                />
-                <span style={s.path} title={r.path}>
-                  {r.path}
-                </span>
-                {r.missing ? <Badge>{t("picker.missing")}</Badge> : r.type && <Badge>{r.type}</Badge>}
-                {r.tokens != null && <span style={s.tokens}>{t("tokens", { count: r.tokens })}</span>}
-                {!r.missing && (
-                  <IconBtn
-                    icon="Eye"
-                    size={28}
-                    label={t("picker.preview", { path: r.path })}
-                    onClick={() => setPreviewPath(r.path)}
-                  />
-                )}
+        <>
+          {attachedRows.length > 0 && (
+            <section style={s.section} data-context-attached-list="">
+              <h3 style={s.sectionTitle}>{t("picker.attachedSection")}</h3>
+              <p style={s.sectionHint}>{t("picker.orderHint")}</p>
+              <div style={s.list}>
+                {attachedRows.map((r) => renderRow(r, true))}
               </div>
-            );
-          })}
-        </div>
+            </section>
+          )}
+          {availableRows.length > 0 && (
+            <section style={s.section} data-context-available-list="">
+              {attachedRows.length > 0 && <h3 style={s.sectionTitle}>{t("picker.availableSection")}</h3>}
+              <div style={s.list}>{availableRows.map((r) => renderRow(r, false))}</div>
+            </section>
+          )}
+        </>
       )}
 
       {previewPath && (
         <DocPreviewPanel repoId={repoId} path={previewPath} onClose={() => setPreviewPath(null)} />
       )}
 
-      <div style={s.footer} aria-live="polite">
+      <div style={s.footer(overBudget)} aria-live="polite" data-context-over-budget={overBudget ? "" : undefined}>
         {t("picker.footerTokens", { tokens })}
       </div>
+      {overBudget && (
+        <div role="status" style={s.budgetWarning} data-context-budget-warning="">
+          {t("picker.overBudget", { tokens, limit: CONTEXT_TOKEN_WARN })}
+        </div>
+      )}
     </div>
   );
 }

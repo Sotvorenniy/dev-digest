@@ -31,11 +31,19 @@ interface DocResult {
 }
 
 let listResult: ListResult;
+interface ReindexResult {
+  mutate: () => void;
+  isPending: boolean;
+  isError: boolean;
+  error?: unknown;
+}
+let reindexResult: ReindexResult = { mutate: vi.fn(), isPending: false, isError: false };
 let docResult: DocResult = { isLoading: false, isError: false };
 const requestedDocs: (string | null | undefined)[] = [];
 
 vi.mock("@/lib/hooks/context", () => ({
   useContextDocs: () => listResult,
+  useReindexContext: () => reindexResult,
   useContextDoc: (_repoId: string, path: string | null) => {
     requestedDocs.push(path);
     return path ? docResult : { isLoading: false, isError: false };
@@ -48,6 +56,7 @@ afterEach(() => {
   cleanup();
   requestedDocs.length = 0;
   docResult = { isLoading: false, isError: false };
+  reindexResult = { mutate: vi.fn(), isPending: false, isError: false };
 });
 
 function renderView() {
@@ -124,11 +133,53 @@ describe("ContextView", () => {
     }
   });
 
-  it("the only toolbar action is Rescan, which refetches (P8)", () => {
+  it("the toolbar has Download and Reindex; Reindex calls the reindex mutation", () => {
     listResult = ok(LIST);
     renderView();
-    fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
-    expect(listResult.refetch).toHaveBeenCalledTimes(1);
+    const toolbar = screen.getByRole("toolbar", { name: "Project context actions" });
+    expect(within(toolbar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Download", "Reindex"]);
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Reindex" }));
+    expect(reindexResult.mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("Download is disabled until a doc is loaded, then saves it as a .md file", () => {
+    listResult = ok(LIST);
+    docResult = {
+      isLoading: false,
+      isError: false,
+      data: { ...LIST.docs[2]!, content: "# Spec A" },
+    };
+    const createObjectURL = vi.fn(() => "blob:x");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    renderView();
+    const download = screen.getByRole("button", { name: "Download" });
+    expect(download).toBeDisabled();
+
+    fireEvent.click(document.querySelector('[data-context-doc="specs/a.md"]')!);
+    expect(download).toBeEnabled();
+    fireEvent.click(download);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const anchor = click.mock.instances[0] as unknown as HTMLAnchorElement;
+    expect(anchor.download).toBe("a.md");
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:x");
+    click.mockRestore();
+  });
+
+  it("a failed reindex on a missing clone shows its own message with Retry", () => {
+    listResult = ok(LIST);
+    reindexResult = {
+      mutate: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: new ApiError("repository clone could not be synced", 409, "clone_unavailable"),
+    };
+    renderView();
+    const alert = document.querySelector("[data-context-reindex-error]") as HTMLElement;
+    expect(alert).toHaveTextContent("Couldn’t pull the latest changes");
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(reindexResult.mutate).toHaveBeenCalledTimes(1);
   });
 
   it("empty state names the search roots (EC1)", () => {
@@ -137,7 +188,7 @@ describe("ContextView", () => {
     expect(screen.getByText("No context docs found")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Add Markdown docs under **/{specs,docs,insights}/**/*.md in the repository, then rescan. Agents and skills can attach them as grounding context.",
+        "Add Markdown docs under **/{specs,docs,insights}/**/*.md in the repository, then reindex. Agents and skills can attach them as grounding context.",
       ),
     ).toBeInTheDocument();
   });

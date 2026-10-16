@@ -13,7 +13,7 @@ export class ProjectContextRepository implements ProjectContextRepositoryPort {
 
   async findRepo(workspaceId: string, repoId: string): Promise<ContextRepoRef | null> {
     const [row] = await this.db
-      .select({ id: t.repos.id, owner: t.repos.owner, name: t.repos.name })
+      .select({ id: t.repos.id, owner: t.repos.owner, name: t.repos.name, defaultBranch: t.repos.defaultBranch })
       .from(t.repos)
       .where(and(eq(t.repos.workspaceId, workspaceId), eq(t.repos.id, repoId)));
     return row ?? null;

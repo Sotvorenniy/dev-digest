@@ -183,6 +183,23 @@ d('project context routes', () => {
     }, 60_000);
   });
 
+  describe('POST /repos/:id/context/reindex', () => {
+    it('answers 409 clone_unavailable when the clone cannot be synced', async () => {
+      // The tmp clone is not a git checkout, so the real sync fails.
+      const res = await app.inject({ method: 'POST', url: `/repos/${noCloneRepoId}/context/reindex` });
+      expect(res.statusCode).toBe(409);
+      expect(err(res).code).toBe('clone_unavailable');
+    });
+
+    it('answers 404 for an unknown repo', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/repos/00000000-0000-0000-0000-000000000000/context/reindex',
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
   describe('GET /repos/:id/context/file', () => {
     it('returns the content and metadata (AC3)', async () => {
       const res = await app.inject({ method: 'GET', url: fileUrl(repoId, 'specs/a.md') });

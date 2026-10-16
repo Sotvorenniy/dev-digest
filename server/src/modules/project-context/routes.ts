@@ -17,6 +17,7 @@ const AttachmentsQuery = z.object({ repo_id: z.string().min(1) });
 /**
  * project-context module.
  *   GET /repos/:id/context              → Markdown docs under the search roots
+ *   POST /repos/:id/context/reindex     → sync the clone from origin, then rescan
  *   GET /repos/:id/context/file?path=   → one doc's content
  *   GET|PUT /agents/:id/context         → per-repo attached paths of an agent
  *   GET|PUT /skills/:id/context         → per-repo attached paths of a skill
@@ -32,6 +33,15 @@ export default async function projectContextRoutes(appBase: FastifyInstance) {
     async (req): Promise<ProjectContextList> => {
       const { workspaceId } = await getContext(container, req);
       return service.listDocs(workspaceId, req.params.id);
+    },
+  );
+
+  app.post(
+    '/repos/:id/context/reindex',
+    { schema: { params: IdParams, response: { 200: ProjectContextList } } },
+    async (req): Promise<ProjectContextList> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.reindex(workspaceId, req.params.id);
     },
   );
 

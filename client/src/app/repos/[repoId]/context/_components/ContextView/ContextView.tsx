@@ -7,11 +7,11 @@ import { AppShell } from "@/components/app-shell";
 import { RepoNotFound } from "@/components/repo-not-found";
 import { ApiError } from "@/lib/api";
 import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
-import { useContextDocs } from "@/lib/hooks";
+import { useContextDoc, useContextDocs, useReindexContext } from "@/lib/hooks";
 import { DocList } from "./_components/DocList";
 import { DocPreview } from "./_components/DocPreview";
 import { SKELETON_ROWS } from "./constants";
-import { isCloneUnavailable } from "./helpers";
+import { downloadMarkdown, isCloneUnavailable } from "./helpers";
 import { s } from "./styles";
 
 /** Project Context page for one repo: read-only list of the Markdown docs under
@@ -22,6 +22,9 @@ export function ContextView({ repoId }: { repoId: string }) {
   const repoNotFound = useRepoNotFound(repoId);
   const { data, isLoading, isError, error, refetch, isFetching } = useContextDocs(repoId);
   const [selected, setSelected] = React.useState<string | null>(null);
+  const reindex = useReindexContext(repoId);
+  // Same query key as DocPreview, so this shares its fetch.
+  const selectedFile = useContextDoc(repoId, selected);
 
   const crumb = [{ label: t("title") }];
 
@@ -45,10 +48,36 @@ export function ContextView({ repoId }: { repoId: string }) {
             <h1 style={s.h1}>{t("title")}</h1>
             <p style={s.subtitle}>{t("subtitle", { repo: repoName })}</p>
           </div>
-          <Button kind="secondary" icon="RefreshCw" onClick={() => refetch()} loading={isFetching && !isLoading}>
-            {t("rescan")}
-          </Button>
+          <div style={s.toolbar} role="toolbar" aria-label={t("toolbar.label")}>
+            <Button
+              kind="secondary"
+              icon="ArrowDown"
+              disabled={!selectedFile.data}
+              onClick={() => selectedFile.data && downloadMarkdown(selectedFile.data.path, selectedFile.data.content)}
+            >
+              {t("toolbar.download")}
+            </Button>
+            <Button
+              kind="secondary"
+              icon="RefreshCw"
+              onClick={() => reindex.mutate()}
+              loading={reindex.isPending || (isFetching && !isLoading)}
+            >
+              {t("toolbar.reindex")}
+            </Button>
+          </div>
         </div>
+
+        {reindex.isError && (
+          <div style={s.banner} role="alert" data-context-reindex-error>
+            <span style={s.bannerText}>
+              {isCloneUnavailable(reindex.error) ? t("toolbar.reindexCloneError") : t("toolbar.reindexError")}
+            </span>
+            <Button kind="ghost" size="sm" onClick={() => reindex.mutate()}>
+              {t("retry")}
+            </Button>
+          </div>
+        )}
 
         {/* A failed refetch (e.g. 429) keeps the last list; say so and offer retry. */}
         {isError && data && (

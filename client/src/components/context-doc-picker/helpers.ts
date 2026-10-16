@@ -34,3 +34,20 @@ export function sumAttachedTokens(docs: ProjectContextDoc[], attached: string[])
 export function toggleAttached(attached: string[], path: string): string[] {
   return attached.includes(path) ? attached.filter((p) => p !== path) : [...attached, path];
 }
+
+/** Moves `from` to the slot of `to` in the attach order; unknown paths → unchanged list. */
+export function movePath(attached: string[], from: string, to: string): string[] {
+  const i = attached.indexOf(from);
+  const j = attached.indexOf(to);
+  if (i === -1 || j === -1 || i === j) return attached;
+  const next = attached.filter((p) => p !== from);
+  next.splice(j, 0, from);
+  return next;
+}
+
+/** Moves `path` one step up (-1) or down (+1); clamped at both ends. */
+export function moveBy(attached: string[], path: string, delta: -1 | 1): string[] {
+  const i = attached.indexOf(path);
+  const target = attached[i + delta];
+  return i === -1 || target === undefined ? attached : movePath(attached, path, target);
+}

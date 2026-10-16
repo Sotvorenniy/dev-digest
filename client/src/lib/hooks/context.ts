@@ -19,6 +19,18 @@ export function useContextDocs(repoId: string | null | undefined) {
   });
 }
 
+/** POST /repos/:id/context/reindex → pull the clone from origin, then rescan. */
+export function useReindexContext(repoId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<ProjectContextList>(`/repos/${repoId}/context/reindex`),
+    onSuccess: (list) => {
+      qc.setQueryData(["context", repoId], list);
+      qc.invalidateQueries({ queryKey: ["context-doc", repoId] });
+    },
+  });
+}
+
 export function useContextDoc(repoId: string | null | undefined, path: string | null | undefined) {
   return useQuery({
     queryKey: ["context-doc", repoId, path],
@@ -45,7 +57,12 @@ function useSetAttachments(kind: OwnerKind, key: string, ownerId: string, repoId
   return useMutation({
     mutationFn: (paths: string[]) =>
       api.put<ContextAttachmentsSaved>(`/${kind}/${ownerId}/context`, { repo_id: repoId, paths }),
-    onSuccess: () => {
+    // Optimistic: a drag or toggle shows at once; onSettled resyncs with the server.
+    onMutate: async (paths) => {
+      await qc.cancelQueries({ queryKey: [key, ownerId, repoId] });
+      qc.setQueryData<ContextAttachments>([key, ownerId, repoId], (old) => (old ? { ...old, paths } : old));
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: [key, ownerId, repoId] });
       qc.invalidateQueries({ queryKey: ["context", repoId] });
     },

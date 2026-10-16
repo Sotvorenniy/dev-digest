@@ -67,6 +67,24 @@ export function orderCandidates(
   return out;
 }
 
+/** Prompt group order by doc type; any other type goes after these. */
+export const CONTEXT_GROUP_ORDER = ['specs', 'docs', 'insights'] as const;
+
+/**
+ * Stable regroup for the prompt: specs, then docs, then insights, then the rest.
+ * Order inside a group is the `orderCandidates` order (attach order).
+ */
+export function groupCandidates(candidates: Candidate[], typeOf: (path: string) => string): Candidate[] {
+  const rank = (path: string) => {
+    const i = (CONTEXT_GROUP_ORDER as readonly string[]).indexOf(typeOf(path));
+    return i === -1 ? CONTEXT_GROUP_ORDER.length : i;
+  };
+  return candidates
+    .map((c, i) => ({ c, i, r: rank(c.path) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.c);
+}
+
 export interface BuiltProjectContext {
   specs: { label: string; text: string }[];
   entries: ProjectContextEntry[];

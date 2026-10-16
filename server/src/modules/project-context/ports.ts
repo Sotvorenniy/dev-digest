@@ -6,6 +6,13 @@ export interface ContextRepoRef {
   id: string;
   owner: string;
   name: string;
+  /** Branch the clone tracks; set by `findRepo`, absent on run-time refs. */
+  defaultBranch?: string;
+}
+
+/** Brings a repo clone up to date with its remote branch (GitClient.sync implements it). */
+export interface ContextClonePort {
+  sync(repo: ContextRepoRef, branch: string): Promise<unknown>;
 }
 
 /** Port ProjectContextService depends on — ProjectContextRepository implements it. */

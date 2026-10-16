@@ -77,8 +77,9 @@ run trace with Prompt Assembly. Where they conflict with the requirements, see "
 - NG2. Editing, creating, uploading or deleting documents from dev-digest. Documents are
   view-only (P1).
 - NG3. Creating a new agent or skill version when attachments change (P5).
-- NG4. Chunking, embedding or semantic indexing of documents. The "chunks" count and
-  "Re-index" in the design are replaced by a token total and a rescan (P2).
+- NG4. Chunking, embedding or semantic indexing of documents. The "chunks" count is replaced
+  by a token total (P2). "Reindex" pulls the clone from origin and rescans; it builds no index
+  (P20).
 - NG5. A "coverage" score per document. The design's ring is replaced by a simple count of
   agents (P4).
 - NG6. Project context for the GitHub/CI runner path. That path calls `reviewPullRequest`
@@ -87,9 +88,8 @@ run trace with Prompt Assembly. Where they conflict with the requirements, see "
   skill Stats. The trace "Skills loaded" row is also out of scope.
 - NG8. Reading documents from the PR head. The document text always comes from the repo's
   synced default-branch checkout.
-- NG9. Reordering attachments (drag handles or move controls). The order is fixed: agent
-  attachments in attach order, then skill attachments in skill order (OQ4). The design's
-  "Order matters" hint and drag handles (l4.png, l5.png) are not built.
+- ~~NG9. Reordering attachments.~~ Withdrawn 2026-10-16 (P21): attached documents can be
+  reordered by drag or by keyboard.
 - NG10. A UI for search roots. In v1 they are set through a server environment variable only
   (OQ3).
 
@@ -460,7 +460,7 @@ Errors: 400 `context_path_invalid`; 400 `validation_error` (more than 50, or dup
   dropped; the refresh button stays as a rescan. — landed in: NG2.
 - P9 — accepted (course brief) — Paths only are stored, and the text is read at run time. —
   landed in: AC6, AC9, EC5.
-- P10 — changed (user, 2026-10-14) — Fixed order, no drag reorder: agent attachments in attach
+- P10 — superseded by P21, P23 (2026-10-16) — changed (user, 2026-10-14) — Fixed order, no drag reorder: agent attachments in attach
   order, then skill attachments in skill order. — landed in: AC6, AC7, AC9, NG9.
 - P11 — accepted (user, 2026-10-14) — The scan skips the repo-intel `EXCLUDED_DIRS`. — landed
   in: AC1.
@@ -483,6 +483,22 @@ Errors: 400 `context_path_invalid`; 400 `validation_error` (more than 50, or dup
   landed in: Contracts.
 - P19 — accepted (user, 2026-10-14) — The list endpoint answers within 1 s at p95 on a
   5,000-file clone. — landed in: NFR6.
+
+- P20 — changed (review feedback, 2026-10-16) — The Project Context page has a toolbar with
+  Download (the selected document as a `.md` file, client side) and Reindex.
+  `POST /repos/:id/context/reindex` syncs the clone to `origin/<default branch>` and returns
+  the rescanned list; a failed sync answers 409 `clone_unavailable`. Replaces the Rescan
+  button of P8. — landed in: NG4.
+- P21 — changed (review feedback, 2026-10-16) — Supersedes P10. Attached documents are listed
+  first in attach order and can be reordered by drag and drop, or with ArrowUp / ArrowDown on
+  the row handle. The order is stored through the existing full-replace PUT. — landed in: NG9.
+- P22 — accepted (review feedback, 2026-10-16) — The agent and skill pickers warn when the
+  attached documents cost more than 8,000 tokens (`CONTEXT_TOKEN_WARN`). This is a warning
+  only; the 24,000-token run cap (P15) is unchanged.
+- P23 — accepted (user, 2026-10-16) — The prompt groups included documents as specs, docs,
+  insights, then any other type, keeping the P21 order inside each group
+  (`groupCandidates`). The skill editor Context tab shows this shape in a "Serializes as" block.
+  The client group order mirrors the server's `CONTEXT_GROUP_ORDER` by hand.
 
 ## Open questions
 - ~~OQ1~~ closed 2026-10-14 — per repo: (agent or skill, repo, path) — see P13.
@@ -509,3 +525,5 @@ Errors: 400 `context_path_invalid`; 400 `validation_error` (more than 50, or dup
   added, and P10-P19 are recorded. OQ10 stays open and non-blocking. The AC count is unchanged
   at 15.
 - 2026-10-14 — status set to approved by the user
+- 2026-10-16 — revised after review: P20-P23 added. NG9 is withdrawn, NG4 is reworded, and
+  P10 is superseded by P21.

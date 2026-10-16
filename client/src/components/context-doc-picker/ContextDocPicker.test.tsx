@@ -125,8 +125,8 @@ describe("ContextDocPicker", () => {
     expect(box).toBeChecked();
     // a missing doc costs no tokens
     expect(screen.getByText("≈ 120 tokens per prompt")).toBeInTheDocument();
-    // no preview for a file that does not exist
-    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+    // no preview for a file that does not exist (the reorder handle is the only button)
+    expect(within(row).queryByRole("button", { name: /^Preview/ })).not.toBeInTheDocument();
 
     fireEvent.click(box);
     expect(onChange).toHaveBeenCalledWith(["docs/a.md"]);
@@ -140,10 +140,71 @@ describe("ContextDocPicker", () => {
     expect(screen.queryByRole("heading", { name: "Previewed heading" })).not.toBeInTheDocument();
   });
 
-  it("has no drag handle or reorder control (NG9)", () => {
-    renderPicker({ attached: ["docs/a.md", "docs/b.md"] });
-    expect(document.querySelector('[draggable="true"]')).toBeNull();
-    expect(screen.queryByRole("button", { name: /drag|reorder|move/i })).not.toBeInTheDocument();
+  it("lists attached docs first in attach order, each with a reorder handle; available docs have none", () => {
+    renderPicker({ attached: ["specs/c.md", "docs/a.md"] });
+    const attachedList = document.querySelector("[data-context-attached-list]") as HTMLElement;
+    expect(
+      [...attachedList.querySelectorAll("[data-context-row]")].map((r) => r.getAttribute("data-context-row")),
+    ).toEqual(["specs/c.md", "docs/a.md"]);
+    expect(within(attachedList).getByText("Attached · order matters")).toBeInTheDocument();
+    expect(within(attachedList).getAllByRole("button", { name: /^Reorder/ })).toHaveLength(2);
+    const available = document.querySelector("[data-context-available-list]") as HTMLElement;
+    expect(available.querySelector("[draggable]")).toBeNull();
+    expect(within(available).queryByRole("button", { name: /^Reorder/ })).not.toBeInTheDocument();
+  });
+
+  it("dropping a dragged row on another sends the reordered full list", () => {
+    const { onChange } = renderPicker({ attached: ["docs/a.md", "docs/b.md", "specs/c.md"] });
+    const row = (p: string) => document.querySelector(`[data-context-row="${p}"]`) as HTMLElement;
+    expect(row("specs/c.md")).toHaveAttribute("draggable", "true");
+    fireEvent.dragStart(row("specs/c.md"));
+    fireEvent.dragOver(row("docs/a.md"));
+    fireEvent.drop(row("docs/a.md"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(["specs/c.md", "docs/a.md", "docs/b.md"]);
+  });
+
+  it("ArrowUp / ArrowDown on a handle moves the doc one step, clamped at the ends", () => {
+    const { onChange } = renderPicker({ attached: ["docs/a.md", "docs/b.md"] });
+    const handle = (p: string) =>
+      screen.getByRole("button", { name: `Reorder ${p}. Use arrow up or down to move.` });
+    fireEvent.keyDown(handle("docs/b.md"), { key: "ArrowUp" });
+    expect(onChange).toHaveBeenLastCalledWith(["docs/b.md", "docs/a.md"]);
+    fireEvent.keyDown(handle("docs/a.md"), { key: "ArrowUp" });
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reorder while saving", () => {
+    const { onChange } = renderPicker({ attached: ["docs/a.md", "docs/b.md"], saving: true });
+    const row = (p: string) => document.querySelector(`[data-context-row="${p}"]`) as HTMLElement;
+    expect(row("docs/b.md")).toHaveAttribute("draggable", "false");
+    fireEvent.dragStart(row("docs/b.md"));
+    fireEvent.drop(row("docs/a.md"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("warns once the attached docs cost more than 8000 tokens, not at or below it", () => {
+    const big = [doc("docs/x.md", 5000), doc("docs/y.md", 3000), doc("docs/z.md", 1)];
+    const { rerender } = renderPicker({ docs: big, attached: ["docs/x.md", "docs/y.md"] });
+    expect(document.querySelector("[data-context-budget-warning]")).toBeNull();
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ context: messages }}>
+        <ContextDocPicker
+          repoId="r1"
+          docs={big}
+          attached={["docs/x.md", "docs/y.md", "docs/z.md"]}
+          missing={[]}
+          onChange={vi.fn()}
+          saving={false}
+          header="ofTotal"
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Context is large: 8001 tokens is over the 8000 token budget. Detach documents you do not need.",
+    );
+    expect(document.querySelector("[data-context-over-budget]")).not.toBeNull();
   });
 
   it("disables the checkboxes and ignores toggles while saving, and shows the save error otherwise", () => {

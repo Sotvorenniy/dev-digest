@@ -4,7 +4,13 @@
   "loadError": "Couldn’t load project context",
   "footer": "{files} files · {tokens} tokens total",
   "usedBy": "Used by {count} agents",
-  "rescan": "Rescan",
+  "toolbar": {
+    "label": "Project context actions",
+    "download": "Download",
+    "reindex": "Reindex",
+    "reindexError": "Couldn’t reindex project context. Try again.",
+    "reindexCloneError": "Couldn’t pull the latest changes — the repository clone isn’t available. Refresh the repository and try again."
+  },
   "truncated": "Too many files — the list is truncated. Only the first files found are shown.",
   "cloneUnavailable": "The repository clone isn’t available yet. Refresh the repository and try again.",
   "retry": "Retry",
@@ -15,7 +21,7 @@
   "listLabel": "Project context documents",
   "empty": {
     "title": "No context docs found",
-    "body": "Add Markdown docs under {roots} in the repository, then rescan. Agents and skills can attach them as grounding context."
+    "body": "Add Markdown docs under {roots} in the repository, then reindex. Agents and skills can attach them as grounding context."
   },
   "picker": {
     "attachedOfTotal": "{attached} of {total} attached",
@@ -30,6 +36,23 @@
     "closePreview": "Close preview",
     "empty": "No context docs in this repository yet",
     "saving": "Saving…",
-    "saveError": "Could not save the attached documents. Try again."
+    "saveError": "Could not save the attached documents. Try again.",
+    "orderHint": "Attached documents enter the prompt in this order. Drag to reorder.",
+    "reorder": "Reorder {path}. Use arrow up or down to move.",
+    "attachedSection": "Attached · order matters",
+    "availableSection": "Available",
+    "overBudget": "Context is large: {tokens} tokens is over the {limit} token budget. Detach documents you do not need."
+  },
+  "serializes": {
+    "title": "Serializes as",
+    "hint": "How this skill's documents enter the review prompt. Agent documents join the same groups.",
+    "empty": "No documents attached — nothing is added to the prompt.",
+    "groups": {
+      "specs": "Specifications",
+      "docs": "Docs",
+      "insights": "Insights",
+      "other": "Other"
+    },
+    "groupCount": "{count, plural, one {# document} other {# documents}}"
   }
 }
