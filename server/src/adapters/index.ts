@@ -8,6 +8,8 @@ export { OctokitGitHubClient } from './github/octokit.js';
 export { SimpleGitClient } from './git/simple-git.js';
 export { parseUnifiedDiff } from './git/diff-parser.js';
 export { HttpDocFetcher } from './docs/fetcher.js';
+export { FsProjectDocs } from './project-docs/fs-project-docs.js';
+export { FsRootFiles } from './root-files/fs-root-files.js';
 export { RipgrepCodeIndex } from './codeindex/ripgrep.js';
 export { estimateCost } from './llm/pricing.js';
 export * from './mocks.js';

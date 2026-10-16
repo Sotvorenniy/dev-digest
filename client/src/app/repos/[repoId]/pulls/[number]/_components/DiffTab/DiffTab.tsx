@@ -1,14 +1,15 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import type { FindingActionKind, FindingRecord, PrFile } from "@devdigest/shared";
-import { DiffViewer, type DiffCommentApi, type DiffFindingApi } from "@/components/diff-viewer";
+import { DiffViewer, type DiffCommentApi, type DiffFindingApi, type DiffFocus } from "@/components/diff-viewer";
 import { usePrComments, useCreatePrComment, usePrReviews, useSmartDiff, useFindingAction } from "@/lib/hooks/reviews";
 import { latestReviewPerAgent } from "@/lib/latest-reviews";
 import { notify } from "@/lib/toast";
 import { RoleGroup } from "./_components/RoleGroup";
 import { SmartDiffHeader, type DiffOrder } from "./_components/SmartDiffHeader";
-import { diffTotals, filesWithFindingsCount, findingsByPath, groupFiles } from "./helpers";
+import { diffTotals, filesWithFindingsCount, findingsByPath, groupFiles, parseDiffFocus } from "./helpers";
 import { s } from "./styles";
 
 interface DiffTabProps {
@@ -17,13 +18,17 @@ interface DiffTabProps {
   files: PrFile[];
   /** Inline commenting is offered only on open PRs (GitHub rejects otherwise). */
   canComment?: boolean;
+  /** `?file=` / `?line=` from a Review focus link: expand, scroll to and highlight it. */
+  focusFile?: string | null;
+  focusLine?: string | null;
 }
 
-export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, canComment, focusFile, focusLine }: DiffTabProps) {
+  const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
   const { data: reviews } = usePrReviews(prId);
-  const { data: smart } = useSmartDiff(prId);
+  const { data: smart, isPending: smartPending } = useSmartDiff(prId);
   const findingAction = useFindingAction();
   // Comments start hidden so the diff is clean by default — toggle to reveal.
   const [showComments, setShowComments] = React.useState(true);
@@ -38,6 +43,26 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
   const commentCount = (comments?.length ?? 0) + findingCount;
   const groups = React.useMemo(() => (smart ? groupFiles(files, smart) : null), [files, smart]);
   const totals = diffTotals(files);
+
+  // Focus is handed down only once Smart Diff has settled (loaded or errored), so
+  // cards don't scroll in the flat list and then remount inside groups. A focus
+  // whose file is not in this PR gets a short notice instead.
+  const parsed = React.useMemo(() => parseDiffFocus(focusFile, focusLine), [focusFile, focusLine]);
+  const focusInFiles = !!parsed && files.some((f) => f.path === parsed.file);
+  const focusMissing = !!parsed && files.length > 0 && !focusInFiles;
+  const pFile = parsed?.file;
+  const pLine = parsed?.line ?? null;
+  const focus = React.useMemo<DiffFocus | undefined>(
+    () => (!smartPending && focusInFiles && pFile ? { file: pFile, line: pLine } : undefined),
+    [smartPending, focusInFiles, pFile, pLine],
+  );
+  // One scroll per (file, line) pair, even across re-renders and remounts.
+  const scrolledKey = React.useRef<string | null>(null);
+  const claimScroll = React.useCallback((key: string) => {
+    if (scrolledKey.current === key) return false;
+    scrolledKey.current = key;
+    return true;
+  }, []);
 
   const commenting: DiffCommentApi = {
     comments: comments ?? [],
@@ -81,6 +106,11 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
         showComments={showComments}
         onToggleComments={() => setShowComments((v) => !v)}
       />
+      {focusMissing && parsed && (
+        <div role="status" style={s.notice} data-focus-not-in-diff>
+          {t("smartDiff.focusNotInDiff", { file: parsed.file })}
+        </div>
+      )}
       {showGroups ? (
         <div style={s.groups}>
           {groups.map((g) => (
@@ -91,11 +121,13 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
               filesWithFindings={filesWithFindingsCount(g.files, byPath)}
               commenting={commenting}
               findings={findings}
+              focus={focus}
+              claimScroll={claimScroll}
             />
           ))}
         </div>
       ) : (
-        <DiffViewer files={files} commenting={commenting} findings={findings} />
+        <DiffViewer files={files} commenting={commenting} findings={findings} focus={focus} claimScroll={claimScroll} />
       )}
     </section>
   );

@@ -135,6 +135,30 @@ Not confirmed against the persistent-path SQL in `repo-intel/repository.ts`.
 Evidence: `server/src/modules/blast/mapper.ts:17`,
 `server/test/blast-mapper.test.ts`
 
+### Env list values holding globs are split on ';', not ','
+`2026-10-14` — `PROJECT_CONTEXT_ROOTS` is a list of globs, and the default
+`**/{specs,docs,insights}/**/*.md` contains commas inside `{…}`, so a
+comma-split env list would cut a glob in half. Use `;` for any env list whose
+items may be globs.
+Evidence: `server/src/platform/config.ts:81,111-112`
+
+### Repo-authored text that becomes a copyable command needs a filter, not only a UI warning
+`2026-10-14` — Onboarding offered README shell-fence lines verbatim as "Run
+locally" commands, one click from the clipboard: `curl … | sh`, `a; rm -rf ~`,
+or a lone `\r` / U+202E bidi override that hides part of the line in a
+terminal. Security review raised it twice (MEDIUM, then LOW for `&`, `>`,
+`$VAR`). The filter is `README_UNSAFE`
+(`/[\u0000-\u001f\u007f`;|&<>]|\$[({A-Za-z_]|\p{Cf}/u`) plus a 200-char cap.
+Evidence: `server/src/modules/onboarding/domain.ts:120`,
+`server/test/onboarding-domain.test.ts`
+
+### Seed fixture changes reach only a fresh DB — PR #482 rows are written inside `if (!pr)`
+`2026-10-15` — `seed.ts` inserts PR #482's files, review and brief only when
+the PR does not exist yet, so editing a seeded patch or adding a seeded row
+does nothing on an existing dev DB. The hermetic e2e stack (fresh DB) sees the
+change; your dev DB does not. Check a seed change against a fresh DB.
+Evidence: `server/src/db/seed.ts:106`, `server/src/db/seed-brief.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
@@ -165,6 +189,15 @@ live prices. Verified: three consecutive reads of one run all returned
 lazy-refresh behaviour itself is unchanged — a 6h TTL expiry mid-process still
 skews one call, and only re-priced (null `cost_usd`) rows are affected.
 
+### `container.llm()` cannot promise exactly one HTTP request; use `llmSingleShot`
+`2026-10-14` — The default providers retry at two layers: SDK transport retries
+and `withRetry` in `server/src/adapters/llm/openai.ts`. A feature whose spec
+says "one LLM call" (onboarding tour) must use `container.llmSingleShot`
+(`transportRetries: 0`, uncached) and pass `maxRetries: 0`.
+`server/test/llm-single-shot.test.ts` has a control case proving the default
+provider retries the same error, so the test can fail.
+Evidence: `server/src/platform/container.ts:375-406`
+
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
 
@@ -193,6 +226,36 @@ the 8 baseline violations to 13. Import `repo-intel/types.js` instead (types
 only, no cycle).
 Evidence: `server/src/modules/blast/ports.ts:1`,
 `.claude/skills/onion-architecture/scripts/check.sh`
+
+### `reviews.it.test.ts` and the conventions rescan test fail on a clean HEAD
+`2026-10-14` — With `vitest run .it.test`, `reviews.it.test.ts` ("runs a
+review…", "finding actions: accept, dismiss" → `Cannot read properties of
+undefined (reading 'findings')`) and
+`conventions-rescan-preserves-decisions.it.test.ts` ("rescan wipes only pending
+rows") fail on an untouched HEAD worktree too. Before blaming a change, re-run
+those two files on a clean worktree (`git worktree add --detach`, symlink
+`node_modules`).
+
+### Run-driven IT tests flake: the PR-intent step makes a live OpenRouter call
+`2026-10-14` — In `test/reviews.it.test.ts` a different test fails each run on
+the 10 s `waitForPrRuns` timeout and passes alone. A traced run took 6.5 s,
+6.4 s of it in the intent classifier calling a real `openrouter/deepseek`
+model. Rerun before suspecting your change; the fix is a mocked intent
+classifier or a longer timeout. In the same `--it` lane
+`conventions-rescan-preserves-decisions.it.test.ts:144` failed reproducibly
+with no conventions change.
+Evidence: `server/test/reviews.it.test.ts` (`waitForPrRuns`)
+`2026-10-15` — The trigger is the local `server/.env`: a clean HEAD worktree
+without it passes `reviews.it` 6/6, and copying `server/.env` into that
+worktree reproduces the `waitForPrRuns` hang. Run the lane without
+`server/.env` to tell a real regression from this flake.
+
+### A per-route `rateLimit` never fires under NODE_ENV=test — a 429 test needs its own dev app
+`2026-10-15` — `app.ts` registers `@fastify/rate-limit` only when
+`nodeEnv !== 'test'`, so a route's `config.rateLimit` is silently ignored in
+the normal test app and the 11th POST still returns 200. For the 429 case,
+build a separate app with `NODE_ENV=development` and `API_HOST=127.0.0.1`.
+Evidence: `server/src/app.ts:110`, `server/test/brief.it.test.ts:256`
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->

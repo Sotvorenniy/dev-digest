@@ -31,7 +31,7 @@ You need a plan path (`.claude/plans/<slug>.md`) or an explicit list of behaviou
 ## Step 1 — Context (read before writing)
 1. Root `AGENTS.md`, `<pkg>/AGENTS.md`, `<pkg>/INSIGHTS.md` for each package you test, and `TESTING.md` (typological, not exhaustive). Name the INSIGHTS entries that apply.
 2. Skills are NOT preloaded; Read on demand:
-   - client tests: `.claude/skills/react-testing-library/SKILL.md` and `.claude/skills/frontend-ui-architecture/SKILL.md` (+ `references/this-repo.md`) for placement.
+   - client tests: `.claude/skills/react-testing-library/SKILL.md`, only the sections "Query Priority", "userEvent", "Async Testing", "Component Testing Patterns" and "Module mock (`vi.mock`)" (the rest is setup and MSW, which this repo does not use; the repo overrides are in Step 3). Placement: `.claude/skills/frontend-ui-architecture/references/this-repo.md`.
    - server tests: `.claude/skills/onion-architecture/references/testing.md`.
    - hard typing only: `typescript-expert`. Contract tests: `zod`.
 3. Read the code under test, the implementer's report if supplied, and one neighbouring test as the style reference.
@@ -50,20 +50,18 @@ A test that imports `test/helpers/pg.ts` MUST be `*.it.test.ts`; a hermetic test
 
 ## Step 3 — Write
 - RTL rules: `userEvent` (never `fireEvent`), `screen`, query by role with `name` first, then label/text; `data-<thing>` hooks only when no role/text query works, never `data-testid`. Assert user-visible behaviour, not state or implementation. Mock at boundaries only.
+- Never mock the app's own components (anything under `client/src/app/**` or `client/src/components/**`), and never assert on the props a parent passes to a child. Mock data hooks, navigation and the repo overrides below, and render the real children. If a rule lives inline in a page and is only reachable through mocked children, report it as a blocker ("extract `<rule>` into a helper"), do not test it through props.
 - Repo overrides: mock the hooks module with `vi.mock` instead of MSW; mock `@/components/app-shell` for AppShell-wrapped pages; mock `@uiw/react-codemirror` (throws under jsdom). Assert exact i18n text from the real `client/messages/en/<ns>.json`, not a loose `toBeInTheDocument()`.
 - jsdom has no layout: never claim a test proves clipping, overflow or visual placement; list it under "Not covered".
 - A new `@devdigest/ui` component needs the showcase entry or `client/src/test/smoke.test.tsx` fails.
 - Test helpers in `server/test/helpers/` must not have `.test.` in the name.
 - Guard against tautological tests: each assertion must be able to fail when the behaviour breaks. State, per test, the change that would make it fail.
 
-## Step 4 — Run (pnpm is broken; use these forms)
-| pkg | tests | typecheck |
-|---|---|---|
-| server | hermetic: `./node_modules/.bin/vitest run --exclude '**/*.it.test.ts'`; DB: `./node_modules/.bin/vitest run .it.test` (Docker) | `./node_modules/.bin/tsc --noEmit` |
-| client | `./node_modules/.bin/vitest run` | `./node_modules/.bin/tsc --noEmit` |
-| reviewer-core, e2e | `npm test` | `npm run typecheck` |
-
-- Narrowest file first, then the package suite. Report failures verbatim; show evidence if a failure is pre-existing.
+## Step 4 — Run (pnpm is broken; the script uses `./node_modules/.bin/*` itself)
+- While writing one file: `./node_modules/.bin/vitest run <file> --reporter=dot` from the package folder.
+- When your test files are done: `.claude/scripts/check-changed.sh <pkg>...` (typecheck + tests related to all changed files), then once `--full`. Add `--it` for `*.it.test.ts` (Docker). It prints one line per gate and only the tail of a failure; do not pipe it.
+- Report failures verbatim; show evidence if a failure is pre-existing.
+- A failing test outside your files: first look it up in `<pkg>/INSIGHTS.md` "Recurring Errors & Fixes" and root `INSIGHTS.md`. If it is listed there, report it as known (cite the entry heading) and move on: no bisecting, no temporary worktrees, no copied `.env`. Only an unlisted failure gets one short check (re-run it alone, or run it on a clean `HEAD`), and that check goes into the report, not into a fix.
 - `.it.test` files self-skip without Docker: report them as "skipped", never "passed".
 
 ## Output: Test Report

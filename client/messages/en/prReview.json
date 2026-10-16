@@ -76,7 +76,8 @@
     "showComments": "Show comments",
     "hideComments": "Hide comments",
     "toggleLabel": "Diff order",
-    "notReviewed": "Review hasn't been started yet"
+    "notReviewed": "Review hasn't been started yet",
+    "focusNotInDiff": "File not in this PR's diff: {file}"
   },
   "list": {
     "breadcrumb": "Pull Requests",

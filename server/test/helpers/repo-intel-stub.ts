@@ -54,5 +54,14 @@ export function makeStubRepoIntel(samplePaths: string[]): RepoIntel {
     async getCriticalPaths() {
       return [];
     },
+    async hasIndexState() {
+      return false;
+    },
+    async getRankedFiles() {
+      return [];
+    },
+    async getFileFacts() {
+      return [];
+    },
   };
 }

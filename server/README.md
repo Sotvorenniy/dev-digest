@@ -76,6 +76,8 @@ flowchart TB
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
+    projectContext["project-context<br/>/repos/:id/context · /repos/:id/context/file<br/>/agents/:id/context · /skills/:id/context"]
+    onboarding["onboarding<br/>GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
@@ -96,6 +98,7 @@ flowchart TB
 | `GITHUB_TOKEN` | — | optional; PAT with repo scope (`GITHUB_PAT` accepted as a fallback) |
 | `EMBEDDINGS_ENABLED` | `false` | memory/RAG embeddings (OpenAI); off → **zero** OpenAI calls |
 | `REPO_INTEL_ENABLED` | `true` | repo skeleton + callers in the prompt; `false` → ripgrep-only |
+| `PROJECT_CONTEXT_ROOTS` | `**/{specs,docs,insights}/**/*.md` | `;`-separated globs for Project Context docs (globs contain commas); see [`docs/project-context.md`](../docs/project-context.md) |
 | `DEVDIGEST_CLONE_DIR` | `./clones` | imported-repo checkouts (git-ignored) |
 | `LOG_LEVEL` | `info` (`silent` in test) | pino level |
 | `NODE_ENV` | `development` | `test` → silent logs + global rate-limit disabled |

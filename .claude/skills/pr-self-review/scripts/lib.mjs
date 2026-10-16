@@ -82,7 +82,7 @@ export function collect() {
 }
 
 /** Bytes that identify a path's current state. A symlink hashes as its target, never followed. */
-function fileFingerprint(abs) {
+export function fileFingerprint(abs) {
   let st;
   try {
     st = lstatSync(abs);

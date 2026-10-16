@@ -42,7 +42,14 @@
       "config": "Config",
       "preview": "Preview",
       "versions": "Versions",
+      "context": "Context",
       "evals": "Evals"
+    },
+    "context": {
+      "title": "Project context to use",
+      "hint": "Docs from the active repository that are added to the prompt whenever this skill is attached to an agent.",
+      "noRepo": "Select a repository to attach project context.",
+      "loadError": "Couldn’t load project context"
     }
   },
   "drawer": {

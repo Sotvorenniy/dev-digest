@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile } from "@/lib/types";
 import { AUTO_EXPAND_MAX_LINES } from "../constants";
-import { parsePatch, type Line } from "../helpers";
+import { parsePatch, type ClaimScroll, type DiffFocus, type Line } from "../helpers";
 import {
   buildThreads,
   keysForLine,
@@ -37,16 +37,41 @@ export function FileCard({
   file,
   commenting,
   findings,
+  focus,
+  claimScroll,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   findings?: DiffFindingApi;
+  focus?: DiffFocus;
+  claimScroll?: ClaimScroll;
 }) {
   const t = useTranslations("shell");
-  const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
-  );
+  const isFocusFile = focus?.file === file.path;
+  const focusLine = isFocusFile ? (focus?.line ?? null) : null;
+  // A manual toggle wins; otherwise the focused file is always open.
+  const [manualOpen, setManualOpen] = React.useState<boolean | null>(null);
+  const open = manualOpen ?? (isFocusFile || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const focusLineRef = React.useRef<HTMLDivElement>(null);
+  // The focused row is a non-deleted line carrying the requested new-side number.
+  const focusIdx = React.useMemo(
+    () => (focusLine === null ? -1 : lines.findIndex((l) => l.kind !== "del" && l.kind !== "hunk" && l.newNo === focusLine)),
+    [lines, focusLine],
+  );
+
+  // Scroll once per (file, line) pair (claimScroll dedupes across re-renders and
+  // remounts). Keyed on primitives so a new `focus` object identity never re-fires it.
+  const focusFile = isFocusFile ? file.path : null;
+  const nLines = lines.length;
+  React.useEffect(() => {
+    if (!focusFile || !claimScroll) return;
+    if (!claimScroll(`${focusFile}:${focusLine ?? ""}`)) return;
+    const target = focusIdx >= 0 ? focusLineRef.current : headerRef.current;
+    (target ?? headerRef.current)?.scrollIntoView?.({ block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusFile, focusLine, nLines]);
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -74,8 +99,8 @@ export function FileCard({
     : 0;
 
   return (
-    <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+    <div style={s.fileCard} data-focus-file={isFocusFile ? "" : undefined}>
+      <div ref={headerRef} onClick={() => setManualOpen(!open)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         <span className="mono" style={s.filePath}>
@@ -110,6 +135,8 @@ export function FileCard({
             lines.map((ln, i) => (
               <CodeLine
                 key={i}
+                ref={i === focusIdx ? focusLineRef : undefined}
+                focused={i === focusIdx}
                 ln={ln}
                 path={file.path}
                 threads={threadsForLine(ln, matched)}

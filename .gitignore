@@ -24,5 +24,10 @@ test-results/
 # emdash worktree config (local)
 .emdash.json
 
-# agent working plans (planner output, deleted after the work is done)
-.claude/plans/
+# agent working plans (implementation-planner output, deleted after the work is done)
+.claude/plans/*
+# kept for the L05 lab review: SDD pipeline artifacts (plan, run state, reports, review findings)
+!.claude/plans/project-context.md
+!.claude/plans/project-context/
+!.claude/plans/onboarding-tour.md
+!.claude/plans/onboarding-tour/

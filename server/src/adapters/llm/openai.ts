@@ -47,9 +47,15 @@ function tuningParams(
 export class OpenAIProvider implements LLMProvider {
   readonly id = 'openai' as const;
   private client: OpenAI;
+  /** Undefined = defaults (SDK + `withRetry`); 0 = exactly one HTTP request per attempt. */
+  private transportRetries?: number;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(apiKey: string, opts: { transportRetries?: number } = {}) {
+    this.transportRetries = opts.transportRetries;
+    this.client = new OpenAI({
+      apiKey,
+      ...(opts.transportRetries === 0 ? { maxRetries: 0 } : {}),
+    });
   }
 
   async listModels(): Promise<ModelInfo[]> {
@@ -107,6 +113,7 @@ export class OpenAIProvider implements LLMProvider {
           }),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        this.transportRetries === 0 ? { retries: 0 } : undefined,
       );
       lastRaw = res.choices?.[0]?.message?.content ?? '';
       tokensIn += res.usage?.prompt_tokens ?? 0;

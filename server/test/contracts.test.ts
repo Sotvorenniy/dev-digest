@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  OnboardingState,
   Review,
   Finding,
   Intent,
@@ -9,13 +12,14 @@ import {
   SmartDiff,
   SmartDiffRole,
   Conformance,
-  Onboarding,
+  OnboardingTour,
   EvalRun,
   MemoryItem,
   RunTrace,
   Settings,
   Repo,
   PrDetail,
+  PrBrief,
 } from '@devdigest/shared';
 
 /**
@@ -141,8 +145,28 @@ describe('AI contracts parse fixtures', () => {
       }),
     ).not.toThrow();
     expect(() =>
-      Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
+      OnboardingTour.parse({
+        generated_at: '2026-10-14T00:00:00.000Z',
+        indexed_sha: 'abc',
+        files_indexed: 1,
+        index_status: 'full',
+        outcome: 'skeleton',
+        skeleton_reason: 'no_api_key',
+        churn_available: false,
+        truncated: false,
+        dropped_paths: 0,
+        model: null,
+        llm_calls: 0,
+        tokens_in: null,
+        tokens_out: null,
+        cost_usd: null,
+        sections: {
+          architecture: { summary: null, nodes: [], edges: [] },
+          critical_paths: [],
+          run_locally: [],
+          reading_path: [],
+          first_tasks: [],
+        },
       }),
     ).not.toThrow();
     expect(() =>
@@ -199,6 +223,68 @@ describe('AI contracts parse fixtures', () => {
     });
     expect(trace.stats.cost_usd ?? null).toBeNull();
   });
+
+  describe('project_context (SPEC-01 AC13, NFR12)', () => {
+    const base = {
+      config: { agent: 'Security Reviewer', model: 'gpt-4.1', pr: 482, source: 'local' },
+      stats: { duration_ms: 8200, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0 passed' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '{}',
+      memory_pulled: [],
+      specs_read: [],
+      log: [],
+    };
+
+    it('a stored trace with no project_context key still parses (old rows)', () => {
+      const trace = RunTrace.parse(base);
+      expect(trace.project_context ?? null).toBeNull();
+    });
+
+    it('project_context: null parses', () => {
+      expect(RunTrace.parse({ ...base, project_context: null }).project_context).toBeNull();
+    });
+
+    it('parses entries with all four statuses', () => {
+      const entry = (status: string, included: boolean) => ({
+        path: `docs/${status}.md`,
+        origin: 'agent',
+        skill_name: null,
+        status,
+        tokens: included ? 12 : null,
+        text: included ? 'doc text' : null,
+      });
+      const trace = RunTrace.parse({
+        ...base,
+        project_context: [
+          entry('included', true),
+          entry('missing', false),
+          entry('rejected', false),
+          entry('over_limit', false),
+        ],
+      });
+      expect(trace.project_context!.map((e) => e.status)).toEqual([
+        'included',
+        'missing',
+        'rejected',
+        'over_limit',
+      ]);
+    });
+
+    it('accepts a skill-origin entry with skill_name and omitted skill_name', () => {
+      const e = { path: 'a.md', origin: 'skill', status: 'included', tokens: 1, text: 't' };
+      expect(() => RunTrace.parse({ ...base, project_context: [{ ...e, skill_name: 'sk' }, e] })).not.toThrow();
+    });
+
+    it('rejects an unknown status', () => {
+      expect(() =>
+        RunTrace.parse({
+          ...base,
+          project_context: [{ path: 'a.md', origin: 'agent', status: 'skipped', tokens: null, text: null }],
+        }),
+      ).toThrow();
+    });
+  });
 });
 
 describe('platform DTOs', () => {
@@ -238,5 +324,134 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('SPEC-02 Onboarding contracts', () => {
+  const sections = {
+    architecture: {
+      summary: 'Markdown summary',
+      nodes: [{ id: 'n1', label: 'API', path: 'src/app.ts' }, { id: 'n2', label: 'DB', path: null }],
+      edges: [{ from: 'n1', to: 'n2' }],
+    },
+    critical_paths: [{ path: 'src/app.ts', why: null }],
+    run_locally: [{ command: 'pnpm install', note: null, source: 'package.json' }],
+    reading_path: [{ path: 'src/app.ts', reason: 'entry', score: 0.5 }],
+    first_tasks: [{ title: 't', why: 'w', paths: ['src/app.ts'] }],
+  };
+  const aiTour = {
+    generated_at: '2026-10-14T00:00:00.000Z',
+    indexed_sha: 'abc',
+    files_indexed: 12,
+    index_status: 'full',
+    outcome: 'ai',
+    skeleton_reason: null,
+    churn_available: false,
+    truncated: false,
+    dropped_paths: 0,
+    model: 'deepseek/deepseek-v4-flash',
+    llm_calls: 1,
+    tokens_in: 100,
+    tokens_out: 50,
+    cost_usd: null,
+    sections,
+  };
+  const skeletonTour = {
+    ...aiTour,
+    outcome: 'skeleton',
+    skeleton_reason: 'ai_failed',
+    model: null,
+    llm_calls: 0,
+    tokens_in: null,
+    tokens_out: null,
+    sections: { ...sections, architecture: { summary: null, nodes: [], edges: [] }, first_tasks: [] },
+  };
+  const index = { status: 'full', usable: true, files_indexed: 12, last_indexed_sha: null };
+
+  it('parses an ai tour and a skeleton tour', () => {
+    expect(OnboardingTour.parse(aiTour).outcome).toBe('ai');
+    expect(OnboardingTour.parse(skeletonTour).sections.architecture.summary).toBeNull();
+  });
+
+  it('parses OnboardingState none / generating / ready', () => {
+    expect(OnboardingState.parse({ status: 'none', job_id: null, index, is_stale: false, tour: null }).status).toBe('none');
+    expect(OnboardingState.parse({ status: 'generating', job_id: 'j', index, is_stale: false, tour: null }).job_id).toBe('j');
+    expect(OnboardingState.parse({ status: 'ready', job_id: null, index, is_stale: true, tour: aiTour }).is_stale).toBe(true);
+  });
+
+  it('EC13: an old-shape { sections: [...] } document does not parse as a tour', () => {
+    const old = { sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }] };
+    expect(OnboardingTour.safeParse(old).success).toBe(false);
+  });
+
+  it('rejects llm_calls above 1 and an unknown skeleton reason', () => {
+    expect(OnboardingTour.safeParse({ ...aiTour, llm_calls: 2 }).success).toBe(false);
+    expect(OnboardingTour.safeParse({ ...skeletonTour, skeleton_reason: 'other' }).success).toBe(false);
+  });
+
+  it('NFR8: the Onboarding block of the server and client contract copies is identical', () => {
+    const block = (p: string) => {
+      const text = readFileSync(resolve(__dirname, p), 'utf8');
+      const start = text.indexOf('// ---- Onboarding ----');
+      const end = text.indexOf('// ---- Eval ----');
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      return text.slice(start, end);
+    };
+    expect(block('../src/vendor/shared/contracts/knowledge.ts')).toBe(
+      block('../../client/src/vendor/shared/contracts/knowledge.ts'),
+    );
+  });
+});
+
+describe('PrBrief contract (SPEC-03)', () => {
+  const risk = { kind: 'k', title: 't', explanation: 'e', severity: 'low' as const, file_refs: ['a.ts:1'] };
+  const full = {
+    summary: 's',
+    intent: { intent: 'i', in_scope: [], out_of_scope: [] },
+    blast: null,
+    risks: { risks: [risk] },
+    history: null,
+    review_focus: [{ file: 'a.ts', line: 3, reason: 'r' }],
+    head_sha: 'abc',
+    generated_at: '2026-01-01T00:00:00.000Z',
+    missing_inputs: [{ input: 'intent', reason: 'stale' }],
+    specs_used: ['docs/a.md'],
+    truncated: { files: 1, description: false, issue_body: true, callers: 400, blast_summary: true },
+    dropped: { review_focus: 1, risks: 0, file_refs: 2 },
+    model: 'm',
+    tokens_in: 10,
+    tokens_out: 5,
+    cost_usd: 0.01,
+  };
+
+  it('parses a full fixture including truncated.callers and truncated.blast_summary', () => {
+    const r = PrBrief.safeParse(full);
+    expect(r.success).toBe(true);
+    expect(r.data?.truncated?.callers).toBe(400);
+    expect(r.data?.truncated?.blast_summary).toBe(true);
+  });
+
+  it('parses a minimal old-shape JSON (later fields are nullish)', () => {
+    expect(PrBrief.safeParse({ intent: null, blast: null, risks: { risks: [] } }).success).toBe(true);
+  });
+
+  it('rejects 9 risks and 9 focus items', () => {
+    expect(PrBrief.safeParse({ ...full, risks: { risks: Array(9).fill(risk) } }).success).toBe(false);
+    expect(PrBrief.safeParse({ ...full, review_focus: Array(9).fill(full.review_focus[0]) }).success).toBe(false);
+  });
+
+  it('rejects focus line 0 and an unknown missing-input reason', () => {
+    expect(PrBrief.safeParse({ ...full, review_focus: [{ file: 'a', line: 0, reason: 'r' }] }).success).toBe(false);
+    expect(
+      PrBrief.safeParse({ ...full, missing_inputs: [{ input: 'intent', reason: 'weird' }] }).success,
+    ).toBe(false);
+  });
+
+  it('the server and client brief.ts copies are byte-identical', () => {
+    const read = (p: string) => readFileSync(resolve(__dirname, p), 'utf8');
+    expect(read('../src/vendor/shared/contracts/brief.ts')).toBe(
+      read('../../client/src/vendor/shared/contracts/brief.ts'),
+    );
   });
 });

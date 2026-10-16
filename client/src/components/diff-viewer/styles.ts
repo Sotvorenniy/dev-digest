@@ -82,6 +82,12 @@ export function lineRowFor(kind: Line["kind"]): CSSProperties {
   return { display: "flex", alignItems: "stretch", fontSize: 13, lineHeight: "20px", background };
 }
 
+/** Extra style for the row a Review focus link points at. */
+export const focusLineStyle: CSSProperties = {
+  background: "var(--warn-bg)",
+  boxShadow: "inset 3px 0 0 var(--warn)",
+};
+
 /** Gutter sign colour per line kind. */
 export function lineSignFor(kind: Line["kind"]): CSSProperties {
   return {

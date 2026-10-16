@@ -42,6 +42,18 @@ judgement. If `files` is empty, say there is nothing to review and stop.
 If the plan has more than ~1500 changed lines (`git diff --stat <base>`), say so and
 suggest splitting the PR — then continue.
 
+**After an SDD pipeline run** (`.devdigest/cache/review-bundle/reviews.json` exists, saved
+from the `architecture-reviewer` / `security-reviewer` "Findings JSON" blocks):
+```bash
+node $S/bundle.mjs reuse --plan $C/plan.json > $C/reuse.json
+```
+The agents already reviewed `onion-architecture`, `frontend-ui-architecture` and `security`
+for every file whose content has not changed since their bundle. `reuse.json` holds `plan`
+(the routing with those files removed — use its `skills` in step 4), `carried` (their
+findings on unchanged files — append them to `llm.json` in step 5 without re-verifying
+non-CRITICALs) and `skipped` (say in the report which files were not reviewed again and why).
+The other skills and every changed file are reviewed as usual.
+
 ### 2. Mechanical gates
 ```bash
 node $S/mechanical.mjs > $C/mechanical.json
@@ -131,3 +143,5 @@ gate itself, run the probe from a script file rather than inline.
 - New review skill → add a rule to `routing.json` (or put it in `notReviewSkills`);
   `node --test .claude/skills/pr-self-review/scripts/*.test.mjs` fails until you do.
 - New deterministic project rule → `repoRuleFindings` in `mechanical.mjs`, with a test.
+- `bundle.mjs` reuses `collect()` and `route()`: the SDD reviewers and this skill see the same
+  snapshot. A new SDD reviewer agent → add it to `COVERED_BY` in `bundle.mjs`.

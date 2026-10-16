@@ -5,7 +5,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile, SmartDiffRole } from "@devdigest/shared";
-import { DiffViewer, type DiffCommentApi, type DiffFindingApi } from "@/components/diff-viewer";
+import { DiffViewer, type ClaimScroll, type DiffCommentApi, type DiffFindingApi, type DiffFocus } from "@/components/diff-viewer";
 import { COLLAPSED_BY_DEFAULT, ROLE_META } from "../../constants";
 import { s } from "./styles";
 
@@ -15,7 +15,11 @@ export function RoleGroup({
   filesWithFindings,
   commenting,
   findings,
+  focus,
+  claimScroll,
 }: {
+  focus?: DiffFocus;
+  claimScroll?: ClaimScroll;
   role: SmartDiffRole;
   files: PrFile[];
   /** Number of files in this group that carry at least one finding. */
@@ -27,7 +31,8 @@ export function RoleGroup({
   const meta = ROLE_META[role];
   // Default: groups skimmed last start closed, unless they hold findings. A manual toggle wins.
   const [manualOpen, setManualOpen] = React.useState<boolean | null>(null);
-  const open = manualOpen ?? (filesWithFindings > 0 || !COLLAPSED_BY_DEFAULT.has(role));
+  const holdsFocus = !!focus && files.some((f) => f.path === focus.file);
+  const open = manualOpen ?? (holdsFocus || filesWithFindings > 0 || !COLLAPSED_BY_DEFAULT.has(role));
 
   return (
     <div data-role-group={role} style={s.wrap}>
@@ -44,7 +49,7 @@ export function RoleGroup({
         )}
         <span style={s.count}>{t("smartDiff.summary", { count: files.length })}</span>
       </button>
-      {open && <DiffViewer files={files} commenting={commenting} findings={findings} />}
+      {open && <DiffViewer files={files} commenting={commenting} findings={findings} focus={focus} claimScroll={claimScroll} />}
     </div>
   );
 }

@@ -29,9 +29,16 @@ export type {
   PrStatus,
   SpecFile,
   IndexStatus,
+  ProjectContextDoc,
+  ProjectContextList,
+  ProjectContextFile,
+  ContextAttachments,
+  ContextAttachmentsInput,
+  ContextAttachmentsSaved,
 } from "@devdigest/shared";
 
 export type { Review, Finding, Severity, Verdict } from "@devdigest/shared";
+export type { Risk, RiskSeverity, BriefReviewFocusItem, BriefMissingInput } from "@devdigest/shared";
 export type { PrBrief, SmartDiff, BlastRadius, DownstreamImpact, BlastCaller, ChangedSymbol } from "@devdigest/shared";
 export type { PrIntentRecord, IntentSource, IntentChangeType, IntentBasis } from "@devdigest/shared";
 

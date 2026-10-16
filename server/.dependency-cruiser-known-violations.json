@@ -568,6 +568,52 @@
   },
   {
     "type": "cycle",
+    "from": "src/modules/_shared/context.ts",
+    "to": "src/platform/container.ts",
+    "unresolvedTo": "../../platform/container.js",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/platform/container.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/routes.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/modules/_shared/context.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
     "from": "src/modules/agents/helpers.ts",
     "to": "src/modules/agents/repository.ts",
     "unresolvedTo": "./repository.js",
@@ -600,6 +646,44 @@
   },
   {
     "type": "cycle",
+    "from": "src/modules/repo-intel/index.ts",
+    "to": "src/modules/repo-intel/service.ts",
+    "unresolvedTo": "./service.js",
+    "dependencyTypes": [
+      "local",
+      "export"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/modules/repo-intel/service.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/platform/container.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
     "from": "src/modules/repo-intel/pipeline/full.ts",
     "to": "src/platform/container.ts",
     "unresolvedTo": "../../../platform/container.js",
@@ -619,6 +703,20 @@
           "local",
           "type-only",
           "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/routes.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
         ]
       },
       {
@@ -667,6 +765,20 @@
         ]
       },
       {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/routes.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
         "name": "src/modules/repo-intel/service.ts",
         "dependencyTypes": [
           "local",
@@ -706,6 +818,20 @@
         ]
       },
       {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/routes.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
         "name": "src/modules/repo-intel/service.ts",
         "dependencyTypes": [
           "local",
@@ -723,12 +849,11 @@
   },
   {
     "type": "cycle",
-    "from": "src/modules/repo-intel/service.ts",
-    "to": "src/platform/container.ts",
-    "unresolvedTo": "../../platform/container.js",
+    "from": "src/modules/repo-intel/routes.ts",
+    "to": "src/modules/repo-intel/service.ts",
+    "unresolvedTo": "./service.js",
     "dependencyTypes": [
       "local",
-      "type-only",
       "import"
     ],
     "rule": {
@@ -736,6 +861,13 @@
       "name": "no-circular"
     },
     "cycle": [
+      {
+        "name": "src/modules/repo-intel/service.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
       {
         "name": "src/platform/container.ts",
         "dependencyTypes": [
@@ -745,10 +877,107 @@
         ]
       },
       {
-        "name": "src/modules/repo-intel/service.ts",
+        "name": "src/modules/repo-intel/index.ts",
         "dependencyTypes": [
           "local",
           "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/routes.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/modules/repo-intel/service.ts",
+    "to": "src/modules/repo-intel/pipeline/full.ts",
+    "unresolvedTo": "./pipeline/full.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/modules/repo-intel/pipeline/full.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/platform/container.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/service.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/modules/repo-intel/service.ts",
+    "to": "src/modules/repo-intel/pipeline/incremental.ts",
+    "unresolvedTo": "./pipeline/incremental.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/modules/repo-intel/pipeline/incremental.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/platform/container.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/index.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/modules/repo-intel/service.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
         ]
       }
     ]

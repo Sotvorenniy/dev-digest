@@ -1,17 +1,74 @@
 {
-  "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
-  "regenerate": "Regenerate",
-  "regenerating": "Regenerating…",
-  "unknownError": "Unknown error",
-  "generate": {
-    "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
-    "cta": "Generate onboarding tour",
-    "generating": "Generating…"
+  "crumb": "Onboarding Tour",
+  "title": "Onboarding for {name}",
+  "subtitle": "Generated from index of {count} files · last refreshed {when}",
+  "loadError": "Couldn’t load the onboarding tour",
+  "toc": {
+    "title": "On this page"
   },
-  "loadError": {
-    "title": "Couldn’t load the onboarding tour"
+  "sections": {
+    "architecture": "Architecture overview",
+    "criticalPaths": "Critical paths",
+    "runLocally": "How to run locally",
+    "readingPath": "Guided reading path",
+    "firstTasks": "First tasks"
+  },
+  "actions": {
+    "generate": "Generate onboarding tour",
+    "regenerate": "Regenerate"
+  },
+  "empty": {
+    "title": "No onboarding tour yet",
+    "body": "Generate a guided tour built from this repository's index: architecture, critical paths, how to run it, a reading path and first tasks.",
+    "notIndexedTitle": "This repository isn't indexed yet",
+    "notIndexedBody": "The tour is built from the repository index. Resync the repository, then generate the tour.",
+    "resync": "Resync repository"
+  },
+  "status": {
+    "generating": "Generating the onboarding tour…"
+  },
+  "notes": {
+    "stale": "The repository has changed since this tour was generated. Regenerate to refresh it.",
+    "partialIndex": "The index is partial, so this tour may miss some files.",
+    "truncated": "Some files were left out to fit the model's input budget.",
+    "churnUnavailable": "Change history is not available, so files are ranked by structure only.",
+    "settingsLink": "Open API key settings",
+    "skeleton": {
+      "index_degraded": "The repository index is degraded, so this tour shows only basic facts.",
+      "index_failed": "Indexing failed, so this tour shows only basic facts.",
+      "no_api_key": "No API key is configured, so this tour shows only basic facts.",
+      "ai_failed": "The AI summary could not be produced, so this tour shows only basic facts."
+    }
+  },
+  "run": {
+    "copy": "Copy command {command}",
+    "copied": "Copied {command}",
+    "reviewBeforeRunning": "Commands come from the repository's own files. Review each one before you run it.",
+    "empty": "No run commands were found in this repository."
+  },
+  "open": "Open {path} on GitHub",
+  "errors": {
+    "rateLimited": "Too many requests. Wait a minute and try again.",
+    "notIndexed": "The repository isn't indexed yet. Resync it first.",
+    "generic": "Couldn't generate the tour.",
+    "resync": "Couldn't start the resync. Try again.",
+    "retry": "Retry"
+  },
+  "architecture": {
+    "diagramAlt": "Architecture diagram described as text",
+    "nodesLabel": "Components",
+    "edgesLabel": "Dependencies",
+    "noSummary": "No architecture summary is available for this tour.",
+    "edge": "{from} → {to}"
+  },
+  "criticalPaths": {
+    "empty": "No critical paths were identified."
+  },
+  "readingPath": {
+    "score": "score {score}",
+    "empty": "No reading path is available."
+  },
+  "firstTasks": {
+    "empty": "No first tasks were suggested."
   }
 }

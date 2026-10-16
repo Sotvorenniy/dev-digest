@@ -18,6 +18,7 @@ export {
   wrapUntrusted,
   INJECTION_GUARD,
   type PromptParts,
+  type SpecEntry,
   type AssembledPrompt,
   buildScopePolicy,
   type ConventionScanPromptParts,

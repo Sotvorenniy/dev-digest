@@ -1,0 +1,39 @@
+[
+  {
+    "agent": "architecture-reviewer",
+    "findings": [
+      {
+        "severity": "LOW",
+        "confidence": "medium",
+        "rule": "frontend-ui-architecture: component folder anatomy (styles.ts always present); client/AGENTS.md",
+        "file": "client/src/app/repos/[repoId]/onboarding/_components/OnboardingView/_components/TourToc/TourToc.tsx",
+        "symbol": "OnboardingView/_components/* (8 sub-component folders)",
+        "line": 6,
+        "summary": "Eight sub-component folders have no own styles.ts and import the parent's `../../styles` instead"
+      }
+    ]
+  },
+  {
+    "agent": "security-reviewer",
+    "findings": [
+      {
+        "severity": "MEDIUM",
+        "confidence": "high",
+        "rule": "untrusted-repo-text-to-clipboard-command",
+        "file": "server/src/modules/onboarding/domain.ts",
+        "symbol": "readmeShellLines/deriveCandidateCommands",
+        "line": 205,
+        "summary": "README shell lines are passed verbatim (no metachar/control-char filter) as run_locally commands and copied to the clipboard; only a UI warning mitigates it"
+      },
+      {
+        "severity": "LOW",
+        "confidence": "medium",
+        "rule": "unbounded-model-prose",
+        "file": "server/src/modules/onboarding/domain.ts",
+        "symbol": "groundModelSections",
+        "line": 455,
+        "summary": "Model prose fields (title/why/label/note/reason/summary) are not length-capped or sanitised"
+      }
+    ]
+  }
+]

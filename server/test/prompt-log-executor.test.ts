@@ -46,7 +46,9 @@ function setup(opts: { verbose?: boolean } = {}) {
       { skill: { name: 'sec-skill', body: 'SKILL-PRIVATE-BODY', source: 'manual', enabled: true } },
     ],
   };
-  const executor = new ReviewRunExecutor(container as never, repo as never, agents as never, {} as never);
+  const executor = new ReviewRunExecutor(container as never, repo as never, agents as never, {} as never, {
+    resolveForRun: async () => ({ specs: [], entries: [], specsRead: [], includedTokens: 0 }),
+  });
   const agent = { id: 'a1', name: 'Sec', provider: 'openai', model: 'gpt-test', systemPrompt: `SYSTEM ${SECRET}`, repoIntel: false, ciFailOn: 'high' };
   const pull = { id: 'pr-1', repoId: 'r1', number: 7, title: 'T', author: 'me', body: 'PRBODY-PRIVATE', headSha: 'abc' };
   const repoRow = { owner: 'o', name: 'n' };

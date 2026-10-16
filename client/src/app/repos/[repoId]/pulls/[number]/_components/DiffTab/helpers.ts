@@ -1,4 +1,14 @@
 import type { FindingRecord, PrFile, SmartDiff, SmartDiffRole } from "@devdigest/shared";
+import type { DiffFocus } from "@/components/diff-viewer";
+
+export type { DiffFocus } from "@/components/diff-viewer";
+
+/** Focus from the `file`/`line` query params; `line` is kept only as a positive integer. */
+export function parseDiffFocus(file: string | null | undefined, line: string | null | undefined): DiffFocus | null {
+  if (!file) return null;
+  const n = line && /^\d+$/.test(line) ? Number(line) : NaN;
+  return { file, line: Number.isSafeInteger(n) && n > 0 ? n : null };
+}
 
 export interface FileGroup {
   role: SmartDiffRole;

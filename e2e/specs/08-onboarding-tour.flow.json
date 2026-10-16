@@ -1,0 +1,13 @@
+{
+  "name": "Onboarding Tour shows the not-indexed state for the seeded repo",
+  "description": "From the PR list, click the WORKSPACE 'Onboarding Tour' sidebar item and confirm the per-repo tour page (/repos/<id>/onboarding, not the Add-repository route /onboarding) renders its never-generated, not-indexed empty state with the Resync action. The seeded repo has clonePath null, so the index is not usable and no model is ever called. Read-only: Resync is not clicked. Assumes the fresh-seed hermetic stack where acme/payments-api is the only repo (see e2e/README.md).",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Onboarding Tour", "click"], "label": "open the Onboarding Tour sidebar item" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "onboarding state fetch settles" },
+    { "cmd": ["wait", "--text", "Onboarding for acme/payments-api"], "label": "the per-repo tour page title renders (not the Add-repository screen)" },
+    { "cmd": ["wait", "--text", "This repository isn't indexed yet"], "label": "the not-indexed empty state renders" },
+    { "cmd": ["wait", "--text", "Resync repository"], "label": "the single primary action is Resync" }
+  ]
+}

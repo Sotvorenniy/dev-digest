@@ -135,4 +135,70 @@ describe('reviewPullRequest (engine)', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
   });
+
+  describe('project-context specs through map-reduce', () => {
+    const file = (name: string) =>
+      `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1,1 +1,2 @@\n keep\n+added in ${name}`;
+    const twoFiles = `${file('src/a.ts')}\n${file('src/b.ts')}`;
+    const clean = { verdict: 'approve', summary: 'ok', score: 100, findings: [] };
+
+    function recorder() {
+      const users: string[] = [];
+      const llm: LLMProvider = {
+        id: 'openai',
+        async completeStructured<T>(req): Promise<StructuredResult<T>> {
+          users.push(req.messages.find((m) => m.role === 'user')!.content);
+          return {
+            data: clean as unknown as T,
+            model: req.model,
+            tokensIn: 0,
+            tokensOut: 0,
+            costUsd: 0,
+            raw: '',
+            attempts: 1,
+          };
+        },
+        async listModels() {
+          return [];
+        },
+        async complete() {
+          throw new Error('not used');
+        },
+        async embed() {
+          return [];
+        },
+      };
+      return { llm, users };
+    }
+
+    it('sends the specs with every chunk and makes the same number of LLM calls as without specs', async () => {
+      const diff = await new MockGitClient({ diff: twoFiles }).diff();
+      const withSpecs = recorder();
+      const outcome = await reviewPullRequest({
+        systemPrompt: 's',
+        model: 'm',
+        diff,
+        llm: withSpecs.llm,
+        strategy: 'map-reduce',
+        specs: [{ label: 'specs/a.md', text: 'DOC-A' }],
+      });
+      const without = recorder();
+      await reviewPullRequest({
+        systemPrompt: 's',
+        model: 'm',
+        diff,
+        llm: without.llm,
+        strategy: 'map-reduce',
+      });
+
+      expect(outcome.mode).toBe('map-reduce');
+      expect(withSpecs.users).toHaveLength(2);
+      for (const u of withSpecs.users) {
+        expect(u).toContain('## Project context');
+        expect(u).toContain('<untrusted source="specs/a.md">\nDOC-A\n</untrusted>');
+      }
+      expect(withSpecs.users.length).toBe(without.users.length);
+      for (const u of without.users) expect(u).not.toContain('## Project context');
+    });
+  });
 });

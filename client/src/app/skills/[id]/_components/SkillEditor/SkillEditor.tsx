@@ -10,6 +10,7 @@ import { ConfigTab } from "./_components/ConfigTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { VersionsTab } from "./_components/VersionsTab";
 import { EvalsTab } from "./_components/EvalsTab";
+import { ContextTab } from "./_components/ContextTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
 
@@ -27,6 +28,7 @@ export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; 
         {tab === "config" && <ConfigTab key={skill.id} skill={skill} />}
         {tab === "preview" && <PreviewTab key={skill.id} skill={skill} />}
         {tab === "versions" && <VersionsTab key={skill.id} skill={skill} />}
+        {tab === "context" && <ContextTab key={skill.id} skill={skill} />}
         {tab === "evals" && <EvalsTab key={skill.id} skill={skill} />}
       </div>
     </div>

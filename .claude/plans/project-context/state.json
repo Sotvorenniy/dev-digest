@@ -1,0 +1,53 @@
+{
+  "slug": "project-context",
+  "created_at": "2026-10-14T14:41:10Z",
+  "updated_at": "2026-10-14T21:17:52Z",
+  "stage": "pr",
+  "stage_status": "waiting_user",
+  "plan": {
+    "path": ".claude/plans/project-context.md",
+    "sha256": "45ce4248e21c5362bd724d15f9fcf1c93e5365716619d432917cf0b67a5a6531",
+    "mode": "multi-agent",
+    "phases_done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "spec": {
+    "path": "specs/2026-10-14-project-context.md",
+    "id": "SPEC-01"
+  },
+  "options": {
+    "with_tests": true,
+    "docs": true,
+    "max_review_rounds": 3
+  },
+  "gates": {
+    "G1": [],
+    "G2": null
+  },
+  "verify": {
+    "code_rounds": 1,
+    "code_verdict": "COMPLETE",
+    "final_verdict": "COMPLETE"
+  },
+  "review": {
+    "round": 1,
+    "open_critical_high": [
+      0
+    ]
+  },
+  "reports": [
+    "reports/implementation-p1.md",
+    "reports/implementation-p2.md",
+    "reports/implementation-p3.md",
+    "reports/implementation-p4.md",
+    "reports/verify-code-r1.md",
+    "reports/verify-final-r1.md",
+    "reports/tests.md",
+    "reports/verify-final-r2.md"
+  ],
+  "pr_self_review": "PASS (0 critical, 0 high, 2 medium, 14 low)"
+}

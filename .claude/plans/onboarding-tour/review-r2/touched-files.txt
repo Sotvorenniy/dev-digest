@@ -1,0 +1,3 @@
+server/src/modules/onboarding/domain.ts
+server/src/modules/onboarding/constants.ts
+server/test/onboarding-domain.test.ts

@@ -113,7 +113,7 @@ export const Risk = z.object({
 export type Risk = z.infer<typeof Risk>;
 
 export const Risks = z.object({
-  risks: z.array(Risk),
+  risks: z.array(Risk).max(8),
 });
 export type Risks = z.infer<typeof Risks>;
 
@@ -169,10 +169,59 @@ export const SmartDiff = z.object({
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
 // ---- Composed PR Brief (pr_brief.json) ----
+export const BriefInputKind = z.enum(['intent', 'blast', 'specs', 'description', 'issue']);
+export type BriefInputKind = z.infer<typeof BriefInputKind>;
+
+export const BriefMissingReason = z.enum(['absent', 'stale', 'degraded', 'empty', 'unavailable']);
+export type BriefMissingReason = z.infer<typeof BriefMissingReason>;
+
+export const BriefMissingInput = z.object({
+  input: BriefInputKind,
+  reason: BriefMissingReason,
+});
+export type BriefMissingInput = z.infer<typeof BriefMissingInput>;
+
+export const BriefReviewFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int().min(1),
+  reason: z.string(),
+});
+export type BriefReviewFocusItem = z.infer<typeof BriefReviewFocusItem>;
+
+export const BriefTruncated = z.object({
+  files: z.number().int().min(0),
+  description: z.boolean(),
+  issue_body: z.boolean().nullish(),
+  callers: z.number().int().min(0).nullish(),
+  blast_summary: z.boolean().nullish(),
+});
+export type BriefTruncated = z.infer<typeof BriefTruncated>;
+
+export const BriefDropped = z.object({
+  review_focus: z.number().int().min(0),
+  risks: z.number().int().min(0),
+  file_refs: z.number().int().min(0),
+});
+export type BriefDropped = z.infer<typeof BriefDropped>;
+
+// Parsed from stored pr_brief.json — later fields must be `.nullish()`.
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
+  summary: z.string().nullish(),
+  intent: Intent.nullable(),
+  blast: BlastRadius.nullable(),
   risks: Risks,
-  history: PrHistory,
+  history: PrHistory.nullish(),
+  review_focus: z.array(BriefReviewFocusItem).max(8).nullish(),
+  head_sha: z.string().nullish(),
+  /** ISO-8601 */
+  generated_at: z.string().nullish(),
+  missing_inputs: z.array(BriefMissingInput).nullish(),
+  specs_used: z.array(z.string()).nullish(),
+  truncated: BriefTruncated.nullish(),
+  dropped: BriefDropped.nullish(),
+  model: z.string().nullish(),
+  tokens_in: z.number().int().nullish(),
+  tokens_out: z.number().int().nullish(),
+  cost_usd: z.number().nullish(),
 });
 export type PrBrief = z.infer<typeof PrBrief>;

@@ -288,6 +288,49 @@ export const IndexStatus = z.object({
 });
 export type IndexStatus = z.infer<typeof IndexStatus>;
 
+export const ProjectContextDoc = z.object({
+  path: z.string(),
+  type: z.string(),
+  size_bytes: z.number().int(),
+  tokens: z.number().int(),
+  used_by_agents: z.number().int(),
+  updated_at: z.string().nullish(),
+});
+export type ProjectContextDoc = z.infer<typeof ProjectContextDoc>;
+
+export const ProjectContextList = z.object({
+  docs: z.array(ProjectContextDoc),
+  total_tokens: z.number().int(),
+  search_roots: z.array(z.string()),
+  truncated: z.boolean(),
+});
+export type ProjectContextList = z.infer<typeof ProjectContextList>;
+
+export const ProjectContextFile = ProjectContextDoc.extend({
+  content: z.string(),
+});
+export type ProjectContextFile = z.infer<typeof ProjectContextFile>;
+
+export const ContextAttachments = z.object({
+  repo_id: z.string(),
+  paths: z.array(z.string()),
+  missing: z.array(z.string()),
+});
+export type ContextAttachments = z.infer<typeof ContextAttachments>;
+
+/** Count and duplicate checks live in the service (400), not the schema. */
+export const ContextAttachmentsInput = z.object({
+  repo_id: z.string().min(1),
+  paths: z.array(z.string().min(1)),
+});
+export type ContextAttachmentsInput = z.infer<typeof ContextAttachmentsInput>;
+
+export const ContextAttachmentsSaved = z.object({
+  repo_id: z.string(),
+  paths: z.array(z.string()),
+});
+export type ContextAttachmentsSaved = z.infer<typeof ContextAttachmentsSaved>;
+
 // ---- Run request (review trigger; owned by A2, contract lives here) ----
 export const RunRequest = z.object({
   agentId: z.string().optional(),

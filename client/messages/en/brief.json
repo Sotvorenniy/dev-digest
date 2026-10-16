@@ -1,15 +1,62 @@
 {
+  "title": "Why & risk brief",
   "block": {
+    "summary": "Summary",
     "intent": "Intent",
     "blast": "Blast radius",
-    "risks": "Risks",
+    "risks": "Risk areas",
+    "reviewFocus": "Review focus",
     "history": "PR history"
   },
   "noRisks": "No notable risks flagged.",
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
-  "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "generate": "Generate brief",
+  "refresh": "Refresh brief",
+  "generating": "Generating the brief…",
+  "empty": "No brief yet. Generate one to see why this PR exists and where the risk is.",
+  "emptyPr": "This PR has no changed files, so there is nothing to brief.",
+  "stale": "The PR has new commits since this brief was generated. Refresh it.",
+  "generatedAt": "Generated {date}",
+  "missing": {
+    "title": "Built without some inputs",
+    "input": {
+      "intent": "intent",
+      "blast": "blast radius",
+      "specs": "specs",
+      "description": "PR description",
+      "issue": "linked issue"
+    },
+    "reason": {
+      "absent": "not available",
+      "stale": "out of date",
+      "degraded": "partial",
+      "empty": "empty",
+      "unavailable": "could not be fetched"
+    }
+  },
+  "severity": {
+    "high": "High risk",
+    "medium": "Medium risk",
+    "low": "Low risk"
+  },
+  "error": {
+    "generic": "Could not generate the brief. Try again.",
+    "noKey": "No API key is configured for this model.",
+    "rateLimited": "Too many requests. Wait a moment and try again."
+  },
+  "settingsLink": "Open settings",
+  "retry": "Retry",
+  "focusItem": "Open {file} line {line} in the diff",
+  "openFile": "Open {file} in the diff",
+  "meta": {
+    "cost": "Cost {cost}",
+    "tokens": "{count} tokens",
+    "tokensInOut": "{in} → {out} tokens"
+  },
+  "risk": {
+    "expand": "Show explanation for {title}"
+  },
   "why": {
     "title": "git-why",
     "blame": "blame",

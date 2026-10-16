@@ -8,7 +8,7 @@ import { type Line } from "../helpers";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
-import { s, fs, lineRowFor, lineSignFor } from "../styles";
+import { s, fs, lineRowFor, lineSignFor, focusLineStyle } from "../styles";
 import { FINDING_LINE_LABEL_KEY } from "../constants";
 import { worstSeverity, type DiffFindingApi } from "../findings";
 import { InlineFinding } from "../InlineFinding";
@@ -22,7 +22,12 @@ export function CodeLine({
   commenting,
   findings,
   lineFindings,
+  focused,
+  ref,
 }: {
+  /** Row a Review focus link points at: highlighted and marked `data-focus-line`. */
+  focused?: boolean;
+  ref?: React.Ref<HTMLDivElement>;
   ln: Line;
   path: string;
   threads: CommentThread[];
@@ -52,11 +57,15 @@ export function CodeLine({
 
   return (
     <div
+      ref={ref}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={{ ...lineRowFor(ln.kind), position: "relative" }}>
+      <div
+        data-focus-line={focused ? "" : undefined}
+        style={{ ...lineRowFor(ln.kind), position: "relative", ...(focused ? focusLineStyle : null) }}
+      >
         {worst && <span data-finding-line={worst} style={fs.bar(worst)} />}
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (

@@ -66,7 +66,13 @@ export default function PRDetailPage() {
     else sp.set(key, val);
     router.replace(`/repos/${repoId}/pulls/${number}${sp.toString() ? `?${sp.toString()}` : ""}`);
   };
-  const setTab = (t: string) => setParam("tab", t);
+  const setTab = (t: string) => {
+    const sp = new URLSearchParams(search.toString());
+    sp.set("tab", t);
+    sp.delete("file");
+    sp.delete("line");
+    router.replace(`/repos/${repoId}/pulls/${number}?${sp.toString()}`);
+  };
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   // `runs` stays the FULL list — it drives the Review runs accordions and the
@@ -147,6 +153,9 @@ export default function PRDetailPage() {
             repoId={repoId}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            prNumber={pr.number}
+            hasFiles={pr.files.length > 0}
+            latestReview={runs.find((r) => r.verdict != null) ?? null}
           />
         )}
 
@@ -181,6 +190,8 @@ export default function PRDetailPage() {
             filesCount={pr.files_count}
             files={pr.files}
             canComment={pr.status === "open"}
+            focusFile={search.get("file")}
+            focusLine={search.get("line")}
           />
         )}
       </div>

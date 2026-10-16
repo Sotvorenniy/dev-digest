@@ -1,0 +1,17 @@
+[
+  {
+    "agent": "security-reviewer",
+    "findings": [
+      {
+        "severity": "LOW",
+        "file": "server/src/modules/onboarding/domain.ts",
+        "line": 119,
+        "rule": "untrusted-repo-text-to-clipboard-command",
+        "summary": "README_UNSAFE leaves single '&', '<', '>', '$VAR'/'${' and Unicode bidi/zero-width characters unfiltered"
+      }
+    ],
+    "confirmed_fixed": [
+      "S-1"
+    ]
+  }
+]

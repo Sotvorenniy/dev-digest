@@ -1,0 +1,78 @@
+[
+  {
+    "id": "A-1",
+    "sources": [
+      "architecture-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "frontend-ui-architecture: component folder anatomy (styles.ts always present); client/AGENTS.md",
+    "file": "client/src/app/repos/[repoId]/onboarding/_components/OnboardingView/_components/TourToc/TourToc.tsx",
+    "symbol": "OnboardingView/_components/* (8 sub-component folders)",
+    "line": 6,
+    "summary": "Eight sub-component folders have no own styles.ts and import the parent's `../../styles` instead",
+    "status": "logged",
+    "route": "main",
+    "decision_reason": null,
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  },
+  {
+    "id": "S-1",
+    "sources": [
+      "security-reviewer"
+    ],
+    "severity": "MEDIUM",
+    "confidence": "high",
+    "rule": "untrusted-repo-text-to-clipboard-command",
+    "file": "server/src/modules/onboarding/domain.ts",
+    "symbol": "readmeShellLines/deriveCandidateCommands",
+    "line": 205,
+    "summary": "README shell lines are passed verbatim (no metachar/control-char filter) as run_locally commands and copied to the clipboard; only a UI warning mitigates it",
+    "status": "fixed",
+    "route": "main",
+    "decision_reason": "user chose Fix now; README_UNSAFE filter + length cap in readmeShellLines",
+    "first_round": 1,
+    "fixed_round": 2,
+    "reopened": 0
+  },
+  {
+    "id": "S-2",
+    "sources": [
+      "security-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "unbounded-model-prose",
+    "file": "server/src/modules/onboarding/domain.ts",
+    "symbol": "groundModelSections",
+    "line": 455,
+    "summary": "Model prose fields (title/why/label/note/reason/summary) are not length-capped or sanitised",
+    "status": "logged",
+    "route": "main",
+    "decision_reason": null,
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  },
+  {
+    "id": "S-3",
+    "sources": [
+      "security-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "high",
+    "rule": "untrusted-repo-text-to-clipboard-command",
+    "file": "server/src/modules/onboarding/domain.ts",
+    "symbol": "README_UNSAFE",
+    "line": 119,
+    "summary": "README_UNSAFE left single '&', '<', '>', '$VAR'/'${' and Unicode bidi/zero-width characters unfiltered",
+    "status": "fixed",
+    "route": "main",
+    "decision_reason": "LOW but cheap; regex extended with [&<>], \\$[({A-Za-z_], \\p{Cf}; tests added",
+    "first_round": 2,
+    "fixed_round": 3,
+    "reopened": 0
+  }
+]

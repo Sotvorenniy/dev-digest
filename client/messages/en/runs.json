@@ -28,6 +28,19 @@
     "suggestedFix": "Suggested fix:",
     "collapse": "collapse",
     "expand": "expand",
+    "projectContext": {
+      "title": "Project context — attached specs (untrusted)",
+      "tokens": "~{count} tok",
+      "status": {
+        "included": "included",
+        "missing": "missing",
+        "rejected": "rejected",
+        "over_limit": "over limit"
+      },
+      "skill": "via {name}",
+      "expand": "Show text of {path}",
+      "collapse": "Hide text of {path}"
+    },
     "config": {
       "model": "Model",
       "provider": "Provider",
