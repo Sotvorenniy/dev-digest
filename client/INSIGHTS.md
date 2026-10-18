@@ -36,6 +36,15 @@ Any new money formatting here needs the same three-way split: unknown "—", fre
 "$0.00", too-small "<$0.0001".
 Evidence: `client/src/components/run-cost-badge/helpers.ts:1-40`
 
+### Vendored Donut and MetricCard misreport small or rising costs
+`2026-10-18` — `Donut`'s legend prints `value.toFixed(2)`, so $0.00004 shows as
+"$0.00", and it has no percentage. `MetricCard` shows `Math.abs(delta)` with no
+sign or "$" and colours any increase green, so a cost rise reads as good. For
+cost views build an app-local donut/card (see `CostDonut` under
+`client/src/app/agent-performance/`) instead of editing the vendor.
+Evidence: `client/src/vendor/ui/charts/Donut.tsx:50`,
+`client/src/vendor/ui/charts/MetricCard.tsx:21-23,65`
+
 ## Codebase Patterns
 <!-- Component folders, theming, data flow, providers — with the reason. -->
 
@@ -182,6 +191,12 @@ neighbouring tests do. For keyboard reachability, assert `el.focus()` plus
 `toHaveFocus()`. Adding the dependency needs the pnpm workaround.
 Evidence: `client/package.json`,
 `client/src/app/repos/[repoId]/pulls/[number]/_components/OverviewTab/_components/PrBriefCard/PrBriefCard.test.tsx`
+
+### A th holding a labelled sort button has no usable columnheader name in DTL
+`2026-10-18` — `getByRole("columnheader", { name })` does not find a `<th>`
+whose content is a labelled `<button>`. Query the button by name and assert
+`aria-sort` on `button.closest("th")`.
+Evidence: `client/src/app/agent-performance/_components/AgentPerformanceView/AgentPerformanceView.test.tsx:301`
 
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->

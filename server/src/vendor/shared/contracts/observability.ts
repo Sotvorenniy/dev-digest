@@ -93,7 +93,21 @@ export type MultiAgentRun = z.infer<typeof MultiAgentRun>;
 export const StatPoint = z.object({ label: z.string(), value: z.number() });
 export type StatPoint = z.infer<typeof StatPoint>;
 
+/** The selected period and the equal-length previous period (ISO strings). */
+export const PerfPeriod = z.object({
+  from: z.string(),
+  to: z.string(),
+  previous_from: z.string(),
+  previous_to: z.string(),
+});
+export type PerfPeriod = z.infer<typeof PerfPeriod>;
+
 export const AgentStats = z.object({
+  period: PerfPeriod,
+  decided: z.number().int(),
+  unpriced_runs: z.number().int(),
+  last_run_at: z.string().nullable(),
+  cost_basis: z.literal('estimate'),
   agent_id: z.string(),
   agent_name: z.string(),
   runs: z.number().int(),

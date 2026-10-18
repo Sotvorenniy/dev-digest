@@ -1,0 +1,5 @@
+# Implementation Report: Phase 3 (Steps 6–11, client) — done
+- New: client/src/lib/hooks/agent-performance.ts (+ barrel), client/messages/en/agentPerformance.json rewritten, client/src/app/agent-performance/page.tsx, AgentPerformanceView/{AgentPerformanceView.tsx,constants.ts,helpers.ts,styles.ts,index.ts}, _components/{PeriodPicker,KpiCards,CostBreakdown,CostDonut,PerfTable,PerfRow}.
+- Deviations: extra i18n keys kpi.label, table.sortAccept; helpers seriesUnit/toDateInput/rowLabelKey; HOUR_MS/DAY_MS; DONUT_COLORS 6 entries; data-small-sample on wrapper span (Badge takes no data-*); deleted-agent row sorts by "" name; row key agent_id ?? "deleted" (collision if two deleted rows — test-writer check); Estimated aria-describedby -> srOnly span.
+- check-changed.sh client --full: PASS typecheck, PASS 316/316. Not run: dev server, next build.
+- Test hooks: data-agent-performance[data-state], data-period-picker, data-kpi, data-cost-delta, data-cost-breakdown, data-cost-segment, data-perf-table, data-sort-accept, data-agent-id, data-agent-details, data-small-sample, data-trend; period error role=alert #agent-performance-period-error.

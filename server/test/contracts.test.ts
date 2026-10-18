@@ -20,6 +20,8 @@ import {
   Repo,
   PrDetail,
   PrBrief,
+  AgentPerf,
+  AgentStats,
 } from '@devdigest/shared';
 
 /**
@@ -453,5 +455,138 @@ describe('PrBrief contract (SPEC-03)', () => {
     expect(read('../src/vendor/shared/contracts/brief.ts')).toBe(
       read('../../client/src/vendor/shared/contracts/brief.ts'),
     );
+  });
+});
+
+describe('Agent Performance contracts (SPEC-04)', () => {
+  const blockOf = (p: string, from: string, to: string) => {
+    const text = readFileSync(resolve(__dirname, p), 'utf8');
+    const start = text.indexOf(from);
+    const end = text.indexOf(to);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return text.slice(start, end);
+  };
+
+  it('NFR7: the Agent Performance block of the two productionize.ts copies is identical', () => {
+    const b = (p: string) =>
+      blockOf(p, '// Agent Performance  (GET /agents/performance)', '// re-export Severity-adjacent');
+    expect(b('../src/vendor/shared/contracts/productionize.ts')).toBe(
+      b('../../client/src/vendor/shared/contracts/productionize.ts'),
+    );
+  });
+
+  it('NFR7: the Per-agent Stats block of the two observability.ts copies is identical', () => {
+    const b = (p: string) => blockOf(p, '// Per-agent Stats', '// Cross-session memory curator');
+    expect(b('../src/vendor/shared/contracts/observability.ts')).toBe(
+      b('../../client/src/vendor/shared/contracts/observability.ts'),
+    );
+  });
+
+  const period = {
+    from: '2026-10-01T00:00:00.000Z',
+    to: '2026-10-02T00:00:00.000Z',
+    previous_from: '2026-09-30T00:00:00.000Z',
+    previous_to: '2026-10-01T00:00:00.000Z',
+  };
+  const sev = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
+  const row = (over: Record<string, unknown> = {}) => ({
+    agent_id: 'a1',
+    agent_name: 'Reviewer',
+    provider: 'openai',
+    model: 'gpt-4o',
+    runs: 3,
+    findings_total: 3,
+    accepted: 1,
+    dismissed: 1,
+    pending: 1,
+    decided: 2,
+    unpriced_runs: 0,
+    previous_decided: 0,
+    previous_accept_rate: null,
+    accept_rate: 0.5,
+    dismiss_rate: 0.5,
+    avg_findings_per_run: 1,
+    total_cost_usd: 0.05,
+    avg_cost_usd: 0.0166,
+    avg_latency_ms: 900,
+    last_run_at: '2026-10-01T10:00:00.000Z',
+    findings_by_severity: sev,
+    trend: [1, 2],
+    cost_by_model: [{ label: 'gpt-4o', value: 0.05, kind: 'model' }],
+    ...over,
+  });
+  const perf = (over: Record<string, unknown> = {}) => ({
+    period,
+    cost_basis: 'estimate',
+    summary: {
+      has_any_runs: true,
+      runs: 4,
+      total_cost_usd: 0.05,
+      previous_total_cost_usd: null,
+      unpriced_runs: 1,
+      avg_accept_rate: 0.5,
+      accepted: 1,
+      decided: 2,
+      most_active_agent: 'Reviewer',
+      most_active: { agent_id: 'a1', agent_name: 'Reviewer', runs: 3, accept_rate: 0.5, decided: 2 },
+      runs_series: [{ label: '2026-10-01T00:00:00.000Z', value: 4 }],
+    },
+    agents: [row(), row({ agent_id: null, agent_name: null, provider: null, model: null, runs: 1 })],
+    cost_by_agent: [
+      { label: 'Reviewer', value: 0.04, kind: 'agent', agent_id: 'a1' },
+      { label: null, value: 0.01, kind: 'deleted_agent' },
+    ],
+    cost_by_model: [
+      { label: 'gpt-4o', value: 0.04, kind: 'model' },
+      { label: null, value: 0.01, kind: 'unknown_model' },
+    ],
+    ...over,
+  });
+
+  it('a full AgentPerf fixture parses, with a deleted-agent row and all four segment kinds', () => {
+    const r = AgentPerf.safeParse(perf());
+    expect(r.success).toBe(true);
+    const kinds = new Set([...r.data!.cost_by_agent, ...r.data!.cost_by_model].map((s) => s.kind));
+    expect([...kinds].sort()).toEqual(['agent', 'deleted_agent', 'model', 'unknown_model']);
+    expect(r.data!.agents[1]!.agent_id).toBeNull();
+  });
+
+  it('rejects a segment kind outside the enum', () => {
+    expect(AgentPerf.safeParse(perf({ cost_by_model: [{ label: 'x', value: 1, kind: 'other' }] })).success).toBe(false);
+  });
+
+  it('rejects cost_basis other than "estimate"', () => {
+    expect(AgentPerf.safeParse(perf({ cost_basis: 'billed' })).success).toBe(false);
+  });
+
+  it('AgentStats parses with a period and fails without one', () => {
+    const r = row();
+    const stats: Record<string, unknown> = {
+      period,
+      cost_basis: 'estimate',
+      agent_id: r.agent_id,
+      agent_name: r.agent_name,
+      runs: r.runs,
+      findings_total: r.findings_total,
+      accepted: r.accepted,
+      dismissed: r.dismissed,
+      pending: r.pending,
+      decided: r.decided,
+      unpriced_runs: r.unpriced_runs,
+      last_run_at: r.last_run_at,
+      accept_rate: r.accept_rate,
+      dismiss_rate: r.dismiss_rate,
+      avg_findings_per_run: r.avg_findings_per_run,
+      total_cost_usd: r.total_cost_usd,
+      avg_cost_usd: r.avg_cost_usd,
+      avg_latency_ms: r.avg_latency_ms,
+      findings_by_severity: sev,
+      trend: [{ label: '2026-10-01T10:00:00.000Z', value: 1 }],
+    };
+    expect(AgentStats.safeParse(stats).success).toBe(true);
+    const noPeriod = { ...stats };
+    delete noPeriod.period;
+    expect(AgentStats.safeParse(noPeriod).success).toBe(false);
   });
 });

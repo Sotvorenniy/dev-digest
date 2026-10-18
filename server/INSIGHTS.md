@@ -159,6 +159,15 @@ does nothing on an existing dev DB. The hermetic e2e stack (fresh DB) sees the
 change; your dev DB does not. Check a seed change against a fresh DB.
 Evidence: `server/src/db/seed.ts:106`, `server/src/db/seed-brief.ts`
 
+### A finding reaches a run only through reviews.run_id, which has no FK
+`2026-10-18` — Per-run aggregates (agent performance, per-agent stats) join
+findings to `agent_runs` through `reviews.run_id`, a plain uuid with no foreign
+key. A review whose `run_id` is null (e.g. the seeded PR #482 review) is
+invisible to every per-run metric. These aggregates count every run's findings,
+unlike the PR-list "newest review per agent" rollup (root INSIGHTS).
+Evidence: `server/src/db/schema/reviews.ts:20`,
+`server/src/modules/agent-performance/repository.ts:57`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 

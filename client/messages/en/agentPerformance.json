@@ -1,32 +1,84 @@
 {
+  "crumb": "Agent Performance",
   "title": "Agent Performance",
-  "subtitle": "Accept-rate is the headline quality signal · cost shown as a breakdown",
+  "subtitle": "Which agents earn their keep — accept rate is the quality signal",
   "loadError": "Could not load agent performance.",
-  "summary": {
-    "totalRuns": "Total runs",
-    "avgAcceptRate": "Avg accept-rate",
-    "totalCost": "Total cost",
-    "mostActive": "Most active"
+  "period": {
+    "label": "Period",
+    "oneDay": "1 day",
+    "thirtyDays": "30 days",
+    "custom": "Custom",
+    "start": "Start date",
+    "end": "End date",
+    "apply": "Apply",
+    "errors": {
+      "startAfterEnd": "The start date must not be after the end date.",
+      "endInFuture": "The end date cannot be in the future.",
+      "tooLong": "The range cannot be longer than 365 days.",
+      "invalid": "Enter a valid start and end date."
+    }
   },
-  "costByAgent": "Cost by agent",
-  "costByModel": "Cost by model",
-  "noCost": "No cost recorded yet.",
-  "sort": {
-    "acceptRate": "accept-rate",
-    "runs": "runs",
-    "cost": "cost"
+  "kpi": {
+    "label": "Key figures",
+    "totalRuns": "Total runs",
+    "totalCost": "Total cost",
+    "avgAcceptRate": "Avg accept rate",
+    "mostActive": "Most active",
+    "runsSeriesAlt": "{count} runs, by {unit}",
+    "unitHour": "hour",
+    "unitDay": "day",
+    "acceptRingAlt": "{percent} accept rate",
+    "mostActiveDetail": "{runs} runs · {rate} accept",
+    "costDelta": "{amount} vs previous period",
+    "costDeltaUp": "Cost up",
+    "costDeltaDown": "Cost down"
+  },
+  "decisions": "{count, plural, one {# decision} other {# decisions}}",
+  "estimate": {
+    "label": "Estimated",
+    "explanation": "Costs are DevDigest estimates computed from token counts and a price table, not reconciled billing data."
   },
   "table": {
     "agent": "Agent",
-    "accept": "Accept",
     "runs": "Runs",
-    "findings": "Findings",
-    "cost": "Cost",
-    "trend": "Trend"
+    "avgCost": "Avg cost",
+    "avgDuration": "Avg dur.",
+    "accept": "Accept",
+    "lastRun": "Last run",
+    "view": "View",
+    "viewAgent": "Open {name}",
+    "expand": "Show details for {name}",
+    "collapse": "Hide details for {name}",
+    "sortAccept": "Sort by accept rate",
+    "noRunsInPeriod": "No runs in period",
+    "smallSample": "Small sample (n={count})",
+    "trendUp": "Accept rate up vs previous period",
+    "trendDown": "Accept rate down vs previous period",
+    "deletedAgent": "Deleted agent"
+  },
+  "details": {
+    "severity": "Findings by severity",
+    "critical": "Critical",
+    "warning": "Warning",
+    "suggestion": "Suggestion",
+    "accepted": "Accepted",
+    "dismissed": "Dismissed",
+    "pending": "Pending",
+    "costByModel": "Cost by model",
+    "noCost": "No cost recorded."
+  },
+  "breakdown": {
+    "title": "Cost breakdown",
+    "byAgent": "By agent",
+    "byModel": "By model",
+    "legendItem": "{label}: {amount} ({percent})",
+    "unknownModel": "Unknown model",
+    "noCost": "No cost recorded in this period."
   },
   "empty": {
-    "title": "No agent runs yet",
-    "body": "Run a review (manually) to populate per-agent performance."
-  },
-  "perAgent": "Per-agent"
+    "noRunsTitle": "No agent runs yet",
+    "noRunsBody": "Run a review to populate per-agent performance.",
+    "noRunsInPeriodTitle": "No runs in this period",
+    "noRunsInPeriodBody": "Try a wider period, such as the last 30 days or a custom range."
+  }
 }

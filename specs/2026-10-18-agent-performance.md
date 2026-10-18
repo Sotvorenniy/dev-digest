@@ -1,6 +1,6 @@
 # Spec: Agent Performance dashboard
 Spec ID: SPEC-04
-Status: approved
+Status: implemented
 Supersedes: None
 Modules: server, client
 

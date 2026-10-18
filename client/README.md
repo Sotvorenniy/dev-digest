@@ -31,6 +31,7 @@ flowchart TD
   PULLS --> TOUR["/repos/:repoId/onboarding<br/>Onboarding Tour"]
   AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · context)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
+  PERF["/agent-performance<br/>Agent Performance dashboard"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
@@ -38,6 +39,7 @@ flowchart TD
   CONTEXT -->|"GET /repos/:id/context · /repos/:id/context/file"| API
   TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
   SETTINGS -->|"/settings · /providers"| API
+  PERF -->|"GET /agents/performance"| API
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,

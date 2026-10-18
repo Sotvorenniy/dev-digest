@@ -73,6 +73,7 @@ flowchart TB
   end
   subgraph Agents["Agents"]
     agents["agents<br/>/agents · /agents/:id"]
+    agentPerformance["agent-performance<br/>GET /agents/performance · GET /agents/:id/stats"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]

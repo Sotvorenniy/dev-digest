@@ -35,6 +35,12 @@ export const NAV: NavGroup[] = [
       { key: "conventions", label: "Conventions", icon: "Sparkles", href: "/repos/:repoId/conventions", gKey: "c" },
     ],
   },
+  {
+    section: "GLOBAL",
+    items: [
+      { key: "agent-performance", label: "Agent Performance", icon: "Gauge", href: "/agent-performance" },
+    ],
+  },
 ];
 
 export const SETTINGS_ITEM: NavItemDef = {

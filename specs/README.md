@@ -28,4 +28,4 @@ the `implementation-planner` takes a spec as input.
 - [SPEC-01 — Project Context](2026-10-14-project-context.md) — implemented
 - [SPEC-02 — Onboarding Tour](2026-10-14-onboarding-tour.md) — implemented
 - [SPEC-03 — PR Why + Risk Brief](2026-10-15-pr-why-risk-brief.md) — implemented
-- [SPEC-04 — Agent Performance dashboard](2026-10-18-agent-performance.md) — approved
+- [SPEC-04 — Agent Performance dashboard](2026-10-18-agent-performance.md) — implemented
