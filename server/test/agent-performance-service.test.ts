@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AgentPerformanceService } from '../src/modules/agent-performance/service.js';
-import { AggregationFailedError, type PerfAgent, type PerfRun, type PerfRunFindings, type Period } from '../src/modules/agent-performance/domain.js';
+import { AggregationFailedError, type PerfAgent, type PerfCategoryCount, type PerfRun, type PerfRunFindings, type PerfRunTrace, type Period } from '../src/modules/agent-performance/domain.js';
 import type { AgentPerformanceRepositoryPort } from '../src/modules/agent-performance/ports.js';
 import { NotFoundError } from '../src/platform/errors.js';
 
@@ -32,6 +32,15 @@ class FakeRepo implements AgentPerformanceRepositoryPort {
   async countFindingsByRun(): Promise<PerfRunFindings[]> {
     return [];
   }
+  async countFindingsByCategory(): Promise<PerfCategoryCount[]> {
+    return [];
+  }
+  async listRunUsageTraces(): Promise<PerfRunTrace[]> {
+    return [];
+  }
+  async listLinkedSkillNames(): Promise<string[]> {
+    return [];
+  }
   async hasAnyFinishedRun() {
     return this.runs.length > 0;
   }
@@ -49,10 +58,11 @@ describe('AgentPerformanceService', () => {
     expect(repo.windows[0]!.agentId).toBeUndefined();
   });
 
-  it('agentStats reads only the current period, filtered by the agent', async () => {
+  it('agentStats reads the window [previous.from, to), filtered by the agent', async () => {
     const repo = new FakeRepo();
     const stats = await make(repo).agentStats('ws', 'a1', period);
-    expect(repo.windows[0]!.window.from.getTime()).toBe(FROM);
+    expect(repo.windows[0]!.window.from.getTime()).toBe(FROM - DAY);
+    expect(repo.windows[0]!.window.to.getTime()).toBe(FROM + DAY);
     expect(repo.windows[0]!.agentId).toBe('a1');
     expect(stats.agent_name).toBe(SECRET_NAME);
   });
@@ -96,7 +106,16 @@ describe('AgentPerformanceService', () => {
   it('AC20/NFR3: the repository port exposes read methods only and the service takes no LLM dependency', () => {
     const repo = new FakeRepo();
     const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(repo)).filter((m) => m !== 'constructor');
-    expect(methods.sort()).toEqual(['countFindingsByRun', 'findAgent', 'hasAnyFinishedRun', 'listAgents', 'listFinishedRuns']);
+    expect(methods.sort()).toEqual([
+      'countFindingsByCategory',
+      'countFindingsByRun',
+      'findAgent',
+      'hasAnyFinishedRun',
+      'listAgents',
+      'listFinishedRuns',
+      'listLinkedSkillNames',
+      'listRunUsageTraces',
+    ]);
     const svc = make(repo) as unknown as { deps: Record<string, unknown> };
     expect(Object.keys(svc.deps).sort()).toEqual(['estimateCost', 'repo']);
   });

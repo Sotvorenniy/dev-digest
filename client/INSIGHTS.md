@@ -96,6 +96,23 @@ The wire carries no group, so a server-only change makes the block show a
 prompt shape that is no longer sent. Change both together.
 Evidence: `server/src/modules/project-context/domain.ts` (`groupCandidates`)
 
+### StatsTab's 48 h hourly-series cutoff is hand-mirrored from the server
+`2026-10-19` — `HOURLY_BUCKET_MAX_MS` in the agent Stats tab copies the
+server's agent-performance constant. The wire carries no unit, so a
+server-only change makes the runs sparkline label hours vs days wrongly. The
+dashboard's `seriesUnit` uses its own `DAY_MS + HOUR_MS` rule. Change both
+together.
+Evidence: `client/src/app/agents/[id]/_components/AgentEditor/_components/StatsTab/constants.ts:29`,
+`server/src/modules/agent-performance/constants.ts:11`
+
+### Shared PeriodPicker reads the agentPerformance i18n namespace
+`2026-10-19` — `client/src/components/period-picker` was promoted from the
+dashboard but still calls `useTranslations("agentPerformance")` for its
+`period.*` strings. Any screen using it (Agent Performance, the agent Stats
+tab) shows missing-key text if that namespace is absent, and RTL tests must
+load both `agentPerformance` and the screen's own namespace.
+Evidence: `client/src/components/period-picker/PeriodPicker.tsx:14`
+
 ## Tool & Library Notes
 <!-- Quirks of Next 15, React 19, TanStack Query, next-intl, the bundler. -->
 

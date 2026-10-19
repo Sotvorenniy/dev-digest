@@ -1,19 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { AgentPerf, AgentPerfRow } from "@/lib/types";
-import {
-  costDelta,
-  customRangeToPeriod,
-  formatDuration,
-  formatPercent,
-  formatSignedCost,
-  parsePeriodQuery,
-  periodToDateInputs,
-  periodToSearch,
-  presetPeriod,
-  sortRows,
-  trendDirection,
-  withPercents,
-} from "./helpers";
+import { customRangeToPeriod, parsePeriodQuery, periodToDateInputs, periodToSearch, presetPeriod } from "@/components/period-picker";
+import { formatSignedCost } from "@/components/run-cost-badge";
+import { formatDuration, formatPercent } from "@/lib/agent-metrics";
+import { costDelta, sortRows, trendDirection, withPercents } from "./helpers";
 
 const DAY = 24 * 3600 * 1000;
 

@@ -2,7 +2,7 @@ import { and, eq, gte, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import { FINISHED_RUN_STATUSES } from './constants.js';
-import type { PerfAgent, PerfRun, PerfRunFindings, Period } from './domain.js';
+import type { PerfAgent, PerfCategoryCount, PerfRun, PerfRunFindings, PerfRunTrace, Period } from './domain.js';
 import type { AgentPerformanceRepositoryPort } from './ports.js';
 
 /** Read-only agents / agent_runs / reviews / findings queries. Implements AgentPerformanceRepositoryPort. */
@@ -65,11 +65,51 @@ export class AgentPerformanceRepository implements AgentPerformanceRepositoryPor
     }));
   }
 
-  async hasAnyFinishedRun(workspaceId: string): Promise<boolean> {
+  async countFindingsByCategory(workspaceId: string, period: Period, agentId: string): Promise<PerfCategoryCount[]> {
+    return this.db
+      .select({ category: t.findings.category, total: sql<number>`count(*)::int` })
+      .from(t.findings)
+      .innerJoin(t.reviews, eq(t.findings.reviewId, t.reviews.id))
+      .innerJoin(t.agentRuns, eq(t.reviews.runId, t.agentRuns.id))
+      .where(and(this.runFilter(workspaceId, period, agentId), eq(t.reviews.workspaceId, workspaceId)))
+      .groupBy(t.findings.category);
+  }
+
+  async listRunUsageTraces(workspaceId: string, period: Period, agentId: string): Promise<PerfRunTrace[]> {
+    // Only two sub-paths of the trace are projected; the whole document is never selected.
+    const rows = await this.db
+      .select({
+        runId: t.agentRuns.id,
+        ranAt: t.agentRuns.ranAt,
+        skillsUsed: sql<unknown>`case when jsonb_typeof(${t.runTraces.trace}) = 'object' then ${t.runTraces.trace} #> '{prompt_assembly,skills_used}' end`,
+        memoryPulled: sql<unknown>`case when jsonb_typeof(${t.runTraces.trace}) = 'object' then ${t.runTraces.trace} -> 'memory_pulled' end`,
+      })
+      .from(t.agentRuns)
+      .leftJoin(t.runTraces, eq(t.runTraces.runId, t.agentRuns.id))
+      .where(and(this.runFilter(workspaceId, period, agentId), eq(t.agentRuns.status, 'done')));
+    return rows;
+  }
+
+  async listLinkedSkillNames(workspaceId: string, agentId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ name: t.skills.name })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.workspaceId, workspaceId)));
+    return rows.map((r) => r.name);
+  }
+
+  async hasAnyFinishedRun(workspaceId: string, agentId?: string): Promise<boolean> {
     const rows = await this.db
       .select({ one: sql<number>`1` })
       .from(t.agentRuns)
-      .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.status, [...FINISHED_RUN_STATUSES])))
+      .where(
+        and(
+          eq(t.agentRuns.workspaceId, workspaceId),
+          inArray(t.agentRuns.status, [...FINISHED_RUN_STATUSES]),
+          agentId ? eq(t.agentRuns.agentId, agentId) : undefined,
+        ),
+      )
       .limit(1);
     return rows.length > 0;
   }

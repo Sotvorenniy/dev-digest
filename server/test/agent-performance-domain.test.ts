@@ -284,6 +284,10 @@ describe('agent-performance domain', () => {
       agent: agents[0]!,
       runs: [a, b, c],
       findings: findings.filter((f) => f.runId !== other.id),
+      categories: [],
+      traces: [],
+      linkedSkillNames: [],
+      hasAnyRuns: true,
       estimate,
     });
     for (const k of [

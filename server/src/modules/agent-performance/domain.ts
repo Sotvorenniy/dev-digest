@@ -2,14 +2,30 @@ import type {
   AgentPerf,
   AgentPerfRow,
   AgentStats,
+  FindingsByCategory,
+  MemoryUsage,
+  MemoryUsageItem,
   PerfCostSegment,
   PerfMostActive,
   PerfSeriesPoint,
+  SeverityBucketPoint,
+  SkillsUsage,
+  SkillUsageItem,
   StatPoint,
 } from '@devdigest/shared';
 import { AppError } from '../../platform/errors.js';
 import { resolveRunCost, type CostEstimator } from '../../platform/run-cost.js';
-import { DAY_MS, HOUR_MS, HOURLY_BUCKET_MAX_MS, TREND_RUNS } from './constants.js';
+import {
+  DAY_MS,
+  FINDING_CATEGORIES,
+  HOUR_MS,
+  HOURLY_BUCKET_MAX_MS,
+  MEMORY_ITEMS_MAX,
+  MEMORY_LABEL_MAX,
+  SEVERITY_DAILY_MAX_MS,
+  TREND_RUNS,
+  WEEK_MS,
+} from './constants.js';
 
 /** Half-open time window `[from, to)`. */
 export interface Period {
@@ -43,6 +59,20 @@ export interface PerfRunFindings {
   total: number;
   accepted: number;
   dismissed: number;
+}
+
+/** Findings of an agent in the period, counted per category. */
+export interface PerfCategoryCount {
+  category: string;
+  total: number;
+}
+
+/** Raw jsonb sub-values of one counted `done` run's trace; null when the run has no trace. */
+export interface PerfRunTrace {
+  runId: string;
+  ranAt: Date;
+  skillsUsed: unknown;
+  memoryPulled: unknown;
 }
 
 export class AggregationFailedError extends AppError {
@@ -344,19 +374,158 @@ export function buildAgentPerformance(input: {
   };
 }
 
+/** 1 day buckets for periods up to 14 days, 7 day buckets beyond. */
+export function severityBucketMs(p: Period): number {
+  return p.to.getTime() - p.from.getTime() <= SEVERITY_DAILY_MAX_MS ? DAY_MS : WEEK_MS;
+}
+
+/** Findings per severity per time bucket, aligned to `from`; the last bucket is cut at `to`. */
+export function severitySeries(p: Period, runs: PerfRun[], findingsByRun: FindingsByRun): SeverityBucketPoint[] {
+  const size = severityBucketMs(p);
+  const fromMs = p.from.getTime();
+  const count = Math.max(1, Math.ceil((p.to.getTime() - fromMs) / size));
+  const buckets: SeverityBucketPoint[] = Array.from({ length: count }, (_, i) => ({
+    label: new Date(fromMs + i * size).toISOString(),
+    CRITICAL: 0,
+    WARNING: 0,
+    SUGGESTION: 0,
+  }));
+  for (const r of runs) {
+    const bucket = buckets[Math.floor((r.ranAt.getTime() - fromMs) / size)];
+    if (!bucket) continue;
+    for (const f of findingsByRun.get(r.id) ?? []) {
+      if (f.severity === 'CRITICAL' || f.severity === 'WARNING' || f.severity === 'SUGGESTION') {
+        bucket[f.severity] += f.total;
+      }
+    }
+  }
+  return buckets;
+}
+
+/** All six categories always present; anything outside the known five goes to `other`. */
+export function categoryBreakdown(counts: PerfCategoryCount[]): FindingsByCategory {
+  const out: FindingsByCategory = { bug: 0, security: 0, perf: 0, style: 0, test: 0, other: 0 };
+  for (const c of counts) {
+    const known = (FINDING_CATEGORIES as readonly string[]).includes(c.category);
+    out[known ? (c.category as (typeof FINDING_CATEGORIES)[number]) : 'other'] += c.total;
+  }
+  return out;
+}
+
+/** Hand-written guard (no runtime zod in the core): an array of strings, else null. */
+export function readSkillsUsed(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.every((x) => typeof x === 'string') ? (v as string[]) : null;
+}
+
+/** An array whose every element is an object with a string `text`, else null. `pr` only when an integer. */
+export function readMemoryPulled(v: unknown): { pr: number | null; text: string }[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: { pr: number | null; text: string }[] = [];
+  for (const e of v) {
+    if (typeof e !== 'object' || e === null || Array.isArray(e)) return null;
+    const rec = e as Record<string, unknown>;
+    if (typeof rec.text !== 'string') return null;
+    out.push({ pr: Number.isInteger(rec.pr) ? (rec.pr as number) : null, text: rec.text });
+  }
+  return out;
+}
+
+function byRanAt(a: PerfRunTrace, b: PerfRunTrace): number {
+  return a.ranAt.getTime() - b.ranAt.getTime();
+}
+
+export function skillsUsage(traces: PerfRunTrace[], linkedNames: ReadonlySet<string>): SkillsUsage {
+  const counts = new Map<string, number>();
+  let withData = 0;
+  let dataFrom: Date | null = null;
+  for (const tr of [...traces].sort(byRanAt)) {
+    const names = readSkillsUsed(tr.skillsUsed);
+    if (!names) continue;
+    withData += 1;
+    if (!dataFrom) dataFrom = tr.ranAt;
+    for (const n of new Set(names)) counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  for (const n of linkedNames) if (!counts.has(n)) counts.set(n, 0);
+  const items: SkillUsageItem[] = [...counts.entries()].map(([name, runs]) => ({
+    name,
+    linked: linkedNames.has(name),
+    runs,
+    share: withData ? runs / withData : null,
+  }));
+  items.sort((a, b) => {
+    if (a.share !== b.share) {
+      if (a.share == null) return 1;
+      if (b.share == null) return -1;
+      return b.share - a.share;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  return {
+    runs_with_data: withData,
+    runs_without_data: traces.length - withData,
+    data_from: dataFrom ? (dataFrom as Date).toISOString() : null,
+    items,
+  };
+}
+
+export function memoryUsage(traces: PerfRunTrace[]): MemoryUsage {
+  const groups = new Map<string, { runs: number; pr: number | null }>();
+  let withData = 0;
+  let dataFrom: Date | null = null;
+  for (const tr of [...traces].sort(byRanAt)) {
+    const pulls = readMemoryPulled(tr.memoryPulled);
+    if (!pulls) continue;
+    withData += 1;
+    if (!dataFrom) dataFrom = tr.ranAt;
+    const seen = new Set<string>();
+    for (const p of pulls) {
+      if (seen.has(p.text)) continue;
+      seen.add(p.text);
+      const g = groups.get(p.text);
+      if (g) g.runs += 1;
+      else groups.set(p.text, { runs: 1, pr: p.pr });
+    }
+  }
+  const all: MemoryUsageItem[] = [...groups.entries()].map(([text, g]) => ({
+    label: text.slice(0, MEMORY_LABEL_MAX),
+    truncated: text.length > MEMORY_LABEL_MAX,
+    pr: g.pr,
+    runs: g.runs,
+    share: withData ? g.runs / withData : null,
+  }));
+  all.sort((a, b) => (b.share ?? 0) - (a.share ?? 0) || a.label.localeCompare(b.label));
+  return {
+    runs_with_data: withData,
+    runs_without_data: traces.length - withData,
+    data_from: dataFrom ? (dataFrom as Date).toISOString() : null,
+    entries_total: all.length,
+    items: all.slice(0, MEMORY_ITEMS_MAX),
+  };
+}
+
 export function buildAgentStats(input: {
   period: Period;
   agent: PerfAgent;
+  /** Runs and findings cover `[previous.from, to)`. */
   runs: PerfRun[];
   findings: PerfRunFindings[];
+  categories: PerfCategoryCount[];
+  traces: PerfRunTrace[];
+  linkedSkillNames: string[];
+  hasAnyRuns: boolean;
   estimate: CostEstimator;
 }): AgentStats {
   const { period, agent, estimate } = input;
   const previous = previousPeriod(period);
   const fromMs = period.from.getTime();
   const toMs = period.to.getTime();
+  const prevFromMs = previous.from.getTime();
   const current = input.runs.filter((r) => r.ranAt.getTime() >= fromMs && r.ranAt.getTime() < toMs);
-  const a = aggregateAgent(current, indexFindings(input.findings), estimate);
+  const prior = input.runs.filter((r) => r.ranAt.getTime() >= prevFromMs && r.ranAt.getTime() < fromMs);
+  const fbr = indexFindings(input.findings);
+  const a = aggregateAgent(current, fbr, estimate);
+  const prev = aggregateAgent(prior, fbr, estimate);
   return {
     period: {
       from: period.from.toISOString(),
@@ -383,5 +552,17 @@ export function buildAgentStats(input: {
     avg_latency_ms: a.avg_latency_ms,
     findings_by_severity: a.findings_by_severity,
     trend: a.trend,
+    has_any_runs: input.hasAnyRuns,
+    previous_runs: prev.runs,
+    previous_avg_cost_usd: prev.avg_cost_usd,
+    previous_avg_latency_ms: prev.avg_latency_ms,
+    previous_accept_rate: prev.accept_rate,
+    previous_decided: prev.decided,
+    runs_series: runsSeries(period, current),
+    severity_bucket: severityBucketMs(period) === DAY_MS ? 'day' : 'week',
+    findings_by_severity_series: severitySeries(period, current, fbr),
+    findings_by_category: categoryBreakdown(input.categories),
+    skills_usage: skillsUsage(input.traces, new Set(input.linkedSkillNames)),
+    memory_usage: memoryUsage(input.traces),
   };
 }

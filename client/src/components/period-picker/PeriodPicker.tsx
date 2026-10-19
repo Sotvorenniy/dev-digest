@@ -3,15 +3,16 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@devdigest/ui";
-import { customRangeToPeriod, periodToDateInputs, presetPeriod, toDateInput, type CustomRangeError, type UiPeriod } from "../../helpers";
-import { s } from "../../styles";
-
-const ERROR_ID = "agent-performance-period-error";
+import { customRangeToPeriod, periodToDateInputs, presetPeriod, toDateInput, type CustomRangeError, type UiPeriod } from "./helpers";
+import { s } from "./styles";
 
 /** 1 day / 30 days presets plus a custom start–end range. An invalid custom range shows
- *  an error and selects nothing, so no request is made. */
+ *  an error and selects nothing, so no request is made.
+ *  Shared by the dashboard and the agent Stats tab; it reads the `agentPerformance.period.*`
+ *  keys on purpose, so any screen using it must load that namespace. */
 export function PeriodPicker({ period, onSelect }: { period: UiPeriod; onSelect: (p: UiPeriod) => void }) {
   const t = useTranslations("agentPerformance");
+  const ERROR_ID = React.useId();
   const [customOpen, setCustomOpen] = React.useState(period.range === "custom");
   const initial = period.range === "custom" ? periodToDateInputs(period) : { start: "", end: "" };
   const [start, setStart] = React.useState(initial.start);
@@ -101,3 +102,5 @@ export function PeriodPicker({ period, onSelect }: { period: UiPeriod; onSelect:
     </div>
   );
 }
+
+export default PeriodPicker;

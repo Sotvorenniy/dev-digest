@@ -46,11 +46,26 @@ export class AgentPerformanceService {
     const agent = await repo.findAgent(workspaceId, agentId);
     if (!agent) throw new NotFoundError('Agent not found');
     try {
-      const [runs, findings] = await Promise.all([
-        repo.listFinishedRuns(workspaceId, period, agentId),
-        repo.countFindingsByRun(workspaceId, period, agentId),
+      const window = { from: previousPeriod(period).from, to: period.to };
+      const [runs, findings, categories, traces, linkedSkillNames, hasAnyRuns] = await Promise.all([
+        repo.listFinishedRuns(workspaceId, window, agentId),
+        repo.countFindingsByRun(workspaceId, window, agentId),
+        repo.countFindingsByCategory(workspaceId, period, agentId),
+        repo.listRunUsageTraces(workspaceId, period, agentId),
+        repo.listLinkedSkillNames(workspaceId, agentId),
+        repo.hasAnyFinishedRun(workspaceId, agentId),
       ]);
-      return buildAgentStats({ period, agent, runs, findings, estimate: estimateCost });
+      return buildAgentStats({
+        period,
+        agent,
+        runs,
+        findings,
+        categories,
+        traces,
+        linkedSkillNames,
+        hasAnyRuns,
+        estimate: estimateCost,
+      });
     } catch {
       this.fail(ctx, 'GET /agents/:id/stats', period);
       throw new AggregationFailedError();

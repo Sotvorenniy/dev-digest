@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import { Badge, Icon } from "@devdigest/ui";
 import { formatCost } from "@/components/run-cost-badge";
 import type { AgentPerfRow } from "@/lib/types";
-import { formatDuration, formatPercent, formatRelativeTime, isSmallSample, trendDirection } from "../../helpers";
+import { formatDuration, formatPercent } from "@/lib/agent-metrics";
+import { formatRelativeTime, isSmallSample, trendDirection } from "../../helpers";
 import { s } from "../../styles";
 
 const DASH = "—";

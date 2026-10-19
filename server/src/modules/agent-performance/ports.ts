@@ -1,4 +1,4 @@
-import type { PerfAgent, PerfRun, PerfRunFindings, Period } from './domain.js';
+import type { PerfAgent, PerfCategoryCount, PerfRun, PerfRunFindings, PerfRunTrace, Period } from './domain.js';
 
 /** Read-only port AgentPerformanceService depends on — AgentPerformanceRepository implements it. */
 export interface AgentPerformanceRepositoryPort {
@@ -9,7 +9,13 @@ export interface AgentPerformanceRepositoryPort {
   listFinishedRuns(workspaceId: string, window: Period, agentId?: string): Promise<PerfRun[]>;
   /** Finding counts per (run, severity) for the same runs; findings of unlinked reviews are excluded. */
   countFindingsByRun(workspaceId: string, window: Period, agentId?: string): Promise<PerfRunFindings[]>;
-  hasAnyFinishedRun(workspaceId: string): Promise<boolean>;
+  /** Finding counts per category for the agent's done/failed/cancelled runs in the period (same joins as above). */
+  countFindingsByCategory(workspaceId: string, period: Period, agentId: string): Promise<PerfCategoryCount[]>;
+  /** Skills/memory sub-values of the trace of each `done` run in the period; never the whole trace. */
+  listRunUsageTraces(workspaceId: string, period: Period, agentId: string): Promise<PerfRunTrace[]>;
+  /** Names of the skills linked to the agent. */
+  listLinkedSkillNames(workspaceId: string, agentId: string): Promise<string[]>;
+  hasAnyFinishedRun(workspaceId: string, agentId?: string): Promise<boolean>;
 }
 
 /** Structured stdout logger (pino-compatible). */

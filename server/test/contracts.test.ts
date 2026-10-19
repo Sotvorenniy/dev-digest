@@ -583,6 +583,18 @@ describe('Agent Performance contracts (SPEC-04)', () => {
       avg_latency_ms: r.avg_latency_ms,
       findings_by_severity: sev,
       trend: [{ label: '2026-10-01T10:00:00.000Z', value: 1 }],
+      has_any_runs: true,
+      previous_runs: 0,
+      previous_avg_cost_usd: null,
+      previous_avg_latency_ms: null,
+      previous_accept_rate: null,
+      previous_decided: 0,
+      runs_series: [{ label: '2026-10-01T00:00:00.000Z', value: 1 }],
+      severity_bucket: 'day',
+      findings_by_severity_series: [{ label: '2026-10-01T00:00:00.000Z', CRITICAL: 0, WARNING: 0, SUGGESTION: 0 }],
+      findings_by_category: { bug: 0, security: 0, perf: 0, style: 0, test: 0, other: 0 },
+      skills_usage: { runs_with_data: 0, runs_without_data: 0, data_from: null, items: [] },
+      memory_usage: { runs_with_data: 0, runs_without_data: 0, data_from: null, entries_total: 0, items: [] },
     };
     expect(AgentStats.safeParse(stats).success).toBe(true);
     const noPeriod = { ...stats };

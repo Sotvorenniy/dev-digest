@@ -3,9 +3,10 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Sparkline } from "@devdigest/ui";
-import { formatCost } from "@/components/run-cost-badge";
+import { formatCost, formatSignedCost } from "@/components/run-cost-badge";
 import type { AgentPerf } from "@/lib/types";
-import { costDelta, formatPercent, formatSignedCost, seriesUnit } from "../../helpers";
+import { formatPercent } from "@/lib/agent-metrics";
+import { costDelta, seriesUnit } from "../../helpers";
 import { s } from "../../styles";
 
 const EXPLANATION_ID = "agent-performance-estimate-explanation";

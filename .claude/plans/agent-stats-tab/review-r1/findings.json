@@ -1,0 +1,78 @@
+[
+  {
+    "id": "A-1",
+    "sources": [
+      "architecture-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "frontend-ui-architecture: shared components self-contained",
+    "file": "client/src/components/period-picker/PeriodPicker.tsx",
+    "symbol": null,
+    "line": 404,
+    "summary": "Shared PeriodPicker reads the feature-specific agentPerformance i18n namespace",
+    "status": "logged",
+    "route": null,
+    "decision_reason": "LOW: logged only per review loop",
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  },
+  {
+    "id": "A-2",
+    "sources": [
+      "architecture-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "duplicated cross-package logic must move together",
+    "file": "client/src/app/agents/[id]/_components/AgentEditor/_components/StatsTab/constants.ts",
+    "symbol": null,
+    "line": 1190,
+    "summary": "HOURLY_BUCKET_MAX_MS is duplicated from the server, linked only by a comment",
+    "status": "logged",
+    "route": null,
+    "decision_reason": "LOW: logged only per review loop",
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  },
+  {
+    "id": "A-3",
+    "sources": [
+      "architecture-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "onion-architecture: domain readability",
+    "file": "server/src/modules/agent-performance/domain.ts",
+    "symbol": null,
+    "line": 174,
+    "summary": "Redundant (dataFrom as Date) cast hides a narrowing issue in skillsUsage/memoryUsage",
+    "status": "logged",
+    "route": null,
+    "decision_reason": "LOW: logged only per review loop",
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  },
+  {
+    "id": "S-1",
+    "sources": [
+      "security-reviewer"
+    ],
+    "severity": "LOW",
+    "confidence": "medium",
+    "rule": "unbounded-response-field",
+    "file": "server/src/modules/agent-performance/domain.ts",
+    "symbol": null,
+    "line": 154,
+    "summary": "Skill names from trace skills_used are returned without a length or count cap, unlike memory labels.",
+    "status": "logged",
+    "route": null,
+    "decision_reason": "LOW: logged only per review loop",
+    "first_round": 1,
+    "fixed_round": null,
+    "reopened": 0
+  }
+]

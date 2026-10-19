@@ -102,6 +102,62 @@ export const PerfPeriod = z.object({
 });
 export type PerfPeriod = z.infer<typeof PerfPeriod>;
 
+/** Same shape as PerfSeriesPoint (productionize.ts imports this file, so it cannot be imported back). */
+export const AgentStatsSeriesPoint = z.object({ label: z.string(), value: z.number().int() });
+export type AgentStatsSeriesPoint = z.infer<typeof AgentStatsSeriesPoint>;
+
+export const SeverityBucketPoint = z.object({
+  label: z.string(),
+  CRITICAL: z.number().int(),
+  WARNING: z.number().int(),
+  SUGGESTION: z.number().int(),
+});
+export type SeverityBucketPoint = z.infer<typeof SeverityBucketPoint>;
+
+export const FindingsByCategory = z.object({
+  bug: z.number().int(),
+  security: z.number().int(),
+  perf: z.number().int(),
+  style: z.number().int(),
+  test: z.number().int(),
+  other: z.number().int(),
+});
+export type FindingsByCategory = z.infer<typeof FindingsByCategory>;
+
+export const SkillUsageItem = z.object({
+  name: z.string(),
+  linked: z.boolean(),
+  runs: z.number().int(),
+  share: z.number().nullable(),
+});
+export type SkillUsageItem = z.infer<typeof SkillUsageItem>;
+
+export const SkillsUsage = z.object({
+  runs_with_data: z.number().int(),
+  runs_without_data: z.number().int(),
+  data_from: z.string().nullable(),
+  items: z.array(SkillUsageItem),
+});
+export type SkillsUsage = z.infer<typeof SkillsUsage>;
+
+export const MemoryUsageItem = z.object({
+  label: z.string().max(200),
+  truncated: z.boolean(),
+  pr: z.number().int().nullish(),
+  runs: z.number().int(),
+  share: z.number().nullable(),
+});
+export type MemoryUsageItem = z.infer<typeof MemoryUsageItem>;
+
+export const MemoryUsage = z.object({
+  runs_with_data: z.number().int(),
+  runs_without_data: z.number().int(),
+  data_from: z.string().nullable(),
+  entries_total: z.number().int(),
+  items: z.array(MemoryUsageItem).max(10),
+});
+export type MemoryUsage = z.infer<typeof MemoryUsage>;
+
 export const AgentStats = z.object({
   period: PerfPeriod,
   decided: z.number().int(),
@@ -129,6 +185,18 @@ export const AgentStats = z.object({
   }),
   /** recent runs for a small trend chart (oldest→newest). */
   trend: z.array(StatPoint),
+  has_any_runs: z.boolean(),
+  previous_runs: z.number().int(),
+  previous_avg_cost_usd: z.number().nullable(),
+  previous_avg_latency_ms: z.number().nullable(),
+  previous_accept_rate: z.number().nullable(),
+  previous_decided: z.number().int(),
+  runs_series: z.array(AgentStatsSeriesPoint),
+  severity_bucket: z.enum(['day', 'week']),
+  findings_by_severity_series: z.array(SeverityBucketPoint),
+  findings_by_category: FindingsByCategory,
+  skills_usage: SkillsUsage,
+  memory_usage: MemoryUsage,
 });
 export type AgentStats = z.infer<typeof AgentStats>;
 

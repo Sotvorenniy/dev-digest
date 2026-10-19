@@ -29,13 +29,14 @@ flowchart TD
 
   PULLS --> CONTEXT["/repos/:repoId/context<br/>Project Context docs"]
   PULLS --> TOUR["/repos/:repoId/onboarding<br/>Onboarding Tour"]
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · context)"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills · context · stats)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
   PERF["/agent-performance<br/>Agent Performance dashboard"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/context"| API
+  AGENT -->|"GET /agents/:id/stats"| API
   CONTEXT -->|"GET /repos/:id/context · /repos/:id/context/file"| API
   TOUR -->|"GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"| API
   SETTINGS -->|"/settings · /providers"| API
