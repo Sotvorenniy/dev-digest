@@ -10,11 +10,20 @@ import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
 import { SkillsTab } from "./_components/SkillsTab";
 import { ContextTab } from "./_components/ContextTab";
+import { StatsTab } from "./_components/StatsTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
 
+/** Tab key → view; an unknown or missing key falls back to Config. */
+const TAB_VIEWS: Record<string, React.ComponentType<{ agent: Agent }>> = {
+  skills: SkillsTab,
+  context: ContextTab,
+  stats: StatsTab,
+};
+
 export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; onTab: (t: string) => void }) {
   const t = useTranslations("agents");
+  const View = Object.hasOwn(TAB_VIEWS, tab) ? TAB_VIEWS[tab]! : ConfigTab;
   const tabs = TABS.map((tb) => ({ key: tb.key, label: t(tb.labelKey), icon: tb.icon }));
   return (
     <div style={s.wrap}>
@@ -26,13 +35,7 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
             draft state starts from the new agent. ConfigTab used to do this
             with an effect keyed on `agent.id`, which meant a refetch that
             changed the agent's *content* left the form showing stale values. */}
-        {tab === "skills" ? (
-          <SkillsTab key={agent.id} agent={agent} />
-        ) : tab === "context" ? (
-          <ContextTab key={agent.id} agent={agent} />
-        ) : (
-          <ConfigTab key={agent.id} agent={agent} />
-        )}
+        <View key={agent.id} agent={agent} />
       </div>
     </div>
   );

@@ -1,0 +1,70 @@
+{
+  "loadError": "Could not load agent stats.",
+  "periodLabel": {
+    "preset": "{preset} · {from} – now",
+    "custom": "{start} – {end}",
+    "oneDay": "1 day",
+    "thirtyDays": "30 days"
+  },
+  "kpi": {
+    "label": "Key figures",
+    "totalRuns": "Total runs",
+    "avgCost": "Avg cost / run",
+    "avgDuration": "Avg duration",
+    "acceptRate": "Accept rate",
+    "runsSeriesAlt": "{count} runs, by {unit}",
+    "unitHour": "hour",
+    "unitDay": "day",
+    "decidedBasis": "based on {count, plural, one {# decided finding} other {# decided findings}}",
+    "delta": "{delta} vs previous period",
+    "deltaPoints": "{delta} pp vs previous period",
+    "noHistory": "Not enough history to compare"
+  },
+  "skills": {
+    "title": "Skills used",
+    "description": "Share of runs whose prompt included the skill",
+    "empty": "No skills in this period",
+    "rowAlt": "{name}: {percent} of runs"
+  },
+  "memory": {
+    "title": "Memory pulled",
+    "description": "Share of runs that pulled the memory entry",
+    "empty": "No memory pulled in this period",
+    "more": "+{count} more",
+    "rowAlt": "{name}: {percent} of runs"
+  },
+  "coverage": {
+    "basedOn": "Based on {n} of {m} runs",
+    "noDataBefore": "No data before {date}"
+  },
+  "severity": {
+    "title": "Findings by severity",
+    "critical": "Critical",
+    "warning": "Warning",
+    "suggestion": "Suggestion",
+    "week": "W{n}",
+    "barAlt": "{label}: {critical} critical, {warning} warning, {suggestion} suggestion",
+    "footer": "{count, plural, one {# finding} other {# findings}} in period"
+  },
+  "category": {
+    "title": "Findings by category",
+    "centerAlt": "{count} findings",
+    "legendItem": "{category} {count} · {percent}",
+    "legendZero": "{category} {count}",
+    "smallSample": "Small sample",
+    "names": {
+      "bug": "bug",
+      "security": "security",
+      "perf": "perf",
+      "style": "style",
+      "test": "test",
+      "other": "other"
+    }
+  },
+  "empty": {
+    "notRunTitle": "This agent has not run yet",
+    "notRunBody": "Run it on a pull request and its stats will show up here.",
+    "noRunsInPeriodTitle": "No runs in this period",
+    "noRunsInPeriodBody": "Try a wider period to see this agent's earlier runs."
+  }
+}

@@ -51,6 +51,8 @@ import { OnboardingRepository } from '../modules/onboarding/repository.js';
 import { OnboardingService } from '../modules/onboarding/service.js';
 import { BriefRepository } from '../modules/brief/repository.js';
 import { BriefService } from '../modules/brief/service.js';
+import { AgentPerformanceRepository } from '../modules/agent-performance/repository.js';
+import { AgentPerformanceService } from '../modules/agent-performance/service.js';
 import { LLM_TIMEOUT_MS, ONBOARDING_JOB_KIND } from '../modules/onboarding/constants.js';
 import { loadPromptTemplate } from './prompts.js';
 import { EXCLUDED_DIRS } from '../modules/repo-intel/constants.js';
@@ -126,6 +128,7 @@ export class Container {
   private _projectContextService?: ProjectContextService;
   private _onboardingService?: OnboardingService;
   private _briefService?: BriefService;
+  private _agentPerformanceService?: AgentPerformanceService;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -237,6 +240,14 @@ export class Container {
   /** Reads the blast radius from the repo-intel index; ports only (no Container). */
   get blastService(): BlastService {
     return (this._blastService ??= new BlastService({ repo: this.blastRepo, repoIntel: this.repoIntel }));
+  }
+
+  /** Read-only agent performance aggregation; ports only (no Container). */
+  get agentPerformanceService(): AgentPerformanceService {
+    return (this._agentPerformanceService ??= new AgentPerformanceService({
+      repo: new AgentPerformanceRepository(this.db),
+      estimateCost: (m, i, o) => this.priceBook.estimate(m, i, o),
+    }));
   }
 
   get docFetcher(): DocFetcher {

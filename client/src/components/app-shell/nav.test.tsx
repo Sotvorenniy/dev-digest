@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { NAV, Sidebar } from "@devdigest/ui";
+import shell from "../../../messages/en/shell.json";
 
 afterEach(cleanup);
 
@@ -21,5 +22,21 @@ describe("sidebar grouping", () => {
     const workspace = screen.getByText("WORKSPACE").parentElement!;
     expect(within(workspace).queryByText("Agents")).not.toBeInTheDocument();
     expect(within(workspace).queryByText("Skills")).not.toBeInTheDocument();
+  });
+
+  it("puts only Agent Performance in GLOBAL (SPEC-04 AC1)", () => {
+    expect(keysOf("GLOBAL")).toEqual(["agent-performance"]);
+    const item = NAV.find((g) => g.section === "GLOBAL")!.items[0]!;
+    expect(item.href).toBe("/agent-performance");
+    expect(item.label).toBe(shell.nav["agent-performance"]);
+  });
+
+  it("renders the Agent Performance link under the GLOBAL heading, and no other GLOBAL entry", () => {
+    render(<Sidebar ctx={{ activeKey: "agent-performance" }} />);
+    const global = screen.getByText("GLOBAL").parentElement!;
+    expect(within(global).getByText("Agent Performance").closest("a")).toHaveAttribute("href", "/agent-performance");
+    for (const label of [shell.nav.memory, shell.nav["multi-agent"], shell.nav["ci-runs"]]) {
+      expect(within(global).queryByText(label)).not.toBeInTheDocument();
+    }
   });
 });

@@ -27,6 +27,12 @@ export function formatCost(usd: number | null | undefined): string {
   return `$${trimmed}`;
 }
 
+/** A text sign plus the cost, so direction is never colour-only. */
+export function formatSignedCost(delta: number): string {
+  if (delta === 0) return formatCost(0);
+  return `${delta < 0 ? "−" : "+"}${formatCost(Math.abs(delta))}`;
+}
+
 /** Thin space, so "9 119" groups without looking like two numbers. */
 const GROUP_SEPARATOR = " ";
 

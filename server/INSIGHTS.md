@@ -27,6 +27,17 @@ and renders "—", while a wrong row renders as fact.
 Evidence: `server/src/adapters/llm/pricing.ts:1-20`,
 `server/test/adapters.test.ts` ("never prices a paid model at zero")
 
+### Trace usage stats: memory_pulled is always empty, skills_used is names only
+`2026-10-19` — `run-executor` writes `memory_pulled: []` on every run, so any
+"most-pulled memory" view shows its empty state until a feature records pulled
+memory with an id. `prompt_assembly.skills_used` holds skill NAMES in prompt
+order, not ids, and records inclusion in the prompt, not model use; a renamed
+skill splits its usage history. Read both through guards that treat any odd
+shape as "no data" — old traces lack the fields.
+Evidence: `server/src/modules/reviews/run-executor.ts:412,600`,
+`server/src/modules/agent-performance/domain.ts` (`readSkillsUsed`,
+`readMemoryPulled`)
+
 ## Codebase Patterns
 <!-- Module layout, DI flow, repository conventions — with the reason. -->
 
@@ -158,6 +169,15 @@ the PR does not exist yet, so editing a seeded patch or adding a seeded row
 does nothing on an existing dev DB. The hermetic e2e stack (fresh DB) sees the
 change; your dev DB does not. Check a seed change against a fresh DB.
 Evidence: `server/src/db/seed.ts:106`, `server/src/db/seed-brief.ts`
+
+### A finding reaches a run only through reviews.run_id, which has no FK
+`2026-10-18` — Per-run aggregates (agent performance, per-agent stats) join
+findings to `agent_runs` through `reviews.run_id`, a plain uuid with no foreign
+key. A review whose `run_id` is null (e.g. the seeded PR #482 review) is
+invisible to every per-run metric. These aggregates count every run's findings,
+unlike the PR-list "newest review per agent" rollup (root INSIGHTS).
+Evidence: `server/src/db/schema/reviews.ts:20`,
+`server/src/modules/agent-performance/repository.ts:57`
 
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
