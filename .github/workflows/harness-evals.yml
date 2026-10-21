@@ -130,6 +130,7 @@ jobs:
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.skills != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     strategy:
       fail-fast: false
       max-parallel: 1   # OpenRouter throttles bursts
@@ -163,6 +164,7 @@ jobs:
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.agents != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -197,6 +199,7 @@ jobs:
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.run_workflow == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     continue-on-error: true
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

@@ -31,6 +31,16 @@ function latestRun() {
   return rows.filter((r) => r.run_id === last);
 }
 
+/** An API-level failure (credits, rate limit, 5xx) is not an eval regression: classify it apart. */
+function apiError(r) {
+  try {
+    const text = readFileSync(join(EVALS_DIR, "results", r.output_file ?? ""), "utf8");
+    return /API Error: (402|429|5\d\d)|exceed your available credits|rate.?limit/i.exec(text)?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const arg = process.argv[2];
 const rows = latestRun();
 
@@ -49,6 +59,7 @@ const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8"
 
 let md = `### ${tier} evals vs baseline\n\n| case | score | threshold | baseline | delta | status |\n|---|---|---|---|---|---|\n`;
 let regressions = 0;
+let apiErrors = 0;
 let tokens = 0;
 for (const r of rows) {
   const key = keyOf(r.nodeid);
@@ -60,10 +71,12 @@ for (const r of rows) {
   // regression: allow at least one practice of slack (3 practices -> 0.34, 6 -> 0.2).
   const n = Array.isArray(r.practices) ? r.practices.length : 0;
   const slack = Math.max(tolerance, n ? 1 / n + 0.01 : 0);
-  const regressed = delta !== null && delta < -slack;
+  const api = apiError(r);
+  if (api) apiErrors++;
+  const regressed = !api && delta !== null && delta < -slack;
   if (regressed) regressions++;
   tokens += (r.metrics?.inputTokens ?? 0) + (r.metrics?.outputTokens ?? 0);
-  const status = regressed ? "REGRESSION" : r.outcome ? "pass" : base === undefined ? "new (below threshold)" : "below threshold, within baseline";
+  const status = api ? `API ERROR (${api})` : regressed ? "REGRESSION" : r.outcome ? "pass" : base === undefined ? "new (below threshold)" : "below threshold, within baseline";
   const short = key.split(" > ").slice(-2).join(" > ");
   md += `| ${short} | ${scored ? r.score.toFixed(2) : r.outcome ? "pass" : "fail"} | ${r.threshold ?? "-"} | ${base ?? "-"} | ${delta === null ? "-" : delta.toFixed(2)} | ${status} |\n`;
 }
@@ -74,7 +87,8 @@ console.log(md);
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
 if (tokens > budget) console.log(`::warning title=${tier} token budget::${tokens} tokens used, budget ${budget}`);
 
-const infraFailure = process.env.EVAL_OUTCOME === "failure" && rows.length === 0;
-if (infraFailure) console.log(`::error title=${tier} evals::the eval step failed and produced no records`);
+if (apiErrors) console.log(`::error title=${tier} API errors::${apiErrors} case(s) hit an API error (credits / rate limit): scores are not meaningful, fix the OpenRouter key or balance, not the evals`);
+const infraFailure = (process.env.EVAL_OUTCOME === "failure" && rows.length === 0) || apiErrors > 0;
+if (process.env.EVAL_OUTCOME === "failure" && rows.length === 0) console.log(`::error title=${tier} evals::the eval step failed and produced no records`);
 if (regressions) console.log(`::error title=${tier} regression::${regressions} case(s) fell more than ${tolerance} below baseline`);
 process.exit(infraFailure || regressions ? 1 : 0);

@@ -31,6 +31,9 @@ export function subscriptionEnv(): Record<string, string> {
     if (!key) throw new Error("EVAL_BACKEND=openrouter but OPENROUTER_API_KEY is not set");
     env.ANTHROPIC_BASE_URL = (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api").replace(/\/$/, "");
     env.ANTHROPIC_AUTH_TOKEN = key;
+    // OpenRouter reserves credit for the full max_tokens of every in-flight request; the SDK's
+    // default is large, which trips 402 "exceed your available credits" on a small balance.
+    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS ??= "8000";
     env.ANTHROPIC_API_KEY = ""; // blank, not deleted — stops the SDK falling back to Anthropic auth
     return env;
   }
