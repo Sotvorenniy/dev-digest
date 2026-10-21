@@ -154,3 +154,28 @@ app.get('/workspace', async (req) => getContext(app.container, req));
 // NOT OK — a routes-only module that queries
 const repos = await container.db.select().from(t.repos)…   // → add service.ts + port
 ```
+
+## 8. Facade laundering (HIGH — passes dependency-cruiser)
+
+```ts
+// BAD — modules/brief/types.ts re-exports internals
+export type { BriefDraft } from './domain.js';
+export { BriefService } from './service.js';
+export { BRIEF_MAX_TOKENS } from './constants.js';
+
+// modules/onboarding/service.ts — path looks legal, symbol is brief's concrete service
+import type { BriefService } from '../brief/types.js';
+export interface OnboardingDeps { brief: BriefService }
+```
+
+```ts
+// GOOD — modules/brief/ports.ts owns the contract other modules need
+export interface BriefReader { latest(workspaceId: string, repoId: string): Promise<BriefDraft | null> }
+
+// modules/onboarding/service.ts
+import type { BriefReader } from '../brief/ports.js';
+export interface OnboardingDeps { brief: BriefReader }
+
+// platform/container.ts binds it: brief: this.briefService (BriefService implements BriefReader)
+```
+

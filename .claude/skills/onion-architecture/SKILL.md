@@ -1,6 +1,6 @@
 ---
 name: onion-architecture
-version: 1.0.0
+version: 1.1.0
 description: "Onion Architecture for the dev-digest backend (server/, Fastify 5 + Drizzle + Zod + DI container). Enforces the dependency rule — every import points inward, from routes to services to ports/domain, with repositories and adapters implementing ports from the outside. Use this skill whenever you create or change a backend module under server/src/modules, add a service, repository, route, port, adapter or use case, write a Drizzle query, touch platform/container.ts, move backend code between files, or review a server diff. Use it even when the user just says 'add an endpoint', 'where should this query go?', 'this route is getting big', 'add a new module' or mentions onion / hexagonal / clean architecture / ports and adapters. Runs dependency-cruiser as the mechanical gate. Does NOT cover Fastify API details (use fastify-best-practices), Drizzle query syntax (drizzle-orm-patterns), schema design (postgresql-table-design) or the React client (frontend-ui-architecture)."
 ---
 
@@ -90,6 +90,8 @@ the top of `ports.ts` with nothing in `domain.ts`.
 1. Run the gate. Every error is a finding with its `path → path`.
 2. Then walk the checklist below over the diff — it catches what imports cannot
    (e.g. `container.db` used without importing drizzle, SDK types leaking through a port).
+   For every import of another module, open the target file and trace re-exports to the
+   declaring file — a clean-looking `../b/types.js` path proves nothing on its own.
 3. Report each finding as `path:line`, the rule it breaks, and the inward-pointing fix.
 
 ### Refactor (paying down a baselined violation)
@@ -124,6 +126,13 @@ which dependency-cruiser cannot see.
 - **HIGH** — Does a service re-parse data with zod that routes already parsed?
 - **HIGH** — Does module A import module B's `service.ts` / `repository.ts` instead of its
   `ports.ts` / `domain.ts` / `types.ts` or a Container getter?
+- **HIGH** — **Facade laundering.** Does a cross-module import resolve to an internal of B
+  even though its path is B's `domain.ts` / `ports.ts` / `types.ts`? Follow every
+  `export … from` to the file that declares the symbol. Two findings, one per side:
+  the facade file that re-exports B's `service.ts`, `repository*`, `helpers.ts`,
+  `constants.ts` or `routes.ts`, and each importer in A that uses it (a type import of a
+  concrete service class counts). dependency-cruiser misses this — it checks the import
+  path, not where the symbol is declared. `scripts/check.sh` flags the facade side.
 - **HIGH** — Does a domain/service error know its HTTP status beyond the `AppError` taxonomy
   (e.g. calling `reply.status` from a service)?
 - **MEDIUM** — Does the repository return rows while the service needs domain objects? Map

@@ -74,6 +74,7 @@ Three things that cost the most time here:
 - Choosing or running a test suite, the suite map → read `TESTING.md`
 - Writing an agent system prompt or picking a template → read `docs/agent-prompts/README.md`
 - Cross-cutting findings → read `INSIGHTS.md`
+- Adding or running a skill's evals (`.claude/skills/<skill>/evals/`) → read `skill-evals/_shared/README.md`
 - Before opening, pushing or merging a PR → run `/pr-self-review` (`.claude/skills/pr-self-review/`); any CRITICAL blocks it
 - Using or changing the MCP server (Claude Code tools over the API) → read `mcp/README.md`, `mcp/AGENTS.md`
 - Working inside a package → read `server/AGENTS.md`, `client/AGENTS.md`, `reviewer-core/AGENTS.md`, `e2e/AGENTS.md`, `mcp/AGENTS.md`
