@@ -52,13 +52,15 @@ let tokens = 0;
 for (const r of rows) {
   const key = keyOf(r.nodeid);
   const base = baseline[key];
-  const delta = base === undefined ? null : r.score - base;
+  // trace / activation cases (workflow tier) record only pass/fail: no score, no threshold.
+  const scored = typeof r.score === "number";
+  const delta = base === undefined || !scored ? null : r.score - base;
   const regressed = delta !== null && delta < -tolerance;
   if (regressed) regressions++;
   tokens += (r.metrics?.inputTokens ?? 0) + (r.metrics?.outputTokens ?? 0);
   const status = regressed ? "REGRESSION" : r.outcome ? "pass" : base === undefined ? "new (below threshold)" : "below threshold, within baseline";
   const short = key.split(" > ").slice(-2).join(" > ");
-  md += `| ${short} | ${r.score.toFixed(2)} | ${r.threshold} | ${base ?? "-"} | ${delta === null ? "-" : delta.toFixed(2)} | ${status} |\n`;
+  md += `| ${short} | ${scored ? r.score.toFixed(2) : r.outcome ? "pass" : "fail"} | ${r.threshold ?? "-"} | ${base ?? "-"} | ${delta === null ? "-" : delta.toFixed(2)} | ${status} |\n`;
 }
 md += `\nTokens (in+out): ${tokens} of budget ${budget}. Records: ${rows.length}.\n`;
 if (!rows.length) md += "\nNo records were produced.\n";

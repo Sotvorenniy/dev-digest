@@ -52,7 +52,7 @@ export const cases: AgentCase[] = [
       "quotes the offending line verbatim as evidence for each finding, not a paraphrase",
       "ends with an explicit verdict that is not a plain PASS (`PASS WITH FINDINGS` or `BLOCKED`), because HIGH findings exist",
     ],
-    threshold: 1.0,
+    threshold: 0.8, // lite drops the rule-citation practice by design: 5/6 must pass
     maxTurns: 25,
   },
   {
