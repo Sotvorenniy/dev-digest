@@ -1,7 +1,8 @@
 /**
  * CI report for one eval tier: per-case score vs the committed baseline, written to the job
  * summary. Model runs are a REPORT, not a pass/fail gate: the job fails only on
- *   - a regression: score fell more than REGRESSION_TOLERANCE below baseline.json, or
+ *   - a regression: score fell below baseline.json by more than max(REGRESSION_TOLERANCE, one
+ *     judge practice), i.e. two flaky practices, not one, or
  *   - an infrastructure failure: the eval step failed and produced no records at all.
  * Cases with no baseline entry are reported as "new". Token use is tallied against a budget.
  *
@@ -55,7 +56,11 @@ for (const r of rows) {
   // trace / activation cases (workflow tier) record only pass/fail: no score, no threshold.
   const scored = typeof r.score === "number";
   const delta = base === undefined || !scored ? null : r.score - base;
-  const regressed = delta !== null && delta < -tolerance;
+  // One judge practice is 1/n of the score, so a single flaky practice must not read as a
+  // regression: allow at least one practice of slack (3 practices -> 0.34, 6 -> 0.2).
+  const n = Array.isArray(r.practices) ? r.practices.length : 0;
+  const slack = Math.max(tolerance, n ? 1 / n + 0.01 : 0);
+  const regressed = delta !== null && delta < -slack;
   if (regressed) regressions++;
   tokens += (r.metrics?.inputTokens ?? 0) + (r.metrics?.outputTokens ?? 0);
   const status = regressed ? "REGRESSION" : r.outcome ? "pass" : base === undefined ? "new (below threshold)" : "below threshold, within baseline";
