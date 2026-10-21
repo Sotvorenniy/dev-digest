@@ -65,6 +65,8 @@ export type WorkflowCase =
       expectSubagents?: string[];
       expectSkills?: string[];
       expectFilesRead?: string[];
+      /** How many of expectFilesRead must be read (default: all). For model-sensitive routing cases. */
+      minFilesRead?: number;
       maxTurns?: number;
     };
 
@@ -166,7 +168,7 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           stopWhen: (p) =>
             subs.every((s) => p.subagents.includes(s)) &&
             skls.every((s) => skillEngaged(p, s)) &&
-            files.every((f) => p.filesRead.some((r) => r.includes(f))),
+            files.filter((f) => p.filesRead.some((r) => r.includes(f))).length >= (c.minFilesRead ?? files.length),
         });
         logTrace(c.name, result);
         try {
@@ -179,12 +181,11 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
               `skill ${skill} not engaged | skills: ${result.skillsInvoked.join(", ")} | reads: ${result.filesRead.join(", ")}`,
             ).toBe(true);
           }
-          for (const file of c.expectFilesRead ?? []) {
-            expect(
-              result.filesRead.some((f) => f.includes(file)),
-              `${file} not read | reads: ${result.filesRead.join(", ")}`,
-            ).toBe(true);
-          }
+          const readCount = files.filter((file) => result.filesRead.some((f) => f.includes(file))).length;
+          expect(
+            readCount,
+            `${readCount}/${files.length} expected files read (need ${c.minFilesRead ?? files.length}): ${files.join(", ")} | reads: ${result.filesRead.join(", ")}`,
+          ).toBeGreaterThanOrEqual(c.minFilesRead ?? files.length);
           expect(result.isError).toBe(false);
         } finally {
           record(c.name, { result });

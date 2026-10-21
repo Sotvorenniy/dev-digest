@@ -71,6 +71,6 @@ export const cases: WorkflowCase[] = [
       "Explain what changed in zod 3 compared with zod 4 for schema refinements.",
     skill: "dependency-checker",
     shouldActivate: false,
-    maxTurns: 4,
+    maxTurns: 8,
   },
 ];

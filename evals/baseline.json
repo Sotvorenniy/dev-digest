@@ -6,7 +6,7 @@
   "agents/architecture-reviewer-lite/architecture-reviewer-lite.eval.ts > agent:architecture-reviewer-lite > does not fabricate an architecture finding for the out-of-scope security-shaped change": 1,
   "skills/dependency-checker/dependency-checker.eval.ts > skill:dependency-checker > distinguishes internal (path-alias) dependencies from external npm dependencies": 1,
   "agents/architecture-reviewer/architecture-reviewer.eval.ts > agent:architecture-reviewer > cites the DevDigest-specific rule identifier for reviewer-core violations": 0.83,
-  "agents/architecture-reviewer-lite/architecture-reviewer-lite.eval.ts > agent:architecture-reviewer-lite > cites the DevDigest-specific rule identifier for reviewer-core violations": 0.83,
+  "agents/architecture-reviewer-lite/architecture-reviewer-lite.eval.ts > agent:architecture-reviewer-lite > cites the DevDigest-specific rule identifier for reviewer-core violations": 0.67,
   "skills/dependency-checker/dependency-checker.eval.ts > skill:dependency-checker > severity tiers are used consistently and recommendations are specific, not vague": 1,
   "agents/architecture-reviewer/architecture-reviewer.eval.ts > agent:architecture-reviewer > does not fabricate a documented-rule violation for a benign rename": 1,
   "agents/architecture-reviewer-lite/architecture-reviewer-lite.eval.ts > agent:architecture-reviewer-lite > does not fabricate a documented-rule violation for a benign rename": 1

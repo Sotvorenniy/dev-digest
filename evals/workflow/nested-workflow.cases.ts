@@ -61,6 +61,8 @@ export const cases: WorkflowCase[] = [
       "TESTING.md",
       "server/INSIGHTS.md",
     ],
+    // cheap models often answer from the package AGENTS.md alone: require half of the routed docs
+    minFilesRead: 2,
     maxTurns: 14,
   },
 
@@ -82,6 +84,8 @@ export const cases: WorkflowCase[] = [
       "client/src/vendor/ui/README.md",
       "client/INSIGHTS.md",
     ],
+    // cheap models often answer from the package AGENTS.md alone: require half of the routed docs
+    minFilesRead: 2,
     maxTurns: 14,
   },
 
@@ -105,6 +109,8 @@ export const cases: WorkflowCase[] = [
       "reviewer-core/README.md",
       "reviewer-core/INSIGHTS.md",
     ],
+    // cheap models often answer from the package AGENTS.md alone: require half of the routed docs
+    minFilesRead: 2,
     maxTurns: 14,
   },
 

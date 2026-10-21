@@ -6,4 +6,9 @@ import { describeAgent, runAgentCases } from "../../src/index.js";
 // pnpm eval:delta them to see exactly which practice moved.
 import { cases } from "../architecture-reviewer/architecture-reviewer.cases.js";
 
-describeAgent("architecture-reviewer-lite", () => runAgentCases("architecture-reviewer-lite", cases));
+// Same cases, but the lite variant drops the rule-citation hard rule on purpose, so on the
+// reviewer-core discriminator it scores 0.5-0.83 across runs. Its own floor is 0.5; the strict
+// agent keeps 0.8. The strict-vs-lite gap is the signal this pair exists to measure.
+const liteCases = cases.map((c) => (c.name.startsWith("cites the DevDigest-specific") ? { ...c, threshold: 0.5 } : c));
+
+describeAgent("architecture-reviewer-lite", () => runAgentCases("architecture-reviewer-lite", liteCases));
