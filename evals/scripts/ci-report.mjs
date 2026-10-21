@@ -35,7 +35,7 @@ function latestRun() {
 function apiError(r) {
   try {
     const text = readFileSync(join(EVALS_DIR, "results", r.output_file ?? ""), "utf8");
-    return /API Error: (402|429|5\d\d)|exceed your available credits|rate.?limit/i.exec(text)?.[0] ?? null;
+    return /API Error: (402|403|429|5\d\d)|exceed your available credits|key limit exceeded|failed to authenticate|rate.?limit/i.exec(text)?.[0] ?? null;
   } catch {
     return null;
   }
@@ -87,7 +87,7 @@ console.log(md);
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
 if (tokens > budget) console.log(`::warning title=${tier} token budget::${tokens} tokens used, budget ${budget}`);
 
-if (apiErrors) console.log(`::error title=${tier} API errors::${apiErrors} case(s) hit an API error (credits / rate limit): scores are not meaningful, fix the OpenRouter key or balance, not the evals`);
+if (apiErrors) console.log(`::error title=${tier} API errors::${apiErrors} case(s) hit an API error (credits / key limit / rate limit): scores are not meaningful, fix the OpenRouter key or balance, not the evals`);
 const infraFailure = (process.env.EVAL_OUTCOME === "failure" && rows.length === 0) || apiErrors > 0;
 if (process.env.EVAL_OUTCOME === "failure" && rows.length === 0) console.log(`::error title=${tier} evals::the eval step failed and produced no records`);
 if (regressions) console.log(`::error title=${tier} regression::${regressions} case(s) fell more than ${tolerance} below baseline`);
