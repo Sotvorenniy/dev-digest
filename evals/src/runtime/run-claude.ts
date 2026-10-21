@@ -5,6 +5,7 @@
 
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import { EVAL_MODEL, MAX_TURNS, SPAWN_TOOLS } from "../config.js";
+import { assertWithinBudget, chargeBudget } from "./budget.js";
 import { REPO_ROOT } from "../artifacts/paths.js";
 import { subscriptionEnv } from "./env.js";
 
@@ -47,6 +48,7 @@ export interface RunOptions {
 
 /** Run one headless Claude turn-loop and extract what it ACTUALLY did (not its prose). */
 export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<Result> {
+  assertWithinBudget();
   const allowedTools = opts.allowedTools ?? [];
   // With no tools, a subagent/skill prompt that says "read files" will loop on denied tool
   // calls until max-turns. For these content-only evals the input is already in the prompt,
@@ -152,6 +154,7 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
   // Early stop never reached the result message, so fall back to the wall-clock duration.
   if (stoppedEarly && durationMs === 0) durationMs = Date.now() - startedAt;
 
+  chargeBudget(inputTokens + outputTokens);
   return {
     text: resultText || textParts.join("\n"),
     toolsUsed: [...new Set(tools)],

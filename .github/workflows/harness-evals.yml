@@ -12,7 +12,7 @@
 # proxy; calibrated: 9/11 cases vs 4/8 on Gemini), workflow google/gemini-2.5-flash via LiteLLM.
 # Model runs are a REPORT vs evals/baseline.json (job summary); a job fails only on a regression
 # (> REGRESSION_TOLERANCE below baseline) or an infra failure. Budget: timeout-minutes per job,
-# MAX_SUITES legs per tier (ci-detect), EVAL_TOKEN_BUDGET warning. Also set a credit limit on
+# MAX_SUITES legs per tier (ci-detect), EVAL_TOKEN_BUDGET hard cap in the engine. Also set a credit limit on
 # the OpenRouter key itself.
 # No OPENROUTER_API_KEY (fork PRs): model jobs are skipped with a notice, quality still runs.
 # Artifacts without evals are logged as SKIP, never failed.
@@ -53,6 +53,8 @@ concurrency:
 
 env:
   EVAL_BACKEND: openrouter
+  # hard cap per vitest process (src/runtime/budget.ts stops further model calls); also the report budget
+  EVAL_TOKEN_BUDGET: '1500000'
   EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'google/gemini-2.5-flash' }}
 
 defaults:

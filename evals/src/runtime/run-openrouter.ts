@@ -13,12 +13,14 @@
 
 import OpenAI from "openai";
 import { EVAL_MODEL } from "../config.js";
+import { assertWithinBudget, chargeBudget } from "./budget.js";
 import type { Result, RunOptions } from "./run-claude.js";
 
 const BASE_URL = (process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1").replace(/\/$/, "");
 
 /** Run one content-only turn against an OpenAI-compatible endpoint and shape it as a Result. */
 export async function runOpenRouter(prompt: string, opts: RunOptions = {}): Promise<Result> {
+  assertWithinBudget();
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("EVAL_BACKEND=openrouter but OPENROUTER_API_KEY is not set");
 
@@ -60,6 +62,7 @@ export async function runOpenRouter(prompt: string, opts: RunOptions = {}): Prom
     text = err instanceof Error ? err.message : String(err);
   }
 
+  chargeBudget(inputTokens + outputTokens);
   return {
     text,
     toolsUsed: [],
