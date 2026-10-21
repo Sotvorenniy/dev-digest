@@ -35,7 +35,9 @@ function latestRun() {
 function apiError(r) {
   try {
     const text = readFileSync(join(EVALS_DIR, "results", r.output_file ?? ""), "utf8");
-    return /API Error: (402|403|429|5\d\d)|exceed your available credits|key limit exceeded|failed to authenticate|rate.?limit/i.exec(text)?.[0] ?? null;
+    // An API failure IS the whole output, so look only at the start: matching "rate limit" anywhere
+    // flagged a normal answer that merely mentioned it.
+    return /API Error: (402|403|429|5\d\d)|exceed your available credits|key limit exceeded|failed to authenticate|too many requests/i.exec(text.slice(0, 400))?.[0] ?? null;
   } catch {
     return null;
   }

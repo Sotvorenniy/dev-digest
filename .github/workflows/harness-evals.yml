@@ -8,8 +8,9 @@
 #   workflow   tool tier, only when CLAUDE.md / an agent / the engine changed, NOT blocking
 #              (activation cases on non-Anthropic models are indicative — see evals/README.md)
 #
-# Models (OpenRouter): skills + agents anthropic/claude-haiku-4.5 (native Anthropic protocol, no
-# proxy; calibrated: 9/11 cases vs 4/8 on Gemini), workflow google/gemini-2.5-flash via LiteLLM.
+# Models (OpenRouter): google/gemini-2.5-flash on every tier (cheapest that dispatches subagents
+# and passes the calibrated cases; Haiku was ~3x the price). Agents and workflow go through the
+# LiteLLM proxy. Model jobs run only with the `run-evals` PR label or by workflow_dispatch.
 # Model runs are a REPORT vs evals/baseline.json (job summary); a job fails only on a regression
 # (> REGRESSION_TOLERANCE below baseline) or an infra failure. Budget: timeout-minutes per job,
 # MAX_SUITES legs per tier (ci-detect), EVAL_TOKEN_BUDGET hard cap in the engine. Also set a credit limit on
@@ -22,6 +23,7 @@ name: harness-evals
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.claude/**'
       - 'evals/**'
@@ -33,10 +35,10 @@ on:
     inputs:
       skills_model:
         description: OpenRouter slug for the skill evals (cheap)
-        default: anthropic/claude-haiku-4.5
+        default: google/gemini-2.5-flash
       agents_model:
-        description: OpenRouter slug for the agent evals (anthropic/* runs natively, no proxy)
-        default: anthropic/claude-haiku-4.5
+        description: OpenRouter slug for the agent evals (non-anthropic slugs go through the LiteLLM proxy)
+        default: google/gemini-2.5-flash
       workflow_model:
         description: OpenRouter slug for the workflow evals (must dispatch subagents - Gemini)
         default: google/gemini-2.5-flash
@@ -57,7 +59,7 @@ concurrency:
 env:
   EVAL_BACKEND: openrouter
   # hard cap per vitest process (src/runtime/budget.ts stops further model calls); also the report budget
-  EVAL_TOKEN_BUDGET: '1500000'
+  EVAL_TOKEN_BUDGET: '600000'
   EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'google/gemini-2.5-flash' }}
 
 defaults:
@@ -97,11 +99,18 @@ jobs:
         working-directory: ${{ github.workspace }}   # runs before checkout: evals/ does not exist yet
         env:
           KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if [ -n "$KEY" ]; then echo "has_key=true" >> "$GITHUB_OUTPUT"
-          else
+          # Model jobs cost money: run them only on request (label `run-evals`) or by hand.
+          if [ -z "$KEY" ]; then
             echo "has_key=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=SKIP model evals::OPENROUTER_API_KEY not available (fork PR?)"
+          elif [ "$EVENT" != "workflow_dispatch" ] && [[ ",$LABELS," != *",run-evals,"* ]]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SKIP model evals::add the 'run-evals' label to this PR to run them (they cost money)"
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -140,7 +149,7 @@ jobs:
         skill: ${{ fromJSON(needs.changes.outputs.skills) }}
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.skills_model || 'anthropic/claude-haiku-4.5' }}
+      EVAL_MODEL: ${{ inputs.skills_model || 'google/gemini-2.5-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -174,7 +183,8 @@ jobs:
         agent: ${{ fromJSON(needs.changes.outputs.agents) }}
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.agents_model || 'anthropic/claude-haiku-4.5' }}
+      OPENROUTER_BASE_URL: http://localhost:4000
+      EVAL_MODEL: ${{ inputs.agents_model || 'google/gemini-2.5-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -185,8 +195,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: evals/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      # anthropic/* slugs use OpenRouter's native Anthropic endpoint: no LiteLLM proxy needed.
-      # Switching agents_model to a non-Anthropic slug needs the proxy (see the workflow job).
+      # Gemini is not an anthropic/* slug, so the Agent SDK needs the LiteLLM translating proxy.
+      - run: docker compose -f proxy/docker-compose.yml up -d
+      - run: pnpm proxy:wait
       - id: eval
         continue-on-error: true
         run: pnpm exec vitest run agents/${{ matrix.agent }}
@@ -194,6 +205,8 @@ jobs:
         env:
           EVAL_OUTCOME: ${{ steps.eval.outcome }}
         run: node scripts/ci-report.mjs agent:${{ matrix.agent }}
+      - if: always()
+        run: docker compose -f proxy/docker-compose.yml down
 
   workflow:
     name: workflow evals (non-blocking)
