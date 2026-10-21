@@ -45,7 +45,8 @@ Which eval after which change (run from `evals/`):
 | change | run |
 |---|---|
 | `.claude/skills/*` | `pnpm eval:quality`, then `pnpm eval:skills` (add `pnpm eval:benchmark skills/<name> -n 5` to measure lift) |
-| `.claude/agents/*` | `pnpm eval:agents` (compare versions with `pnpm eval:repeat agents/<name> -n 5 --label <x>`) |
+| `.claude/agents/*` | `pnpm eval:agents`, plus `pnpm eval:workflow` when the change affects dispatch (a workflow case) (compare versions with `pnpm eval:repeat agents/<name> -n 5 --label <x>`) |
+| an eval case, grader, threshold or judge (`evals/**/*.cases.ts`, `evals/src/scoring/*`) | recalibrate the baseline: `pnpm eval:repeat <suite> -n 3 --label baseline`, then `pnpm eval:baseline` and commit `evals/baseline.json` |
 | `CLAUDE.md`, `AGENTS.md`, `.claude/workflows/*` | `pnpm eval:workflow` |
 
 Server DB: `pnpm db:generate` · `db:migrate` · `db:seed`. The server does **not** migrate on boot — `relation ... does not exist` means migrations were never applied.

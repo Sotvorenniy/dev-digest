@@ -28,7 +28,9 @@ export async function runOpenRouter(prompt: string, opts: RunOptions = {}): Prom
     "Answer directly and completely from the information given in the prompt.";
   const system = (opts.systemPrompt ?? "") + directive;
 
-  const client = new OpenAI({ apiKey: key, baseURL: BASE_URL, timeout: 90_000, maxRetries: 2 });
+  // Worst case 2 x 60s stays under the 240s vitest timeout; 90s x 3 attempts did not, so one
+  // stalled upstream call used to burn the whole test instead of retrying.
+  const client = new OpenAI({ apiKey: key, baseURL: BASE_URL, timeout: 60_000, maxRetries: 1 });
 
   const started = Date.now();
   let text = "";

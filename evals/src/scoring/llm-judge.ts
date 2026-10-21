@@ -36,8 +36,18 @@ function parseVerdict(text: string): Verdict["results"] {
 export async function llmJudge(output: string, practices: string[], model = EVAL_JUDGE_MODEL): Promise<Verdict> {
   const listed = practices.map((p, i) => `${i + 1}. ${p}`).join("\n");
   const prompt = `${JUDGE_RUBRIC}\n\n## PRACTICES\n${listed}\n\n## OUTPUT\n${output}\n\nReturn the JSON now.`;
-  const res = await runContent(prompt, { allowedTools: [], maxTurns: 1, model });
-  const results = parseVerdict(res.text);
+  // Cheap judges sometimes return truncated/invalid JSON or an upstream error: retry once.
+  let results: Verdict["results"] | undefined;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2 && !results; attempt++) {
+    try {
+      const res = await runContent(prompt, { allowedTools: [], maxTurns: 1, model });
+      results = parseVerdict(res.text);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (!results) throw lastError;
   const total = results.length || 1;
   const passed = results.filter((r) => r.passed).length;
   return { results, passed, total, score: passed / total };

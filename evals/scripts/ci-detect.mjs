@@ -53,10 +53,21 @@ const agentNames = touched(
   /^evals\/agents\/([^/]+)\//,
 );
 
-const skills = skillNames.filter((n) => hasEvals("skills", n));
-const skippedSkills = skillNames.filter((n) => !hasEvals("skills", n));
-const agents = agentNames.filter((n) => hasEvals("agents", n));
-const skippedAgents = agentNames.filter((n) => !hasEvals("agents", n));
+// Budget cap: at most MAX_SUITES matrix legs per tier. Anything over the cap is reported as a
+// skip, so a PR that touches every skill cannot fan out into an unbounded model bill.
+const MAX_SUITES = Number(process.env.MAX_SUITES ?? 6);
+const split = (tier, names) => {
+  const withEvals = names.filter((n) => hasEvals(tier, n));
+  return {
+    run: withEvals.slice(0, MAX_SUITES),
+    skipped: [
+      ...names.filter((n) => !hasEvals(tier, n)),
+      ...withEvals.slice(MAX_SUITES).map((n) => `${n}(over MAX_SUITES=${MAX_SUITES})`),
+    ],
+  };
+};
+const { run: skills, skipped: skippedSkills } = split("skills", skillNames);
+const { run: agents, skipped: skippedAgents } = split("agents", agentNames);
 
 // The workflow tier measures the LIVE harness, so anything that changes it re-triggers it:
 // the root or .claude CLAUDE.md, any agent definition, the workflow cases, or the engine itself.

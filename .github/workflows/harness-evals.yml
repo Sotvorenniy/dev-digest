@@ -8,8 +8,12 @@
 #   workflow   tool tier, only when CLAUDE.md / an agent / the engine changed, NOT blocking
 #              (activation cases on non-Anthropic models are indicative — see evals/README.md)
 #
-# Models (OpenRouter): google/gemini-2.5-flash on every tier. DeepSeek via OpenRouter was tried:
-# its provider caps context at 32k (agents need ~46k) and it does not dispatch subagents. Override per tier via workflow_dispatch inputs.
+# Models (OpenRouter): skills + agents anthropic/claude-haiku-4.5 (native Anthropic protocol, no
+# proxy; calibrated: 9/11 cases vs 4/8 on Gemini), workflow google/gemini-2.5-flash via LiteLLM.
+# Model runs are a REPORT vs evals/baseline.json (job summary); a job fails only on a regression
+# (> REGRESSION_TOLERANCE below baseline) or an infra failure. Budget: timeout-minutes per job,
+# MAX_SUITES legs per tier (ci-detect), EVAL_TOKEN_BUDGET warning. Also set a credit limit on
+# the OpenRouter key itself.
 # No OPENROUTER_API_KEY (fork PRs): model jobs are skipped with a notice, quality still runs.
 # Artifacts without evals are logged as SKIP, never failed.
 #
@@ -29,10 +33,10 @@ on:
     inputs:
       skills_model:
         description: OpenRouter slug for the skill evals (cheap)
-        default: google/gemini-2.5-flash
+        default: anthropic/claude-haiku-4.5
       agents_model:
-        description: OpenRouter slug for the agent evals (needs a long context window)
-        default: google/gemini-2.5-flash
+        description: OpenRouter slug for the agent evals (anthropic/* runs natively, no proxy)
+        default: anthropic/claude-haiku-4.5
       workflow_model:
         description: OpenRouter slug for the workflow evals (must dispatch subagents - Gemini)
         default: google/gemini-2.5-flash
@@ -59,6 +63,7 @@ jobs:
   quality:
     name: quality (static)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -75,6 +80,7 @@ jobs:
   changes:
     name: detect changed suites
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       skills: ${{ steps.detect.outputs.skills }}
       agents: ${{ steps.detect.outputs.agents }}
@@ -121,6 +127,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.skills != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       max-parallel: 1   # OpenRouter throttles bursts
@@ -128,7 +135,7 @@ jobs:
         skill: ${{ fromJSON(needs.changes.outputs.skills) }}
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.skills_model || 'google/gemini-2.5-flash' }}
+      EVAL_MODEL: ${{ inputs.skills_model || 'anthropic/claude-haiku-4.5' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -140,13 +147,20 @@ jobs:
           cache-dependency-path: evals/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       # content tier calls OpenRouter directly — no proxy
-      - run: pnpm exec vitest run skills/${{ matrix.skill }}
+      - id: eval
+        continue-on-error: true
+        run: pnpm exec vitest run skills/${{ matrix.skill }}
+      - if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs skill:${{ matrix.skill }}
 
   agents:
     name: agent evals (${{ matrix.agent }})
     needs: changes
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.agents != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -154,8 +168,7 @@ jobs:
         agent: ${{ fromJSON(needs.changes.outputs.agents) }}
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      OPENROUTER_BASE_URL: http://localhost:4000
-      EVAL_MODEL: ${{ inputs.agents_model || 'google/gemini-2.5-flash' }}
+      EVAL_MODEL: ${{ inputs.agents_model || 'anthropic/claude-haiku-4.5' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -166,19 +179,22 @@ jobs:
           cache: pnpm
           cache-dependency-path: evals/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: docker compose -f proxy/docker-compose.yml up -d
-      - run: pnpm proxy:wait
-      - run: pnpm exec vitest run agents/${{ matrix.agent }}
-      - if: failure()
-        run: docker compose -f proxy/docker-compose.yml logs --tail 100
+      # anthropic/* slugs use OpenRouter's native Anthropic endpoint: no LiteLLM proxy needed.
+      # Switching agents_model to a non-Anthropic slug needs the proxy (see the workflow job).
+      - id: eval
+        continue-on-error: true
+        run: pnpm exec vitest run agents/${{ matrix.agent }}
       - if: always()
-        run: docker compose -f proxy/docker-compose.yml down
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs agent:${{ matrix.agent }}
 
   workflow:
     name: workflow evals (non-blocking)
     needs: changes
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.run_workflow == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     continue-on-error: true
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -196,7 +212,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: docker compose -f proxy/docker-compose.yml up -d
       - run: pnpm proxy:wait
-      - run: pnpm eval:workflow
+      - id: eval
+        continue-on-error: true
+        run: pnpm eval:workflow
+      - if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs workflow
       - if: failure()
         run: docker compose -f proxy/docker-compose.yml logs --tail 100
       - if: always()
