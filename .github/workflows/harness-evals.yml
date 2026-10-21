@@ -47,9 +47,12 @@ on:
 permissions:
   contents: read
 
+# One run at a time across ALL branches/PRs: OpenRouter reserves credit per in-flight request, so
+# parallel runs trip 402. GitHub keeps one running + the newest pending run; older pending ones
+# are cancelled, which is what we want for superseded pushes.
 concurrency:
-  group: harness-evals-${{ github.ref }}
-  cancel-in-progress: true
+  group: harness-evals
+  cancel-in-progress: false
 
 env:
   EVAL_BACKEND: openrouter
@@ -130,7 +133,6 @@ jobs:
     if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.skills != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     strategy:
       fail-fast: false
       max-parallel: 1   # OpenRouter throttles bursts
@@ -160,11 +162,11 @@ jobs:
 
   agents:
     name: agent evals (${{ matrix.agent }})
-    needs: changes
-    if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.agents != '[]'
+    # run after skills (not in parallel): OpenRouter reserves credit per in-flight request
+    needs: [changes, skills]
+    if: ${{ !cancelled() && needs.changes.outputs.has_key == 'true' && needs.changes.outputs.agents != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -195,11 +197,10 @@ jobs:
 
   workflow:
     name: workflow evals (non-blocking)
-    needs: changes
-    if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.run_workflow == 'true'
+    needs: [changes, agents]
+    if: ${{ !cancelled() && needs.changes.outputs.has_key == 'true' && needs.changes.outputs.run_workflow == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    concurrency: { group: openrouter-credits, cancel-in-progress: false }
     continue-on-error: true
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
