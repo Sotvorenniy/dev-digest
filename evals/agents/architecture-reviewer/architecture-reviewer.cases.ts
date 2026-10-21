@@ -3,7 +3,13 @@ import { fixtureReader } from "../../src/index.js";
 
 const fx = fixtureReader(import.meta.url);
 
+// The fixtures are standalone diffs: the files they touch are NOT on disk in this repo. Without
+// this line cheap models try to Read them, find nothing and stop to ask for paths.
+const DIFF_ONLY = `The diff below is the COMPLETE change set. The files it touches are not on disk, so do not try to read them: review the diff text itself, and read only the repo docs/skills you need for the rules. Never ask me for paths or more input; always finish with the report.`;
+
 const REVIEW_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
+
+${DIFF_ONLY}
 
 ${fx("checkout-service.diff")}`;
 
@@ -15,6 +21,8 @@ ${fx("checkout-service.diff")}`;
 // live in skills/AGENTS.md as prose, not as identifiers.
 const REVIEWER_CORE_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
 
+${DIFF_ONLY}
+
 ${fx("reviewer-core-gate.diff")}`;
 
 // A diff that violates NO documented rule (a pure local-variable rename inside a domain file, no
@@ -23,6 +31,8 @@ ${fx("reviewer-core-gate.diff")}`;
 // documented contract", the lite variant is more prone to fabricating a judgment/best-practice
 // finding where the strict variant stays silent.
 const BENIGN_PROMPT = `Audit this diff against DevDigest's documented structural contracts.
+
+${DIFF_ONLY}
 
 ${fx("benign-refactor.diff")}`;
 

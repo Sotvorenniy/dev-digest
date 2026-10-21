@@ -8,8 +8,8 @@
 #   workflow   tool tier, only when CLAUDE.md / an agent / the engine changed, NOT blocking
 #              (activation cases on non-Anthropic models are indicative — see evals/README.md)
 #
-# Models (OpenRouter): skills + agents deepseek/deepseek-chat, workflow google/gemini-2.5-flash
-# (only Gemini dispatches subagents). Override per tier via workflow_dispatch inputs.
+# Models (OpenRouter): google/gemini-2.5-flash on every tier. DeepSeek via OpenRouter was tried:
+# its provider caps context at 32k (agents need ~46k) and it does not dispatch subagents. Override per tier via workflow_dispatch inputs.
 # No OPENROUTER_API_KEY (fork PRs): model jobs are skipped with a notice, quality still runs.
 # Artifacts without evals are logged as SKIP, never failed.
 #
@@ -29,10 +29,10 @@ on:
     inputs:
       skills_model:
         description: OpenRouter slug for the skill evals (cheap)
-        default: deepseek/deepseek-chat
+        default: google/gemini-2.5-flash
       agents_model:
-        description: OpenRouter slug for the agent evals (cheap)
-        default: deepseek/deepseek-chat
+        description: OpenRouter slug for the agent evals (needs a long context window)
+        default: google/gemini-2.5-flash
       workflow_model:
         description: OpenRouter slug for the workflow evals (must dispatch subagents - Gemini)
         default: google/gemini-2.5-flash
@@ -128,7 +128,7 @@ jobs:
         skill: ${{ fromJSON(needs.changes.outputs.skills) }}
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ inputs.skills_model || 'deepseek/deepseek-chat' }}
+      EVAL_MODEL: ${{ inputs.skills_model || 'google/gemini-2.5-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -155,7 +155,7 @@ jobs:
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_BASE_URL: http://localhost:4000
-      EVAL_MODEL: ${{ inputs.agents_model || 'deepseek/deepseek-chat' }}
+      EVAL_MODEL: ${{ inputs.agents_model || 'google/gemini-2.5-flash' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
