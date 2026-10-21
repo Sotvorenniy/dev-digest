@@ -124,7 +124,8 @@ jobs:
             CHANGED_FILES="$(git diff --name-only "origin/$BASE_REF...HEAD")"
           else
             # workflow_dispatch: no base — run everything that has evals
-            CHANGED_FILES="$(git ls-files .claude CLAUDE.md AGENTS.md evals/src evals/workflow)"
+            # steps run in evals/ (defaults.run.working-directory): list from the repo root
+            CHANGED_FILES="$(git -C "$GITHUB_WORKSPACE" ls-files .claude CLAUDE.md AGENTS.md evals/src evals/workflow)"
           fi
           export CHANGED_FILES
           node scripts/ci-detect.mjs
