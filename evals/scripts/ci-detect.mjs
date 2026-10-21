@@ -6,7 +6,7 @@
  *
  *   .claude/skills/<name>/**   OR  evals/skills/<name>/**   → run evals/skills/<name>  (content tier)
  *   .claude/agents/<name>.md   OR  evals/agents/<name>/**   → run evals/agents/<name>  (tool tier)
- *   CLAUDE.md / .claude/CLAUDE.md / any agent / engine change → run the workflow tier
+ *   any CLAUDE.md / AGENTS.md / INSIGHTS.md (root or nested) / any agent / engine change → run the workflow tier
  *
  * A changed artifact with NO written evals is NOT a failure: it is reported on the `skipped_*`
  * outputs so the job can print a visible "SKIP <name> (no evals)" line instead of going red.
@@ -49,7 +49,7 @@ const skillNames = touched(
   /^evals\/skills\/([^/]+)\//,
 );
 const agentNames = touched(
-  /^\.claude\/agents\/([^/]+)\.md$/,
+  /^\.claude\/agents\/(?!README\.md$)([^/]+)\.md$/,
   /^evals\/agents\/([^/]+)\//,
 );
 
@@ -62,9 +62,8 @@ const skippedAgents = agentNames.filter((n) => !hasEvals("agents", n));
 // the root or .claude CLAUDE.md, any agent definition, the workflow cases, or the engine itself.
 const runWorkflow = changed.some(
   (f) =>
-    f === "CLAUDE.md" ||
-    f === ".claude/CLAUDE.md" ||
-    /^\.claude\/agents\/.+\.md$/.test(f) ||
+    /(^|\/)(CLAUDE|AGENTS|INSIGHTS)\.md$/.test(f) ||
+    /^\.claude\/agents\/(?!README\.md$).+\.md$/.test(f) ||
     /^evals\/workflow\//.test(f) ||
     /^evals\/src\//.test(f),
 );
@@ -86,3 +85,18 @@ console.error(`agents → run  : ${agents.join(", ") || "(none)"}`);
 console.error(`workflow tier : ${runWorkflow ? "run" : "skip"}`);
 if (skippedSkills.length) console.error(`SKIP skills (no evals): ${skippedSkills.join(", ")}`);
 if (skippedAgents.length) console.error(`SKIP agents (no evals): ${skippedAgents.join(", ")}`);
+
+// Visible annotations + job summary so a skipped artifact never looks like a silent pass.
+for (const n of skippedSkills) console.log(`::notice title=SKIP skill ${n}::no evals under evals/skills/${n}`);
+for (const n of skippedAgents) console.log(`::notice title=SKIP agent ${n}::no evals under evals/agents/${n}`);
+const summary = process.env.GITHUB_STEP_SUMMARY;
+if (summary) {
+  const row = (kind, name, verdict) => `| ${kind} | ${name} | ${verdict} |\n`;
+  let md = "### Eval change detection\n\n| kind | name | verdict |\n|---|---|---|\n";
+  for (const n of skills) md += row("skill", n, "run");
+  for (const n of skippedSkills) md += row("skill", n, "SKIP (no evals)");
+  for (const n of agents) md += row("agent", n, "run");
+  for (const n of skippedAgents) md += row("agent", n, "SKIP (no evals)");
+  md += row("workflow", "-", runWorkflow ? "run" : "skip");
+  appendFileSync(summary, md);
+}
