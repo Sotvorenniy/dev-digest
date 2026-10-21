@@ -7,7 +7,7 @@ Search the relevant package's `<pkg>/docs/`, `<pkg>/specs/`, `<pkg>/INSIGHTS.md`
 Read `<pkg>/INSIGHTS.md` before working in a package and name the entries that apply. Treat them as high-confidence guidance.
 
 ## Packages
-Five standalone packages — **no workspace**, no root lockfile. Cross-package code is *copied* into `src/vendor`, never imported.
+Six standalone packages — **no workspace**, no root lockfile. Cross-package code is *copied* into `src/vendor`, never imported.
 
 | pkg | name | role | stack | pm |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ Five standalone packages — **no workspace**, no root lockfile. Cross-package c
 | `reviewer-core` | `@devdigest/reviewer-core` | pure engine: diff → prompt → LLM → grounded findings. No DB, GitHub or FS | `openai` + Zod only. Consumed as **raw TS source** via tsconfig alias — it never emits JS | npm |
 | `e2e` | `@devdigest/e2e` | deterministic browser flows over the main journeys | agent-browser (global CLI) + `run.ts`. **No runtime deps** | npm |
 | `mcp` | `@devdigest/mcp` | local stdio MCP server: five tools over the REST API for Claude Code | `@modelcontextprotocol/sdk` v1 · Zod · tsx · vitest | npm |
+| `evals` | `@devdigest/evals` | evals of this repo's own harness: skills (`.claude/skills`), subagents (`.claude/agents`), CLAUDE.md-driven workflow | vitest + Claude Agent SDK, runs on the Claude Code login (no API key). Reads `.claude/**` by relative path | pnpm |
 
 `@devdigest/shared` is one more pseudo-package, not counted above: the Zod contracts at `server/src/vendor/shared`.
 
@@ -37,6 +38,16 @@ Env: `server/.env` + `client/.env`, both copied from `.env.example`. No API key 
 | test | `pnpm test` | `pnpm test` | `npm test` | `npm test` | `npm test` |
 | build | `pnpm build` | `pnpm build` | `npm run build` (type-check only) | — | — |
 
+Evals: `cd evals && pnpm eval:quality` (static, no model) · `pnpm eval:skills|agents|workflow` (calls the model, uses your Claude Code login) · `pnpm typecheck`. Details in `evals/README.md`. Cases and fixtures live under `evals/`, never inside `.claude/skills/<skill>/`.
+
+Which eval after which change (run from `evals/`):
+
+| change | run |
+|---|---|
+| `.claude/skills/*` | `pnpm eval:quality`, then `pnpm eval:skills` (add `pnpm eval:benchmark skills/<name> -n 5` to measure lift) |
+| `.claude/agents/*` | `pnpm eval:agents` (compare versions with `pnpm eval:repeat agents/<name> -n 5 --label <x>`) |
+| `CLAUDE.md`, `AGENTS.md`, `.claude/workflows/*` | `pnpm eval:workflow` |
+
 Server DB: `pnpm db:generate` · `db:migrate` · `db:seed`. The server does **not** migrate on boot — `relation ... does not exist` means migrations were never applied.
 
 Three things that cost the most time here:
@@ -47,7 +58,7 @@ Three things that cost the most time here:
 
 ## Conventions (not obvious from code)
 - `server/src/vendor/shared` and `client/src/vendor/shared` are separate copies and have already drifted — a contract change means editing both or neither.
-- pnpm in `server`/`client`, npm in `reviewer-core`/`e2e`/`mcp`. Separate lockfiles; do not unify.
+- pnpm in `server`/`client`/`evals`, npm in `reviewer-core`/`e2e`/`mcp`. Separate lockfiles; do not unify.
 - In the client, `@devdigest/shared` is **type-only** — importing a runtime value from it breaks the webpack build.
 
 ## Naming conventions

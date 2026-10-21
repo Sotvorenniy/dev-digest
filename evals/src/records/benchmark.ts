@@ -71,7 +71,9 @@ const cell = (s: Stats) => `${s.mean.toFixed(0)} ± ${s.stddev.toFixed(0)} [${s.
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  let times = 5;
+  // Cap runs at 2 to keep token spend bounded — each run is 2 sessions (candidate + baseline).
+  const MAX_TIMES = 2;
+  let times = MAX_TIMES;
   let label: string | undefined;
   const vitestArgs: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -81,8 +83,12 @@ async function main(): Promise<void> {
     else vitestArgs.push(a);
   }
   if (vitestArgs.length === 0 || !Number.isFinite(times) || times < 1) {
-    console.error("usage: pnpm eval:benchmark <vitest pattern> [-n runs] [--label name]");
+    console.error("usage: pnpm eval:benchmark <vitest pattern> [-n runs<=2] [--label name]");
     process.exit(1);
+  }
+  if (times > MAX_TIMES) {
+    console.error(`  capping -n ${times} → ${MAX_TIMES} (token economy)`);
+    times = MAX_TIMES;
   }
   if (vitestArgs.some((a) => a.includes("workflow"))) {
     console.error(

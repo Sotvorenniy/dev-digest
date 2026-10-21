@@ -132,7 +132,16 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           record(c.name, { result });
         }
       } else if (c.kind === "activation") {
-        const result = await workflowTask(c.prompt, { maxTurns: c.maxTurns });
+        // A positive case ends the moment the skill engages, so a heavy skill (pr-self-review) never
+        // runs into maxTurns — that would mark the record as an error although activation held.
+        const result = await workflowTask(c.prompt, {
+          maxTurns: c.maxTurns,
+          stopWhen: c.shouldActivate
+            ? (p) =>
+                p.skillsInvoked.some((s) => s === c.skill || s.endsWith(`:${c.skill}`)) ||
+                p.filesRead.some((f) => f.includes(`skills/${c.skill}/SKILL.md`))
+            : undefined,
+        });
         logTrace(c.name, result);
         try {
           expect(

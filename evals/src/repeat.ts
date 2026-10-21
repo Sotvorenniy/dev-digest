@@ -68,11 +68,26 @@ function printTest(agg: NodeAggregate, times: number): void {
   if (times < 5) console.log(`      ${DIM}(n=${times}: stddev indicative only)${RESET}`);
 }
 
+/**
+ * Positional vitest args (file/dir patterns), without flags or the value after `-t`. Used to keep
+ * only records of the evals this run targets: records.jsonl is shared, so a parallel eval session
+ * would otherwise leak its cases into the summary.
+ */
+function positionalPatterns(args: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "-t" || a === "--testNamePattern") i++;
+    else if (!a.startsWith("-")) out.push(a);
+  }
+  return out;
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   // Cap runs at 2 to keep token spend bounded — LLM sessions are expensive, and 2 runs is enough
   // to catch a blatantly flaky case. Bump MAX_TIMES if you deliberately want a fuller stability run.
-  const MAX_TIMES = 2;
+  const MAX_TIMES = Number(process.env.EVAL_MAX_TIMES ?? 2);
   let times = MAX_TIMES;
   let label: string | undefined;
   const vitestArgs: string[] = [];
@@ -92,6 +107,8 @@ async function main(): Promise<void> {
   }
   vitestArgs.splice(0, vitestArgs.length, ...resolveEvalPatterns(vitestArgs));
 
+  const patterns = positionalPatterns(vitestArgs);
+  const ours = (r: { nodeid: string }) => patterns.length === 0 || patterns.some((p) => r.nodeid.includes(p));
   const startLine = recordCount();
   let line = startLine;
   const nCases = countTests(vitestArgs);
@@ -99,7 +116,7 @@ async function main(): Promise<void> {
   console.log(`  ${nCases ?? "?"} test case(s) × ${times} runs  (full traces in results/outputs/)\n`);
   for (let i = 1; i <= times; i++) {
     const captured = await runVitestOnce(`run ${i}/${times}`, vitestArgs);
-    const fresh = loadRecords(line);
+    const fresh = loadRecords(line).filter(ours);
     line = recordCount();
     if (fresh.length === 0) {
       console.log(`  run ${i}/${times}  ${RED}no records — run crashed${RESET}`);
@@ -111,7 +128,7 @@ async function main(): Promise<void> {
     console.log(`  run ${i}/${times}  ${mark} ${passed}/${fresh.length} cases`);
   }
 
-  const records = loadRecords(startLine);
+  const records = loadRecords(startLine).filter(ours);
   const tests = aggregate(records);
   const nodeids = Object.keys(tests).sort();
 

@@ -53,13 +53,23 @@ function metricRow(label: string, a: Stats, b: Stats): void {
 }
 
 function main(): void {
-  const [labelA, labelB] = process.argv.slice(2);
+  // --strip=<suffix> pairs tests of two differently named agents (e.g. --strip=-lite): the file
+  // path is dropped and the suffix removed from the `agent:<name>` segment before matching.
+  const strip = process.argv.find((x) => x.startsWith("--strip="))?.slice(8);
+  const [labelA, labelB] = process.argv.slice(2).filter((x) => !x.startsWith("--"));
   if (!labelA || !labelB) {
     console.error("usage: pnpm eval:delta <baseline-label> <candidate-label>");
     process.exit(1);
   }
   const a = load(labelA);
   const b = load(labelB);
+  if (strip) {
+    for (const f of [a, b]) {
+      f.tests = Object.fromEntries(
+        Object.entries(f.tests).map(([id, v]) => [id.split(" > ").slice(1).join(" > ").replace(strip, ""), v]),
+      );
+    }
+  }
   console.log(`A = ${labelA}  sha ${a.git_sha}${a.dirty ? "-dirty" : ""}  (${a.times} runs)`);
   console.log(`B = ${labelB}  sha ${b.git_sha}${b.dirty ? "-dirty" : ""}  (${b.times} runs)`);
 

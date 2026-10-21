@@ -2,59 +2,35 @@ import type { WorkflowCase } from "../src/index.js";
 
 /**
  * Systemic ("workflow") tier — asserts the real on-disk harness (CLAUDE.md + skills + subagents,
- * loaded via settingSources:["project"]) behaves as documented. Organized by scenario, not by a
- * single artifact, because these behaviors are cross-cutting.
+ * loaded via settingSources:["project"]) behaves as documented: subagent dispatch and skill
+ * activation. Package routing (README / docs / INSIGHTS reads) lives in nested-workflow.cases.ts.
+ *
+ * Every path asserted below is a file that exists in THIS repo.
  *
  * Budget: 5 Claude sessions total.
- *   - 3 × trace     → 1 session each                      = 3
- *   - 1 × activation pair (positive + near-miss negative) = 2
+ *   - 1 × trace (both reviewers in one session)                = 1
+ *   - 2 × activation pair (positive + near-miss negative)      = 4
  *
  * `trace` folds several assertions into ONE session (cheaper, coarser) and stops early once its
  * evidence is in — so a dispatch-bearing trace never waits out the nested subagent's full run.
  */
 export const cases: WorkflowCase[] = [
-  // --- trace (1 session): CLAUDE.md "Read When" routing + subagent dispatch, together -----------
+  // --- trace (1 session): both review subagents dispatched ---------------------------------------
   {
     kind: "trace",
     // Endpoint must NOT already exist, or the model reviews the existing code inline instead of
-    // planning-then-dispatching. GET /reviews/:id/export is genuinely absent from routes.ts.
-    name: "API-route task reads api-contracts AND pulls the architecture-reviewer",
+    // planning-then-dispatching. GET /reviews/:id/export is genuinely absent from reviews/routes.ts.
+    name: "API-route plan pulls the architecture-reviewer AND the security-reviewer",
     prompt:
-      "Я планую додати НОВИЙ, ще не реалізований ендпоінт GET /reviews/:id/export (віддає ревʼю як " +
-      "markdown). Спершу звірся з конвенціями API цього репо. Потім ОБОВʼЯЗКОВО запусти сабагента " +
-      "architecture-reviewer, щоб він оцінив мій план на відповідність onion-шарам — не рецензуй сам.",
-    expectFilesRead: ["server/docs/api-contracts.md"],
-    expectSubagents: ["architecture-reviewer"],
-    maxTurns: 8,
-  },
-
-  // --- trace (1 session): two "Read When" rows at once -----------------------------------------
-  {
-    kind: "trace",
-    // Tests the CLAUDE.md "Read When" routing, so the prompt must push toward CONSULTING the docs,
-    // not exploring source. Earlier phrasing ("розберись, як усе влаштовано") sent the model straight
-    // into schema.ts / pipeline.run.ts and it never opened the routed doc. One anchor doc (pipeline.md)
-    // keeps this a deterministic routing check — asserting two docs in one session is inherently flaky.
-    name: "pipeline task follows CLAUDE.md routing to pipeline.md",
-    prompt:
-      "Я збираюся змінити review pipeline. Перш ніж торкатися коду — звірся з настановами цього репо " +
-      "(CLAUDE.md) щодо того, яку документацію треба прочитати для змін у pipeline, і прочитай саме ці документи.",
-    expectFilesRead: ["reviewer-core/docs/pipeline.md"],
-    maxTurns: 8,
-  },
-
-  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> gotchas ----------------
-  // Was a contrast case, but the control run (empty tmpdir) could still reach the real repo by
-  // absolute path and read gotchas.md, making the negative flaky. As a single-session trace it
-  // reliably checks the same routing rule: in the real repo, the discovery prompt reads gotchas.md.
-  {
-    kind: "trace",
-    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/insights",
-    prompt:
-      "У reviewer-core я стикнувся з несподіваною поведінкою — щось працює не так, як я очікував. " +
-      "За настановами цього репо, де це вже могло бути задокументовано? Прочитай той файл.",
-    expectFilesRead: ["reviewer-core/insights/gotchas.md"],
-    maxTurns: 5,
+      "I plan to add a NEW, not yet implemented endpoint GET /reviews/:id/export (returns the review " +
+      "as markdown). The plan: a new route in the reviews module calls ReviewService.getById, renders " +
+      "the findings to markdown in the route handler and returns it with content-type text/markdown. " +
+      "That is the whole plan; do not ask me for more detail. Do not review the plan yourself and do not answer before both subagents have returned. " +
+      "Your FIRST two actions must be two Task/Agent tool calls, one per subagent: the " +
+      "architecture-reviewer to assess it against the onion layers, and the security-reviewer to " +
+      "assess it for vulnerabilities.",
+    expectSubagents: ["architecture-reviewer", "security-reviewer"],
+    maxTurns: 10,
   },
 
   // --- activation pair (2 sessions): positive + near-miss negative ------------------------------
@@ -62,8 +38,8 @@ export const cases: WorkflowCase[] = [
     kind: "activation",
     name: "engineering-insights activates on a genuine discovery",
     prompt:
-      "Щойно з'ясував, чому pgvector-запит повертав нуль рядків — розмірність колонки не збіглася " +
-      "після зміни моделі ембедингів. Хочу це зафіксувати, щоб більше не наступати.",
+      "I just found out why the pgvector query returned zero rows — the column dimension did not match " +
+      "after the embedding model changed. I want to record this so we do not step on it again.",
     skill: "engineering-insights",
     shouldActivate: true,
     maxTurns: 4,
@@ -72,8 +48,28 @@ export const cases: WorkflowCase[] = [
     kind: "activation",
     name: "near-miss negative — explaining the same topic must NOT record an insight",
     prompt:
-      "Поясни, як у pgvector працюють розмірності колонок і чому невідповідність повертає нуль рядків.",
+      "Explain how column dimensions work in pgvector and why a mismatch returns zero rows.",
     skill: "engineering-insights",
+    shouldActivate: false,
+    maxTurns: 4,
+  },
+
+  // --- activation pair (2 sessions): dependency-checker ----------------------------------------
+  {
+    kind: "activation",
+    name: "dependency-checker activates on a dependency audit request",
+    prompt:
+      "Check the dependencies of this repo: how heavy is each package and what should we clean up first?",
+    skill: "dependency-checker",
+    shouldActivate: true,
+    maxTurns: 4,
+  },
+  {
+    kind: "activation",
+    name: "near-miss negative — explaining a version difference must NOT run the audit",
+    prompt:
+      "Explain what changed in zod 3 compared with zod 4 for schema refinements.",
+    skill: "dependency-checker",
     shouldActivate: false,
     maxTurns: 4,
   },

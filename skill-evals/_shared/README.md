@@ -1,5 +1,9 @@
 # skill-evals — shared convention
 
+> **Superseded layout.** Executable evals now live in the `evals/` package (see "Runner" below). The
+> folder-per-skill convention described next is kept for the existing `onion-architecture` and
+> `architecture-reviewer` evals; new evals go to `evals/skills|agents|workflow/`.
+
 Evals belong to the skill they test. Every first-party skill that has evals carries them in
 its own folder, so they travel with it (plugin packaging, copying the skill to another repo):
 
@@ -37,19 +41,14 @@ The runner stages each run in a temp folder **outside the repo**:
 Inside the repo the answer key is still reachable by search, so CI runs the agent with
 `.claude/skills/*/evals/` excluded from its readable paths.
 
-## Runner (TODO — not written yet)
+## Runner
 
-Planned `skill-evals/_shared/run-evals.ts`:
+The executable runner is the `evals/` package (`pnpm eval:skills`, `eval:agents`, `eval:workflow`,
+`eval:benchmark`; see `evals/README.md`). Cases there live in `evals/skills/<name>/<name>.cases.ts`
+with fixtures beside them, **outside** the skill folder. Two helpers sit on top for end-to-end runs on the
+real repo: `/skill-eval <skill>` (with-skill vs baseline, key in `evals/skills/<skill>/audit/`) and
+`/instructions-eval <name>` (nested vs root-only instruction files, key in `evals/instructions/<name>/`).
 
-1. Glob `.claude/skills/*/evals/eval.md`; read the frontmatter (cases, thresholds).
-2. For each case, stage it as above and spawn two agents with the same prompt:
-   with skill and without skill (Skill tool off, `.claude/` unreadable).
-3. Parse the trailing `json` block from each review (see the output contract in `eval.md`).
-4. Score against `expected-findings.json`: recall, false positives on `clean_files`,
-   unmatched reports listed for human review. Record tokens and duration.
-5. Fail when the with-skill run is below its `eval.md` thresholds; report the
-   with/without delta.
-
-CI: a separate workflow (`.github/workflows/skill-evals.yml`), triggered by hand, on a
-schedule, or on changes to `.claude/skills/**`. Not on every PR — each case calls the model
-and needs an API key in CI secrets. Run results go to the job's artifacts, never to git.
+The folder-per-skill layout above (`.claude/skills/<skill>/evals/`) is the earlier convention; new evals go
+to `evals/`. The existing `onion-architecture` and `architecture-reviewer` evals still use the old layout and
+are not migrated yet. Known gap: runs are isolated by instruction, not by a staged copy outside the repo.
