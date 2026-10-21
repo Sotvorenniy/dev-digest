@@ -83,6 +83,7 @@ jobs:
     steps:
       # fork PRs get no secrets: skip the model jobs with a notice instead of going red
       - id: key
+        working-directory: ${{ github.workspace }}   # runs before checkout: evals/ does not exist yet
         env:
           KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
