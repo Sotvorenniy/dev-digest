@@ -199,6 +199,15 @@ describe("FindingCard: Turn into eval case", () => {
     expect(turnInto()).toBeDisabled();
   });
 
+  it("clicking while the agents list is still loading requests the draft for the review's own agent, with no picker", async () => {
+    apiMock.get.mockReturnValue(new Promise(() => {}));
+    apiMock.post.mockResolvedValue(DRAFT);
+    renderWithIntl(<FindingCard f={decided} defaultExpanded reviewAgentId="a1" />);
+    fireEvent.click(turnInto());
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith("/findings/f1/eval-case/draft", undefined));
+    expect(screen.queryByText(evalMessages.findingAction.pickAgentTitle)).not.toBeInTheDocument();
+  });
+
   it("a null review agent opens a picker listing agents, then requests the draft for the chosen agent", async () => {
     apiMock.post.mockResolvedValue({ ...DRAFT, agent_id: "a2" });
     renderWithIntl(<FindingCard f={decided} defaultExpanded reviewAgentId={null} />);

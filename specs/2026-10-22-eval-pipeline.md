@@ -54,8 +54,10 @@ metric definitions and compare view; it does not redefine them.
    delta, a SYSTEM PROMPT DIFF with "v6 (old)" / "v7 (new)", buttons Close and "Promote v7".
 
 Deviations from the design, decided with the user: Learn, Reply and the CI tab are not built
-(NG4); the manual "New eval case" editor, "Run on save" and "Promote" are not built (NG2, NG5), and
-"Run case" exists only in the finding's warm-up modal (AC20, AC21); the design word "traces" is shown as "cases"; Compare lives in the Evals tab here and is
+(NG4); "Run on save" and the Files / PR meta tabs of the case editor are not built; "Run case" runs
+an unsaved draft or one saved case (AC20, AC21, AC22), "New eval case" writes a case by hand
+(AC23) and "Promote" copies the system prompt only (AC24); the design word "traces" is shown as
+"cases"; Compare lives in the Evals tab here and is
 reused by SPEC-07.
 
 ## Goals / Non-goals
@@ -80,7 +82,8 @@ reused by SPEC-07.
   set. _(Revision 2026-10-22: "Run case" exists only inside the warm-up modal, on an unsaved
   draft; see AC20 and AC21.)_
 - NG4 Learn, Reply to author and the CI tab shown in the design.
-- NG5 "Promote vN" (rolling an agent back or forward to a run's prompt).
+- NG5 "Promote vN" that also copies the run's model and strategy. _(Revision 2026-10-22: Promote
+  copies the system prompt only; see AC24.)_
 - NG6 Eval cases owned by a skill (`owner_kind = skill`); this spec covers agents only.
 - NG7 The sidebar Eval Dashboard page, the per-agent dashboard page, the trend chart, "Run all
   agents", the period filter, the agent selector and the alert banner (SPEC-07 or later).
@@ -225,6 +228,12 @@ reused by SPEC-07.
   owned by that agent with no source finding. _(observable: Save sends `POST
   /agents/:id/eval-cases`; the stored `source_finding_id` is null; an unknown agent answers 404;
   Save is disabled until name, file path and diff are filled)_
+- AC24 (US5). WHEN the two compared runs have different system prompts, the Compare dialog (shall)
+  offer "Promote vN" for the newer run, and WHEN the user confirms, the system (shall) set the
+  agent's system prompt to that run's prompt, which the agent update saves as a new agent version.
+  _(observable: the button is absent when the prompts are identical; confirming sends `PUT
+  /agents/:id` with `system_prompt` only; cancelling sends nothing; the agent's version list gains
+  an entry)_
 
 ## Workflow
 ```mermaid
@@ -493,6 +502,7 @@ must be `nullish` (root INSIGHTS "A contract field added to RunStats must be opt
 | AC21 | US1 | G1 | — | client-unit, server-unit |
 | AC22 | US2 | G2 | — | client-unit, server-unit, server-integration |
 | AC23 | US2 | G2 | — | client-unit, server-unit, server-integration |
+| AC24 | US5 | G5 | — | client-unit |
 
 NFR2 → server-integration; NFR8 → server-integration (EC22); NFR9 → server-unit; NFR4, NFR6 →
 manual with the reasons given; NFR10 → review.
@@ -620,3 +630,5 @@ manual with the reasons given; NFR10 → review.
   `client/src/components/eval-case-modal` and is shared by the finding card and the Evals tab.
 - 2026-10-22 — added AC23: "New eval case" by hand with a Finding skeleton and a negative-case banner;
   NG2 no longer holds for the case editor itself (still no "Run on save" or Files / PR meta tabs).
+- 2026-10-22 — added AC24: "Promote vN" in the Compare dialog copies the newer run's system prompt onto
+  the agent through the existing versioned agent update; NG5 narrowed to model and strategy.

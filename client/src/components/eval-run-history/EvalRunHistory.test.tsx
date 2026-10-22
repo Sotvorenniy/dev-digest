@@ -6,7 +6,11 @@ import evalMessages from "../../../messages/en/eval.json";
 
 // Boundary mock: the run-detail data hook. Table, checkboxes, dialog and focus trap are real.
 let details: Record<string, Partial<EvalSetRunDetail>> = {};
+const updateMutate = vi.fn();
+const updateReset = vi.fn();
+let updateState: { isPending: boolean; isSuccess: boolean; isError: boolean } = { isPending: false, isSuccess: false, isError: false };
 vi.mock("@/lib/hooks", () => ({
+  useUpdateAgent: () => ({ mutate: updateMutate, reset: updateReset, ...updateState }),
   useEvalRun: (id: string | null | undefined) => ({
     data: id && details[id] ? { results: [], system_prompt: "", ...details[id] } : undefined,
     isError: false,
@@ -38,6 +42,9 @@ const mkRun = (id: string, over: Partial<EvalSetRun> = {}): EvalSetRun => ({
 afterEach(() => {
   cleanup();
   details = {};
+  updateMutate.mockClear();
+  updateReset.mockClear();
+  updateState = { isPending: false, isSuccess: false, isError: false };
 });
 
 const when = (iso: string) => new Date(iso).toLocaleString("en");
@@ -168,6 +175,67 @@ describe("CompareRunsDialog (opened from the history)", () => {
     expect(screen.queryByText(evalMessages.compare.promptsIdentical)).not.toBeInTheDocument();
   });
 
+  it("Promote asks for confirmation, then saves the newer run's prompt on the agent", () => {
+    details = { old: { system_prompt: "old prompt" }, new: { system_prompt: "new prompt" } };
+    openCompare([NEW, OLD]);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promote.replace("{version}", "v2") }));
+    expect(updateMutate).not.toHaveBeenCalled();
+    expect(within(dialog).getByText(evalMessages.compare.promoteConfirm.replace("{version}", "v2"))).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: evalMessages.compare.promoteConfirmButton })).toHaveFocus();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promoteConfirmButton }));
+    expect(updateMutate).toHaveBeenCalledWith({ id: "a", patch: { system_prompt: "new prompt" } });
+  });
+
+  it("Cancel in the confirmation saves nothing and brings the Promote button back", () => {
+    details = { old: { system_prompt: "old prompt" }, new: { system_prompt: "new prompt" } };
+    openCompare([NEW, OLD]);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promote.replace("{version}", "v2") }));
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promoteCancel }));
+    expect(updateMutate).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: evalMessages.compare.promote.replace("{version}", "v2") })).toBeInTheDocument();
+  });
+
+  it("a failed promote shows the error; after Cancel the next Promote asks again without the old error", () => {
+    details = { old: { system_prompt: "old prompt" }, new: { system_prompt: "new prompt" } };
+    updateState = { isPending: false, isSuccess: false, isError: true };
+    openCompare([NEW, OLD]);
+    const dialog = screen.getByRole("dialog");
+    const promoteName = evalMessages.compare.promote.replace("{version}", "v2");
+    fireEvent.click(within(dialog).getByRole("button", { name: promoteName }));
+    expect(updateReset).toHaveBeenCalled();
+    updateReset.mockClear();
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promoteCancel }));
+    expect(updateReset).toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: promoteName })).toHaveFocus();
+  });
+
+  it("while promoting, Cancel and the confirm button are disabled and the label says Promoting", () => {
+    details = { old: { system_prompt: "old prompt" }, new: { system_prompt: "new prompt" } };
+    updateState = { isPending: true, isSuccess: false, isError: false };
+    openCompare([NEW, OLD]);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: evalMessages.compare.promote.replace("{version}", "v2") }));
+    expect(within(dialog).getByRole("button", { name: evalMessages.compare.promoting })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: evalMessages.compare.promoteCancel })).toBeDisabled();
+  });
+
+  it("offers no Promote when the prompts are identical", () => {
+    details = { old: { system_prompt: "x" }, new: { system_prompt: "x" } };
+    openCompare([NEW, OLD]);
+    expect(screen.queryByRole("button", { name: /Promote/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the confirmation of a finished promote", () => {
+    details = { old: { system_prompt: "old" }, new: { system_prompt: "new" } };
+    updateState = { isPending: false, isSuccess: true, isError: false };
+    openCompare([NEW, OLD]);
+    expect(screen.getByText(evalMessages.compare.promoteDone)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Promote/ })).not.toBeInTheDocument();
+  });
+
   it("says the prompts are identical when they match", () => {
     details = { old: { system_prompt: "x" }, new: { system_prompt: "x" } };
     openCompare([NEW, OLD]);
@@ -190,7 +258,7 @@ describe("CompareRunsDialog (opened from the history)", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(btn).not.toHaveFocus();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(btn).toHaveFocus();
   });

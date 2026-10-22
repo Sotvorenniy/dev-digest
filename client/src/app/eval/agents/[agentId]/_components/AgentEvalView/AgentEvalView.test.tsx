@@ -32,6 +32,7 @@ vi.mock("@/lib/hooks", () => ({
   useAgentEvalDashboard: () => query,
   useStartEvalRun: () => start,
   useEvalRun: () => ({ data: undefined, isError: false }),
+  useUpdateAgent: () => ({ mutate: vi.fn(), isPending: false, isSuccess: false, isError: false }),
 }));
 
 import { AgentEvalView } from "./AgentEvalView";

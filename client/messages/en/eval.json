@@ -208,7 +208,14 @@
     "colStatus": "Status",
     "colPassed": "Passed",
     "colRecall": "Recall",
-    "colCost": "Cost"
+    "colCost": "Cost",
+    "promote": "Promote {version}",
+    "promoteConfirm": "Replace the agent's system prompt with the one from {version}? This saves a new agent version.",
+    "promoteConfirmButton": "Promote",
+    "promoteCancel": "Cancel",
+    "promoting": "Promoting…",
+    "promoteDone": "Prompt promoted. The agent has a new version.",
+    "promoteFailed": "The prompt could not be promoted. Try again."
   },
   "page": {
     "crumbSkillsLab": "Skills Lab",

@@ -34,6 +34,7 @@ export const s = {
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
 
+  compareFooter: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
   dialogBody: { display: "flex", flexDirection: "column", gap: 16, padding: "18px 24px", minWidth: 0 } satisfies CSSProperties,
   notice: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)" } satisfies CSSProperties,
   compareGrid: { display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: "6px 16px", fontSize: 13 } satisfies CSSProperties,

@@ -33,7 +33,9 @@ export function EvalCaseAction({
   const decided = !!finding.accepted_at || !!finding.dismissed_at;
   const reasonId = `eval-reason-${finding.id}`;
   const agentList = agents.data ?? [];
-  const hasOwnAgent = !!reviewAgentId && agentList.some((a) => a.id === reviewAgentId);
+  // While the agent list is still loading, trust the review's agent id: the server re-checks it
+  // and a click must not open the picker just because the list is slow.
+  const hasOwnAgent = !!reviewAgentId && (agents.isLoading || agentList.some((a) => a.id === reviewAgentId));
   const selected = chosen || agentList[0]?.id || "";
   const diffGone = draft.error instanceof ApiError && draft.error.code === "diff_unavailable";
 
