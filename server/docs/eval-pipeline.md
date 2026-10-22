@@ -1,0 +1,327 @@
+# Eval pipeline (SPEC-06)
+
+Turns decided findings into per-agent eval cases, runs an agent over its whole case set in the
+background, and scores the run in code. Spec: `specs/2026-10-22-eval-pipeline.md`. Plan:
+`.claude/plans/eval-pipeline.md`. `reviewer-core` is unchanged; the module only calls its
+`reviewPullRequest`.
+
+Module: `server/src/modules/eval/` (`domain.ts`, `ports.ts`, `repository.ts`, `service.ts`,
+`routes.ts`, `constants.ts`). The legacy `eval_runs` table and `EvalRun` contracts are untouched.
+
+## Reference
+
+### Routes
+
+All routes are defined in `server/src/modules/eval/routes.ts`; the module registers its own
+tolerant parser so a `POST` with `content-type: application/json` and an empty body is accepted.
+
+| Route | Result | Notes |
+|---|---|---|
+| `POST /findings/:id/eval-case/draft` | `EvalCaseDraft` | prefilled, unsaved case for the modal; writes nothing; body `{ agent_id? }` |
+| `POST /agents/:id/eval-cases/run` | `EvalCaseResult` | runs one unsaved case, persists nothing; limit 10/min; diff capped at 100k chars |
+| `POST /findings/:id/eval-case` | `201` new, `200` existing `EvalCase` | body `{ agent_id?, case? }`; `agent_id` only when the review has no owning agent, `case` carries the fields edited in the modal |
+| `GET /agents/:id/eval-cases` | `EvalCase[]` | adds `decision_changed` and `last_status` |
+| `POST /agents/:id/eval-cases` | `201` `EvalCase` | a case written by hand, no source finding (`source_finding_id` null); body is the case fields; limited to 200 cases per agent (`422 eval_case_limit`) and 10/min; `404` unknown agent |
+| `PATCH /eval-cases/:id` | `200` `EvalCase` | edits name, diff, files, PR meta and expected output; owner and source finding stay; `404` unknown id |
+| `DELETE /eval-cases/:id` | `204` | past run results are kept |
+| `POST /agents/:id/eval-runs` | `202` `EvalSetRun` (status `running`) | per-route limit 10/min (`EVAL_RUN_RATE_LIMIT`) |
+| `GET /agents/:id/eval-runs` | `EvalSetRun[]` | newest first, last 20 (`EVAL_RUN_HISTORY_LIMIT`) |
+| `GET /eval-runs/:id` | `EvalSetRunDetail` | adds `system_prompt` and per-case `results` |
+| `GET /eval/dashboard` | `EvalWorkspaceDashboard` | SPEC-07; read-only, global rate limit only (see "Dashboard reads") |
+| `GET /agents/:id/eval-dashboard` | `EvalAgentDashboard` | SPEC-07; read-only, `404 not_found` for an unknown agent |
+
+Domain errors (`domain.ts`, all `AppError`):
+
+| Code | HTTP | Raised when |
+|---|---|---|
+| `finding_undecided` | 422 | finding is neither accepted nor dismissed |
+| `diff_unavailable` | 422 | no stored `pr_files` patch for the finding's file |
+| `agent_required` | 422 | review has no existing owning agent and no `agent_id` was sent |
+| `eval_run_active` | 409 | a run is already `running` for the agent |
+| `no_eval_cases` | 422 | the agent has 0 cases |
+| `provider_not_configured` | 422 | the agent's provider has no key |
+
+Unknown finding, agent, case or run is `NotFoundError` (404).
+
+### Case creation rules
+
+`EvalService.createCaseFromFinding` (`service.ts:72`) checks in this order: finding exists, an
+existing case for that source finding (returns `created: false`, so a later decision change
+still answers 200), decision present, owner resolution (review's agent if it exists, else
+`agent_id`), patch present. The case stores the finding's file patch as `input_diff`,
+`input_files = [file]`, `input_meta = { pr_number, title, body }` and one expectation item.
+
+- accepted finding -> `must_find`; dismissed -> `must_not_flag` (`expectationTypeFor`).
+- `decision_changed` is true when the finding's current decision no longer maps to the case's
+  type; false when the source finding is gone (`decisionChanged`).
+- Name: title slug + ` file:line` (`caseNameFor`).
+
+### Scoring rules
+
+All scoring is pure code in `domain.ts`; no model call happens after the reviews.
+
+- Match: same `file` and inclusive line-range overlap (`findingMatchesItem`); severity, category
+  and title are ignored.
+- Case pass: `must_find` passes when every item is matched; `must_not_flag` passes when no item is
+  matched, and a `must_not_flag` case with no items (a clean-diff case) passes only when the agent
+  kept no finding at all (`scoreCase`). An item matched by several findings counts once.
+- Noise: in a `must_find` case, a kept finding matching none of its items; in a `must_not_flag`
+  case, every kept finding.
+- Run metrics (`scoreRun`), over non-errored cases only; `null` on a zero denominator:
+
+| Metric | Formula |
+|---|---|
+| `recall` | matched `must_find` items / `must_find` items (of non-errored cases) |
+| `precision` | (kept - noise) / kept |
+| `citation_accuracy` | kept / (kept + dropped by grounding) |
+
+- `cases_total` counts errored cases; `cases_passed` counts `pass`.
+- Run status: `done` (no errors), `partial` (some), `failed` (all cases errored).
+- `cost_usd` is the sum of case costs, or `null` if any case cost is unknown.
+
+Each case calls `reviewPullRequest` with the run's snapshotted prompt/model/strategy and only
+`diff`, `llm`, `prDescription` (untrusted title/body, wrapped by the engine) and `task`. No intent,
+skills, specs, callers, repo map or memory are passed. The provider is `llmSingleShot` (one HTTP
+request per call) wrapped in `withTimeout(..., 120_000)` (`EVAL_CASE_TIMEOUT_MS`).
+
+### Data model
+
+Migration `0016_grey_vin_gonzales.sql` (generated by drizzle-kit). Schema: `server/src/db/schema/eval.ts`.
+
+```mermaid
+erDiagram
+  agents ||--o{ eval_set_runs : "agent_id (cascade)"
+  workspaces ||--o{ eval_cases : "workspace_id (cascade)"
+  workspaces ||--o{ eval_set_runs : "workspace_id (cascade)"
+  findings |o--o| eval_cases : "source_finding_id (set null)"
+  agents ||--o{ eval_cases : "owner_id (no FK)"
+  eval_cases {
+    uuid id PK
+    text owner_kind
+    uuid owner_id
+    text name
+    text input_diff
+    jsonb input_meta
+    jsonb expected_output
+    uuid source_finding_id "unique, nullable"
+    timestamptz created_at
+  }
+  eval_set_runs {
+    uuid id PK
+    uuid agent_id FK
+    int agent_version
+    text model
+    text strategy
+    text system_prompt
+    text status "running|done|partial|failed"
+    text error
+    jsonb case_set
+    jsonb results "EvalCaseResult[] with case_name"
+    float recall
+    float precision
+    float citation_accuracy
+    float cost_usd
+  }
+```
+
+- `eval_cases_source_finding_uq` (unique on `source_finding_id`; NULLs do not collide) is the
+  double-click race guard: the insert path falls back to the existing row.
+- `eval_set_runs_agent_running_uq` is a partial unique index on `agent_id WHERE status = 'running'`;
+  a unique violation (`23505`) in `repository.startRun` becomes `EvalRunActiveError` (409), so two
+  concurrent starts cannot both win.
+- Per-case results live in `eval_set_runs.results` (carrying `case_name`), not in a table keyed
+  by `case_id`, so deleting a case never rewrites history.
+- `eval_cases.owner_id` has no FK (shared with skills), so deleting an agent removes its cases
+  in the same transaction (`server/src/modules/agents/repository.ts:77`, `deleteById`); runs
+  cascade through their FK.
+- `last_status` of a case = its first result when walking finished (non-`running`) runs newest
+  first (`latestCaseStatuses`), else `never_run`. The client's metric cards use only `done` and
+  `partial` runs.
+
+## Explanation: run lifecycle
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant R as routes.ts
+  participant S as EvalService
+  participant DB as EvalRepository
+  participant E as reviewPullRequest
+  C->>R: POST /agents/:id/eval-runs
+  R->>S: startRun
+  S->>DB: hasRunningRun, listCases
+  alt running / no cases / no key
+    S-->>R: 409 / 422
+  else ok
+    S->>DB: startRun (snapshot prompt, model, caseSet)
+    S-->>R: running record
+    R-->>C: 202 EvalSetRun
+    loop each case, sequentially
+      S->>E: review stored diff (120 s timeout)
+      E-->>S: kept, dropped, cost
+      S->>S: scoreCase (error on throw)
+    end
+    S->>S: scoreRun
+    S->>DB: completeRun
+  end
+  C->>R: GET /agents/:id/eval-runs (polls while running)
+```
+
+`startRun` checks in order: agent exists, no running run, at least one case, provider key present
+(`service.ts:143`). It snapshots the agent's version, provider, model, strategy and system prompt
+plus the full case inputs (`caseSet`), so later edits to the agent or a case do not change a run
+in progress. Execution is fire-and-forget; `inFlight` (runId -> promise) lets tests
+`await service.waitFor(runId)`.
+
+A case that throws or times out is stored as `status: 'error'` with a capped single-line message
+(`safeErrorMessage`) and excluded from metrics. An unexpected failure outside a case marks the
+whole run `failed` so the 409 guard never sticks. Logs carry ids, counts, status and duration only
+(`eval.run.started`, `eval.case.finished`, `eval.run.finished`, `eval.run.failed`), never diff,
+prompt or finding text.
+
+```mermaid
+stateDiagram-v2
+  [*] --> running : POST eval-runs
+  running --> done : no case errored
+  running --> partial : some cases errored
+  running --> failed : all errored / unexpected throw
+  running --> failed : boot reaping
+  done --> [*]
+  partial --> [*]
+  failed --> [*]
+```
+
+### Boot reaping
+
+A run is in memory only while the process lives. At boot `server/src/app.ts:104` calls
+`container.evalService.failStaleRuns()`, which runs `UPDATE eval_set_runs SET status='failed',
+finished_at=now(), error=<reason> WHERE status='running'` (`repository.failRunningRuns`). The reason
+is `EVAL_RESTART_REASON` ("Server restarted while the run was in progress"). Without it a crashed
+run would block the agent with 409 forever.
+
+### Wiring
+
+`container.evalService` (`server/src/platform/container.ts:325`) is memoized because the service
+owns in-flight state. The service never receives `Container`; the LLM provider, agent lookup and
+provider-key check are bound closures there.
+
+### Seed
+
+`server/src/db/seed-eval.ts` seeds 8 cases for the seeded Security Reviewer (5 `must_find`,
+3 `must_not_flag`, each with its own fake-secret patch), idempotent by owner and name, and called
+outside the `if (!pr)` block of `seed.ts` so it also reaches an already-seeded DB.
+
+## Explanation: dashboard reads (SPEC-07)
+
+Spec: `specs/2026-10-22-eval-dashboard.md`. Plan: `.claude/plans/eval-dashboard.md`. Two read-only
+routes in the same module (`routes.ts:111-127`) feed the `/eval` and `/eval/agents/[agentId]`
+pages. No new table, index or migration; scoring and run execution are unchanged. Contracts
+`EvalAgentSummary`, `EvalRecentRun`, `EvalWorkspaceDashboard`, `EvalMetricPoint`,
+`EvalAgentDashboard` are appended to `contracts/eval.ts` in both shared copies. Responses are
+fresh (never re-parsed from stored JSON), so `latest` and the metrics are `.nullable()`.
+
+```mermaid
+flowchart LR
+  W["GET /eval/dashboard"] --> S1["EvalService.workspaceDashboard"]
+  A["GET /agents/:id/eval-dashboard"] --> S2["EvalService.agentDashboard"]
+  S1 --> R1["listAgentsWithCases"]
+  S1 --> R2["listFinishedRunsPerAgent (10 per agent)"]
+  S1 --> R3["listRecentRuns (10, any status)"]
+  S2 --> R4["listRunSummaries (newest 100)"]
+  S2 --> R5["countCases"]
+  R2 --> D["domain: latestAndPrevious, recallSeries"]
+  R4 --> D2["domain: latestAndPrevious, trendPoints"]
+```
+
+### Selection rules (`domain.ts:206-257`)
+
+Pure functions over runs sorted newest first.
+
+- Finished for metrics = `done` or `partial` (`isFinishedForMetrics`). `running` has no metrics
+  and `failed` never counts as latest, so an agent with only failed runs has `latest: null`.
+- `latestAndPrevious`: the first two finished runs.
+- `recallSeries` (workspace route): recall of the newest 10 finished runs (`RECALL_SERIES_RUNS`),
+  oldest first, runs with null recall dropped.
+- `trendPoints` (agent route): every finished run in the window, chronological, null metrics kept
+  on the wire (the client drops them per series).
+- Sort key everywhere is `coalesce(finished_at, started_at) desc, id desc` (`runSortKey`,
+  `repository.ts:99`), so a running run sorts by its start.
+
+### Bounded reads (`repository.ts:324-407`)
+
+Every dashboard read selects only metric columns (`runSummaryColumns`; no `results`,
+`system_prompt` or `case_set` jsonb) and is bounded.
+
+| Method | Bound |
+|---|---|
+| `listAgentsWithCases` | one grouped query; inner join `agents` on `eval_cases.owner_id` with `owner_kind = 'agent'`, so agents without cases are absent; ordered by name |
+| `listFinishedRunsPerAgent(ws, agentIds, perAgent)` | one query for all agents: `row_number() over (partition by agent_id order by runSortKey desc, id desc)` over `done`/`partial` runs, keeps `rn <= perAgent`. Returns `[]` for no agents. This is the window read: cost is `agents x 10` rows, not the full run history |
+| `listRecentRuns(ws, limit)` | newest 10 runs of any status (running included), inner join `agents` for `agent_name` |
+| `listRunSummaries(ws, { agentIds?, limit? })` | per-agent route passes `limit = AGENT_TREND_RUNS_LIMIT` (100) |
+
+`agentDashboard` reads the newest 100 runs of any status, derives `latest`/`previous`/`trend`
+from the finished ones, and returns the first 20 (`AGENT_RUN_TABLE_LIMIT`, equal to
+`EVAL_RUN_HISTORY_LIMIT`) as `runs`, running included. `cases_total` comes from `countCases` and
+may be 0 (the page shows its own state). `trend` therefore covers finished runs within the newest
+100 runs, not the full history.
+
+## How-to: run `verify:l06`
+
+`server/package.json` defines `verify:l06`: it runs `eval-domain`, `eval-service`, `eval-contracts`,
+`eval.it` and `eval-seed.it` with `EVAL_REQUIRE_DOCKER=1`, which makes the two `*.it.test.ts` files
+fail instead of self-skipping when Docker is absent. Docker must be running.
+
+`pnpm` is broken in this environment, so run vitest directly from `server/`:
+
+```bash
+cd server
+EVAL_REQUIRE_DOCKER=1 ./node_modules/.bin/vitest run \
+  test/eval-domain.test.ts test/eval-service.test.ts test/eval-contracts.test.ts \
+  test/eval.it.test.ts test/eval-seed.it.test.ts
+```
+
+Run it without `server/.env` present (a server INSIGHTS note: run-driven IT tests flake with it).
+A hermetic-only check is the first three files without the env flag.
+
+## Client surface
+
+Client-side behaviour is summarised here because it is one feature end to end.
+
+- Finding card: `EvalCaseAction` (under `FindingCard/_components/`) shows "Turn into eval case".
+  Disabled with a described reason while the finding is undecided; if `reviewAgentId` is not a
+  known agent it opens an agent picker and posts `{ agent_id }`; `diff_unavailable` shows inline.
+- Agent editor: `AgentEditor/_components/EvalsTab/` lists cases, runs all, and shows history and
+  a two-run compare. It polls via `useEvalRuns` (`client/src/lib/hooks/eval.ts`): 4 s while the
+  newest run is `running`, otherwise no polling.
+- Shared pieces: `client/src/components/eval-metric-cards/`, `eval-run-history/`, and pure
+  helpers in `client/src/lib/eval-metrics.ts` (percent formatting, point deltas, latest and
+  previous finished run). Strings are in `client/messages/en/eval.json`.
+
+### Eval Dashboard pages (SPEC-07)
+
+| Route | Files | Data |
+|---|---|---|
+| `/eval` | `client/src/app/eval/page.tsx` -> `_components/EvalDashboardView/` (`AgentEvalRow`, `RecentEvalRuns`) | `useEvalDashboard` |
+| `/eval/agents/[agentId]` | `client/src/app/eval/agents/[agentId]/page.tsx` -> `_components/AgentEvalView/` (`EvalTrend`) | `useAgentEvalDashboard(agentId)`, `useStartEvalRun` |
+
+- Sidebar: SKILLS LAB item `{ key: "eval", label: "Eval Dashboard", icon: "Gauge", href: "/eval" }`
+  (`client/src/vendor/ui/nav.ts:36`). `NavItem` sets `aria-current="page"` on the active item
+  (`client/src/vendor/ui/shell/NavItem.tsx:23`). `/eval/...` resolves to the `eval` active key via
+  `startsWith("/eval")` in `client/src/components/app-shell/helpers.ts`.
+- Hooks (`client/src/lib/hooks/eval.ts:72-87`): `useEvalDashboard` (key `["eval-dashboard"]`,
+  `refetchOnWindowFocus: true`); `useAgentEvalDashboard` (key `["eval-dashboard", agentId]`,
+  polls every 4 s while `runs[0].status === "running"`). `useStartEvalRun` also invalidates
+  `["eval-dashboard"]` (line 66).
+- Reuses `EvalMetricCards` and `EvalRunHistory` (Compare) from `client/src/components/`.
+
+## Gaps
+
+- SPEC-07: the sidebar icon is `Gauge` (code), the plan said `FlaskConical`. Cosmetic.
+- SPEC-07: the plan's `listRecentRuns`/`listRunSummaries` were implemented as planned, plus an
+  added `listFinishedRunsPerAgent` window read and a `countCases` call, and `AGENT_TREND_RUNS_LIMIT`
+  (100) that the plan did not name. The 100-run trend window is a code decision, not in the spec.
+- SPEC-07 client views were not read line by line for this page; the table above is from file
+  names, hook code and the plan.
+
+- No gaps to the plan were found in the read sources, but the client files were not read
+  line by line for this page; the Client surface section is a summary from names and plan.

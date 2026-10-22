@@ -218,6 +218,13 @@ Evidence: `client/src/app/agent-performance/_components/AgentPerformanceView/Age
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
 
+### A component that gains a TanStack Query hook breaks its old smoke tests
+`2026-10-22` — `FindingCard.test.tsx` and `FindingsPanel.test.tsx` failed with
+"No QueryClient set" once `EvalCaseAction` called `useAgents`. Wrap the render
+in `QueryClientProvider` and load the new messages namespace (`eval`). Expect
+this for any existing test of a parent that starts rendering a hook-using child.
+Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/FindingCard.test.tsx`
+
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->
 

@@ -99,6 +99,14 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     app.log.warn({ err: (err as Error).message }, 'stale-run reaping failed (non-fatal)');
   }
 
+  // Same reasoning for eval runs: a fresh process owns none, so every 'running' row is orphaned.
+  try {
+    const failed = await container.evalService.failStaleRuns();
+    if (failed > 0) app.log.info({ failed }, 'failed stale running eval runs on boot');
+  } catch (err) {
+    app.log.warn({ err: (err as Error).message }, 'stale eval-run reaping failed (non-fatal)');
+  }
+
   // Security headers (X-Content-Type-Options, X-Frame-Options, …). The API
   // serves JSON only, so the default CSP is fine.
   await app.register(helmet);

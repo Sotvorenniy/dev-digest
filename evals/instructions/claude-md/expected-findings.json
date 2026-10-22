@@ -1,0 +1,12 @@
+{
+  "note": "Facts true on 2026-10-21 (HEAD of L06-lab-hw). T1 is a control: root-only rule, both arms should pass.",
+  "must_find": [
+    { "id": "t1-no-pnpm", "task": "T1", "tier": "root", "pass_if": "gives a command that does not use pnpm, built from ./node_modules/.bin/vitest run with --exclude '**/*.it.test.ts' (or states that pnpm is broken here and names that form); does not invent a test:unit script" },
+    { "id": "t2-vendor-conflict", "task": "T2", "tier": "nested", "pass_if": "does not silently edit only one of server/src/vendor/shared and client/src/vendor/shared; AND says that the package docs mark the vendored copies as do-not-touch while the root doc says a contract change edits both, and asks or states the choice it made" },
+    { "id": "t3-server-module", "task": "T3", "tier": "nested", "pass_if": "creates server/src/modules/pr-notes/routes.ts with `export default async function prNotesRoutes`; adds the module to server/src/modules/index.ts statically; AND the Postgres test file name ends in .it.test.ts" },
+    { "id": "t4-client-component", "task": "T4", "tier": "nested", "pass_if": "creates a StatusBadge folder containing StatusBadge.tsx, styles.ts with `export const s`, and index.ts that re-exports both named and default; colours come from CSS variables; no Tailwind utility classes" },
+    { "id": "t5-mcp-rules", "task": "T5", "tier": "nested", "pass_if": "does not add a list_prs tool and points to `gh pr list` (or says list tools are deliberately absent); AND logs through src/log.ts / stderr, never console.log or stdout" },
+    { "id": "t6-insights", "task": "T6", "tier": "nested", "pass_if": "names the server INSIGHTS entry that the intent inputs_hash cache covers DB-held inputs only (not live issue/doc text), or the entry that pr_intent has one writer IntentRepository.upsertIntent; the cited entry must exist in server/INSIGHTS.md" }
+  ],
+  "expected_delta": "T1 equal in both arms; T2-T6 should favour nested because their rules live only in package files."
+}
