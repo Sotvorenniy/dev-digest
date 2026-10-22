@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Button, Modal, SelectInput } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
@@ -72,19 +73,25 @@ export function EvalCaseAction({
         {draft.isError && !diffGone && <span style={s.evalError}>{t("findingAction.createFailed")}</span>}
       </span>
 
-      {modalOpen && draft.data && (
-        <EvalCaseModal
-          draft={draft.data}
-          findingId={finding.id}
-          onClose={() => setModalOpen(false)}
-          onSaved={() => {
-            setModalOpen(false);
-            setSaved(true);
-          }}
-        />
-      )}
+      {/* Portalled to <body>: inside the card, `position: fixed` is trapped by the card's
+          stacking context and the page content shows through the modal. */}
+      {modalOpen &&
+        draft.data &&
+        createPortal(
+          <EvalCaseModal
+            draft={draft.data}
+            findingId={finding.id}
+            onClose={() => setModalOpen(false)}
+            onSaved={() => {
+              setModalOpen(false);
+              setSaved(true);
+            }}
+          />,
+          document.body,
+        )}
 
-      {picking && (
+      {picking &&
+        createPortal(
         <Modal width={420} title={t("findingAction.pickAgentTitle")} onClose={() => setPicking(false)}>
           <div data-agent-picker style={s.picker}>
             {agents.isLoading ? (
@@ -110,8 +117,9 @@ export function EvalCaseAction({
               </>
             )}
           </div>
-        </Modal>
-      )}
+        </Modal>,
+          document.body,
+        )}
     </div>
   );
 }
