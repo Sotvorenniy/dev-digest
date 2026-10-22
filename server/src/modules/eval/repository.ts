@@ -205,6 +205,24 @@ export class EvalRepository implements EvalRepositoryPort {
     return rows.map((r) => toCaseRecord(r.c, r.f ?? null));
   }
 
+  async insertManualCase(values: Omit<NewEvalCase, 'sourceFindingId'>): Promise<EvalCaseRecord> {
+    const [inserted] = await this.db
+      .insert(t.evalCases)
+      .values({
+        workspaceId: values.workspaceId,
+        ownerKind: 'agent',
+        ownerId: values.ownerId,
+        name: values.name,
+        inputDiff: values.inputDiff,
+        inputFiles: values.inputFiles,
+        inputMeta: values.inputMeta,
+        expectedOutput: values.expected,
+        sourceFindingId: null,
+      })
+      .returning();
+    return toCaseRecord(inserted!, null);
+  }
+
   async updateCase(
     workspaceId: string,
     caseId: string,

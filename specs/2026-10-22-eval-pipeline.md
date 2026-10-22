@@ -219,6 +219,12 @@ reused by SPEC-07.
   _(observable: Run sends `POST /agents/:id/eval-cases/run` and writes no `eval_set_runs` row;
   Save sends `PATCH /eval-cases/:id`; the owner and source finding are unchanged; an unknown
   id answers 404)_
+- AC23 (US2). WHEN the user presses "New eval case" in the agent's Evals tab, the client (shall) open
+  the case modal empty, with a "Finding skeleton" button that adds a template expected item and a
+  negative-case banner while the expected type is `must_not_flag`, and Save (shall) create a case
+  owned by that agent with no source finding. _(observable: Save sends `POST
+  /agents/:id/eval-cases`; the stored `source_finding_id` is null; an unknown agent answers 404;
+  Save is disabled until name, file path and diff are filled)_
 
 ## Workflow
 ```mermaid
@@ -486,6 +492,7 @@ must be `nullish` (root INSIGHTS "A contract field added to RunStats must be opt
 | AC20 | US1 | G1 | — | client-unit, server-unit |
 | AC21 | US1 | G1 | — | client-unit, server-unit |
 | AC22 | US2 | G2 | — | client-unit, server-unit, server-integration |
+| AC23 | US2 | G2 | — | client-unit, server-unit, server-integration |
 
 NFR2 → server-integration; NFR8 → server-integration (EC22); NFR9 → server-unit; NFR4, NFR6 →
 manual with the reasons given; NFR10 → review.
@@ -611,3 +618,5 @@ manual with the reasons given; NFR10 → review.
   `POST /findings/:id/eval-case/draft` and `POST /agents/:id/eval-cases/run`.
 - 2026-10-22 — added AC22: Run and Edit on a case row, `PATCH /eval-cases/:id`; the modal moved to
   `client/src/components/eval-case-modal` and is shared by the finding card and the Evals tab.
+- 2026-10-22 — added AC23: "New eval case" by hand with a Finding skeleton and a negative-case banner;
+  NG2 no longer holds for the case editor itself (still no "Run on save" or Files / PR meta tabs).

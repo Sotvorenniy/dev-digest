@@ -19,5 +19,15 @@ export const s = {
   } satisfies CSSProperties,
   resultList: { margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text-secondary)" } satisfies CSSProperties,
   error: { fontSize: 12, color: "var(--danger, #e5484d)" } satisfies CSSProperties,
+  negative: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--warning, #d9a441)",
+    background: "var(--bg-surface)",
+    fontSize: 13,
+  } satisfies CSSProperties,
   footer: { display: "flex", justifyContent: "flex-end", gap: 8 } satisfies CSSProperties,
 } as const;

@@ -126,6 +126,10 @@ function setup(o: Opts = {}) {
       return { record: { ...caseRec('new'), ownerId: v.ownerId, name: v.name, expected: v.expected }, created: true };
     },
     listCases: async () => cases,
+    insertManualCase: async (v) => {
+      inserted.push(v);
+      return { ...caseRec('manual'), ownerId: v.ownerId, name: v.name, inputDiff: v.inputDiff, expected: v.expected, sourceFindingId: null };
+    },
     updateCase: async (_w, id, patch) => {
       const found = cases.find((c) => c.id === id);
       if (!found) return undefined;
@@ -488,6 +492,36 @@ const runRec = (agentId: string, at: number, over: Partial<EvalSetRunRecord> = {
 
 const CA = { agentId: 'a1', name: 'Agent One', model: 'm/x', casesTotal: 4 };
 const CB = { agentId: 'a2', name: 'Agent Two', model: 'm/y', casesTotal: 2 };
+
+describe('EvalService.createManualCase', () => {
+  const fields = {
+    name: 'by hand',
+    input_diff: PATCH,
+    input_files: ['src/a.ts'],
+    input_meta: meta,
+    expected_output: { type: 'must_not_flag' as const, items: [] },
+  };
+
+  it('creates a case owned by the agent with no source finding and never_run status', async () => {
+    const s = setup();
+    const created = await s.svc.createManualCase('w1', 'a1', fields);
+    expect(created).toMatchObject({ owner_id: 'a1', name: 'by hand', source_finding_id: null, last_status: 'never_run', decision_changed: false });
+    expect(s.inserted[0]).toMatchObject({ ownerId: 'a1', expected: { type: 'must_not_flag', items: [] } });
+  });
+
+  it('refuses once the agent holds the maximum number of cases', async () => {
+    const many = Array.from({ length: 200 }, (_, i) => caseRec(`m${i}`));
+    const s = setup({ cases: many });
+    await expect(s.svc.createManualCase('w1', 'a1', fields)).rejects.toMatchObject({ code: 'eval_case_limit', statusCode: 422 });
+    expect(s.inserted).toHaveLength(0);
+  });
+
+  it('404s for an unknown agent and inserts nothing', async () => {
+    const s = setup();
+    await expect(s.svc.createManualCase('w1', 'nope', fields)).rejects.toMatchObject({ statusCode: 404 });
+    expect(s.inserted).toHaveLength(0);
+  });
+});
 
 describe('EvalService.updateCase', () => {
   const fields = {

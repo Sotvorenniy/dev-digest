@@ -65,7 +65,7 @@
       "diff": "Diff",
       "prMeta": "PR meta"
     },
-    "diffPlaceholder": "--- a/src/config.ts\n+++ b/src/config.ts\n@@ -10,6 +10,7 @@\n+  stripeKey: \"sk_live_...\"",
+    "diffPlaceholder": "@@ -10,6 +10,7 @@\n+  stripeKey: \"sk_live_...\"",
     "titleLabel": "Title",
     "titlePlaceholder": "Add Stripe integration",
     "bodyLabel": "Body",
@@ -93,13 +93,19 @@
     "saveFailed": "The case could not be saved. Check the fields and try again.",
     "invalidExpected": "Expected output must be JSON with type must_find or must_not_flag and an items array.",
     "editTitle": "Edit eval case",
-    "editSubtitle": "Changes are saved only when you press Save."
+    "editSubtitle": "Changes are saved only when you press Save.",
+    "newSubtitle": "Write a case by hand. Leave the items list empty and choose must_not_flag for a negative case.",
+    "filePathLabel": "File path",
+    "filePathPlaceholder": "src/config.ts",
+    "skeleton": "Finding skeleton",
+    "negativeTitle": "Negative case",
+    "negativeBody": "must_not_flag: the agent has to stay silent on this diff."
   },
   "evalsTab": {
     "metricsTitle": "Eval metrics",
     "metricsSubtitle": "Recall / Precision / Citation for this agent's eval cases",
     "casesHeading": "Eval cases",
-    "newCase": "New case",
+    "newCase": "New eval case",
     "loadingCases": "Loading cases…",
     "emptyCases": "No eval cases yet. Create one to assert this agent's expected findings on a sample diff.",
     "neverRun": "never run",

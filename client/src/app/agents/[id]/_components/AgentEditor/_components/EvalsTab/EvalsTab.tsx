@@ -9,10 +9,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EvalCaseModal } from "@/components/eval-case-modal";
 import { EvalMetricCards } from "@/components/eval-metric-cards";
 import { EvalRunHistory } from "@/components/eval-run-history";
-import { useDeleteEvalCase, useEvalCases, useEvalRuns, useStartEvalRun, useUpdateEvalCase } from "@/lib/hooks";
+import { useDeleteEvalCase, useEvalCases, useEvalRuns, useStartEvalRun, useUpdateEvalCase, useCreateManualEvalCase } from "@/lib/hooks";
 import { isNewestRunning, latestFinished, previousFinished } from "@/lib/eval-metrics";
 import { API_KEYS_HREF, startErrorKey } from "@/lib/eval-errors";
-import { METRIC_KEYS } from "./constants";
+import { METRIC_KEYS, NEW_CASE_FIELDS } from "./constants";
 import { erroredCases, passingCount } from "./helpers";
 import { s } from "./styles";
 import { EvalCaseRow } from "./_components/EvalCaseRow";
@@ -25,6 +25,8 @@ export function EvalsTab({ agent }: { agent: Agent }) {
   const start = useStartEvalRun(agent.id);
   const remove = useDeleteEvalCase(agent.id);
   const update = useUpdateEvalCase(agent.id);
+  const createManual = useCreateManualEvalCase(agent.id);
+  const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<EvalCase | null>(null);
   const [toDelete, setToDelete] = React.useState<EvalCase | null>(null);
 
@@ -94,6 +96,17 @@ export function EvalsTab({ agent }: { agent: Agent }) {
           >
             {t("evalsTab.runAll")}
           </Button>
+          <Button
+            data-new-case
+            kind="secondary"
+            icon="Plus"
+            onClick={() => {
+              createManual.reset();
+              setCreating(true);
+            }}
+          >
+            {t("evalsTab.newCase")}
+          </Button>
           <span aria-live="polite" style={s.live}>
             {running && t("evalsTab.runningState")}
             {!running && runList[0] && runList[0].status !== "running" && t("evalsTab.runFinished", { status: t(`runStatus.${runList[0].status}`) })}
@@ -116,6 +129,18 @@ export function EvalsTab({ agent }: { agent: Agent }) {
       {list}
 
       <EvalRunHistory runs={runList} agentName={agent.name} />
+
+      {creating && (
+        <EvalCaseModal
+          mode="new"
+          agentId={agent.id}
+          initial={NEW_CASE_FIELDS}
+          saving={createManual.isPending}
+          saveFailed={createManual.isError}
+          onClose={() => setCreating(false)}
+          onSave={(fields) => createManual.mutate(fields, { onSuccess: () => setCreating(false) })}
+        />
+      )}
 
       {editing && (
         <EvalCaseModal

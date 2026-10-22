@@ -23,3 +23,6 @@ export const EVAL_RUN_RATE_LIMIT = { max: 10, timeWindow: '1 minute' } as const;
 
 /** Stored on a run that was still `running` when the process restarted. */
 export const EVAL_RESTART_REASON = 'Server restarted while the run was in progress';
+
+/** Most cases one agent can hold; stops a runaway client from filling the table and every set run. */
+export const MAX_EVAL_CASES_PER_AGENT = 200;

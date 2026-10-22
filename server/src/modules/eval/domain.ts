@@ -54,6 +54,12 @@ export class NoEvalCasesError extends AppError {
   }
 }
 
+export class EvalCaseLimitError extends AppError {
+  constructor(message = 'This agent has reached the eval case limit') {
+    super('eval_case_limit', message, 422);
+  }
+}
+
 export class ProviderNotConfiguredError extends AppError {
   constructor(message = 'The agent provider has no API key configured') {
     super('provider_not_configured', message, 422);

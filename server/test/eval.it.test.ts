@@ -291,6 +291,35 @@ d('eval pipeline (Testcontainers pg)', () => {
     expect(EvalCase.parse(ok.json()).owner_id).toBe(agent.id);
   });
 
+  it('POST /agents/:id/eval-cases creates a hand-written case with no finding, 404s for an unknown agent', async () => {
+    const { app: a } = await makeApp();
+    const agent = await makeAgent();
+    const body = {
+      name: 'safe parameterized query',
+      input_diff: '@@ -0,0 +1,2 @@\n+const q = db.query("SELECT 1 WHERE id = $1", [id]);\n+export { q };',
+      input_files: ['src/safe.ts'],
+      input_meta: { pr_number: 0, title: 'manual', body: null },
+      expected_output: { type: 'must_not_flag', items: [] },
+    };
+    const res = await a.inject({ method: 'POST', url: `/agents/${agent.id}/eval-cases`, payload: body });
+    expect(res.statusCode).toBe(201);
+    expect(EvalCase.parse(res.json())).toMatchObject({
+      owner_id: agent.id,
+      name: body.name,
+      source_finding_id: null,
+      decision_changed: false,
+      last_status: 'never_run',
+      expected_output: { type: 'must_not_flag', items: [] },
+    });
+    const list = await a.inject({ method: 'GET', url: `/agents/${agent.id}/eval-cases` });
+    expect(list.json()).toHaveLength(1);
+    const again = await a.inject({ method: 'POST', url: `/agents/${agent.id}/eval-cases`, payload: body });
+    expect(again.statusCode).toBe(201);
+
+    const missing = await a.inject({ method: 'POST', url: '/agents/00000000-0000-4000-8000-000000000000/eval-cases', payload: body });
+    expect(missing.statusCode).toBe(404);
+  });
+
   it('PATCH /eval-cases/:id edits the case in place and 404s for an unknown id', async () => {
     const { app: a } = await makeApp();
     const agent = await makeAgent();

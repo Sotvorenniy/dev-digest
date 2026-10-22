@@ -67,6 +67,17 @@ export function useRunEvalCaseDraft(agentId: string) {
   });
 }
 
+/** Create a case by hand for an agent, with no finding behind it. */
+export function useCreateManualEvalCase(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fields: EvalCaseFields) => api.post<EvalCase>(`/agents/${agentId}/eval-cases`, fields),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["eval-cases", agentId] });
+    },
+  });
+}
+
 /** Replace a saved case's editable fields (name, diff, meta, expected output). */
 export function useUpdateEvalCase(agentId: string) {
   const qc = useQueryClient();

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button, Modal, Textarea, TextInput } from "@devdigest/ui";
 import type { EvalCaseFields } from "@devdigest/shared";
 import { useRunEvalCaseDraft } from "@/lib/hooks";
-import { parseExpected, toFields } from "./helpers";
+import { parseExpected, toFields, withSkeleton } from "./helpers";
 import { s } from "./styles";
 
 /** Warm-up and edit step for an eval case: the caller supplies the starting fields, the user can
@@ -22,7 +22,8 @@ export function EvalCaseModal({
   onSave,
   onClose,
 }: {
-  mode?: "create" | "edit";
+  /** create: from a finding; edit: a saved case; new: written by hand. */
+  mode?: "create" | "edit" | "new";
   agentId: string;
   initial: EvalCaseFields;
   saving: boolean;
@@ -36,13 +37,15 @@ export function EvalCaseModal({
 
   const [name, setName] = React.useState(initial.name);
   const [diff, setDiff] = React.useState(initial.input_diff);
+  const [filePath, setFilePath] = React.useState(initial.input_files[0] ?? "");
   const [expectedText, setExpectedText] = React.useState(() =>
     JSON.stringify(initial.expected_output, null, 2),
   );
 
   const expected = parseExpected(expectedText);
-  const ready = !!expected && name.trim() !== "" && diff.trim() !== "";
-  const current = () => toFields(initial, { name, diff, expected: expected! });
+  const ready =
+    !!expected && name.trim() !== "" && diff.trim() !== "" && (mode !== "new" || filePath.trim() !== "");
+  const current = () => toFields(initial, { name, diff, expected: expected!, filePath: mode === "new" ? filePath : undefined });
   const result = run.data;
 
   // An edit makes the shown result stale; clear it so it never looks like it applies to the new text.
@@ -53,6 +56,11 @@ export function EvalCaseModal({
   // Closing mid-save would drop the caller's success handling while the case is still written.
   const close = () => {
     if (!saving) onClose();
+  };
+
+  const addSkeleton = () => {
+    const next = withSkeleton(expectedText);
+    if (next) edit(setExpectedText)(next);
   };
 
   const doRun = () => {
@@ -68,8 +76,8 @@ export function EvalCaseModal({
   return createPortal(
     <Modal
       width={760}
-      title={mode === "edit" ? t("editTitle") : t("modalTitle")}
-      subtitle={mode === "edit" ? t("editSubtitle") : t("modalSubtitle")}
+      title={mode === "edit" ? t("editTitle") : mode === "new" ? t("newCase") : t("modalTitle")}
+      subtitle={mode === "edit" ? t("editSubtitle") : mode === "new" ? t("newSubtitle") : t("modalSubtitle")}
       onClose={close}
       footer={
         <div style={s.footer}>
@@ -86,10 +94,22 @@ export function EvalCaseModal({
       }
     >
       <div data-eval-case-modal style={s.body}>
+        {expected?.type === "must_not_flag" && (
+          <div data-negative-case role="status" style={s.negative}>
+            <strong>{t("negativeTitle")}</strong>
+            <span>{t("negativeBody")}</span>
+          </div>
+        )}
         <label style={s.label}>
           {t("nameLabel")}
           <TextInput value={name} onChange={edit(setName)} placeholder={t("namePlaceholder")} />
         </label>
+        {mode === "new" && (
+          <label style={s.label}>
+            {t("filePathLabel")}
+            <TextInput mono value={filePath} onChange={edit(setFilePath)} placeholder={t("filePathPlaceholder")} />
+          </label>
+        )}
         <label style={s.label}>
           {t("diffLabel")}
           <Textarea mono rows={10} value={diff} onChange={edit(setDiff)} placeholder={t("diffPlaceholder")} />
@@ -98,6 +118,11 @@ export function EvalCaseModal({
           {t("expectedOutput")}
           <Textarea mono rows={9} value={expectedText} onChange={edit(setExpectedText)} />
         </label>
+        <div>
+          <Button kind="ghost" size="sm" icon="Plus" disabled={!expected} onClick={addSkeleton}>
+            {t("skeleton")}
+          </Button>
+        </div>
         <span style={s.hint}>{t("expectedHint")}</span>
         <span style={{ ...s.jsonState, ...(expected ? s.jsonOk : s.jsonBad) }}>
           {expected ? t("validJson") : t("invalidExpected")}

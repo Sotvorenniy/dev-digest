@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Agent, EvalCase, EvalSetRun } from "@devdigest/shared";
 import evalMessages from "../../../../../../../../messages/en/eval.json";
@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api";
 const startMutate = vi.fn();
 const deleteMutate = vi.fn();
 const updateMutate = vi.fn();
+const createMutate = vi.fn();
 const runCaseMutate = vi.fn();
 const refetchCases = vi.fn();
 let runCaseState: { data?: unknown; isPending: boolean; isError: boolean } = { isPending: false, isError: false };
@@ -26,6 +27,7 @@ vi.mock("@/lib/hooks", () => ({
   useEvalRuns: () => ({ data: runs }),
   useStartEvalRun: () => ({ mutate: startMutate, ...startState }),
   useDeleteEvalCase: () => ({ mutate: deleteMutate, isPending: false }),
+  useCreateManualEvalCase: () => ({ mutate: createMutate, reset: vi.fn(), isPending: false, isError: false }),
   useUpdateEvalCase: () => ({ mutate: updateMutate, reset: vi.fn(), isPending: false, isError: false }),
   useRunEvalCaseDraft: () => ({ mutate: runCaseMutate, reset: vi.fn(), ...runCaseState }),
   useEvalRun: () => ({ data: undefined, isError: false }),
@@ -188,6 +190,70 @@ describe("EvalsTab cases", () => {
     runs = [mkRun("r1", { status: "done" })];
     view.rerender(tree());
     expect(refetchCases).toHaveBeenCalledTimes(1);
+  });
+
+  it("New eval case opens an empty modal; Save needs a name, file and diff, then sends the hand-written case", () => {
+    render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.newCase }));
+    expect(within(screen.getByRole("dialog")).getByText(evalMessages.caseEditor.newCase)).toBeInTheDocument();
+    const save = () => screen.getByRole("button", { name: evalMessages.caseEditor.save });
+    expect(save()).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "safe query" } });
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "src/safe.ts" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.diffPlaceholder), { target: { value: "@@ -0,0 +1 @@\n+ok" } });
+    expect(save()).toBeEnabled();
+    fireEvent.click(save());
+
+    expect(createMutate).toHaveBeenCalledTimes(1);
+    expect(createMutate.mock.calls[0]![0]).toMatchObject({
+      name: "safe query",
+      input_files: ["src/safe.ts"],
+      input_diff: "@@ -0,0 +1 @@\n+ok",
+      expected_output: { type: "must_find", items: [] },
+    });
+  });
+
+  const openNew = () => {
+    render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.newCase }));
+    return screen.getAllByRole("textbox").find((el) => (el as HTMLTextAreaElement).value.includes("must_find")) as HTMLTextAreaElement;
+  };
+
+  it("Finding skeleton adds one template item to the expected output", () => {
+    const expectedBox = openNew();
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.skeleton }));
+    const items = JSON.parse(expectedBox.value).items;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ file: "path/to/file.ts", start_line: 1 });
+  });
+
+  it("the negative-case banner shows only while the expected type is must_not_flag", () => {
+    const expectedBox = openNew();
+    expect(screen.queryByText(evalMessages.caseEditor.negativeBody)).not.toBeInTheDocument();
+    fireEvent.change(expectedBox, { target: { value: JSON.stringify({ type: "must_not_flag", items: [] }) } });
+    expect(screen.getByRole("status")).toHaveTextContent(evalMessages.caseEditor.negativeBody);
+  });
+
+  it("a successful create closes the modal, and reopening starts empty", () => {
+    openNew();
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "x" } });
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.diffPlaceholder), { target: { value: "@@ -0,0 +1 @@\n+x" } });
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
+    act(() => createMutate.mock.calls[0]![1].onSuccess());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.newCase }));
+    expect(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder)).toHaveValue("");
+  });
+
+  it("editing a multi-file case keeps every file in input_files", () => {
+    cases = [mkCase("c1", { input_diff: "@@ diff", input_files: ["a.ts", "b.ts"] })];
+    render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.editCase.replace("{name}", "case-c1") }));
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
+    expect(updateMutate.mock.calls[0]![0].fields.input_files).toEqual(["a.ts", "b.ts"]);
   });
 
   it("does not reload the cases on a first mount with only finished runs", () => {

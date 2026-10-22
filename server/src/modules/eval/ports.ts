@@ -146,6 +146,8 @@ export interface EvalRepositoryPort {
   /** Insert-or-return: a lost race on the source-finding unique index returns the existing row with `created: false`. */
   insertCase(values: NewEvalCase): Promise<{ record: EvalCaseRecord; created: boolean }>;
   listCases(workspaceId: string, agentId: string): Promise<EvalCaseRecord[]>;
+  /** A case written by hand, with no source finding. */
+  insertManualCase(values: Omit<NewEvalCase, 'sourceFindingId'>): Promise<EvalCaseRecord>;
   /** The updated case, or `undefined` when no such case exists in the workspace. */
   updateCase(workspaceId: string, caseId: string, patch: EvalCasePatch): Promise<EvalCaseRecord | undefined>;
   /** `false` when no such case exists in the workspace. */

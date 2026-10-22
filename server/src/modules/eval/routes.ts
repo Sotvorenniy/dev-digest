@@ -22,6 +22,7 @@ import { EVAL_RUN_RATE_LIMIT } from './constants.js';
  *   POST   /findings/:id/eval-case → turn a decided finding into an eval case (201 new, 200 existing)
  *   POST   /findings/:id/eval-case/draft → prefilled unsaved case for the modal (nothing written)
  *   POST   /agents/:id/eval-cases/run → run one unsaved case (nothing persisted)
+ *   POST   /agents/:id/eval-cases  → create a case by hand, no finding (201)
  *   GET    /agents/:id/eval-cases  → the agent's cases
  *   PATCH  /eval-cases/:id         → edit a saved case (name, diff, meta, expected output)
  *   DELETE /eval-cases/:id         → remove a case (past results are kept)
@@ -97,6 +98,20 @@ export default async function evalRoutes(appBase: FastifyInstance) {
     async (req): Promise<EvalCaseResult> => {
       const { workspaceId } = await getContext(container, req);
       return service.runDraft(workspaceId, req.params.id, req.body, { logger: req.log });
+    },
+  );
+
+  app.post(
+    '/agents/:id/eval-cases',
+    {
+      schema: { params: IdParams, body: EvalCaseFields, response: { 201: EvalCase } },
+      config: { rateLimit: EVAL_RUN_RATE_LIMIT },
+    },
+    async (req, reply): Promise<EvalCase> => {
+      const { workspaceId } = await getContext(container, req);
+      const evalCase = await service.createManualCase(workspaceId, req.params.id, req.body);
+      reply.code(201);
+      return evalCase;
     },
   );
 

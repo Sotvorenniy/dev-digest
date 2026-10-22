@@ -20,6 +20,7 @@ import {
   FindingUndecidedError,
   NoEvalCasesError,
   ProviderNotConfiguredError,
+  EvalCaseLimitError,
   EvalRunActiveError,
   caseNameFor,
   decisionChanged,
@@ -39,6 +40,7 @@ import {
   EVAL_CASE_TIMEOUT_MS,
   EVAL_RESTART_REASON,
   EVAL_RUN_HISTORY_LIMIT,
+  MAX_EVAL_CASES_PER_AGENT,
   RECALL_SERIES_RUNS,
   RECENT_RUNS_LIMIT,
 } from './constants.js';
@@ -158,6 +160,24 @@ export class EvalService {
       this.deps.repo.latestCaseStatuses(workspaceId, agentId),
     ]);
     return cases.map((c) => this.toEvalCase(c, statuses.get(c.id) ?? 'never_run'));
+  }
+
+  /** A case written by hand for an agent, with no finding behind it. */
+  async createManualCase(workspaceId: string, agentId: string, fields: EvalCaseFields): Promise<EvalCase> {
+    await this.requireAgent(workspaceId, agentId);
+    if ((await this.deps.repo.countCases(workspaceId, agentId)) >= MAX_EVAL_CASES_PER_AGENT) {
+      throw new EvalCaseLimitError();
+    }
+    const record = await this.deps.repo.insertManualCase({
+      workspaceId,
+      ownerId: agentId,
+      name: fields.name,
+      inputDiff: fields.input_diff,
+      inputFiles: fields.input_files,
+      inputMeta: fields.input_meta,
+      expected: fields.expected_output,
+    });
+    return this.toEvalCase(record, 'never_run');
   }
 
   /** Replace a saved case's editable fields. Owner and source finding stay. */
