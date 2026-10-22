@@ -1,0 +1,2 @@
+// Vitest Snapshot v1
+exports[`slugify 1`] = `"hello-world"`;
