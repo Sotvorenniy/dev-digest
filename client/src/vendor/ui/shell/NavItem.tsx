@@ -20,6 +20,7 @@ export function NavItem({
   return (
     <Link href={resolveHref(item.href, repoId)}>
       <div
+        aria-current={active ? "page" : undefined}
         onMouseEnter={() => setH(true)}
         onMouseLeave={() => setH(false)}
         style={{

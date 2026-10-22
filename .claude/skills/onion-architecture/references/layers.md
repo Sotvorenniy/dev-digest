@@ -76,3 +76,18 @@ Module A may use module B only through:
 
 Never import B's `service.ts` or `repository.ts` directly — the rule
 `no-cross-module-internals` enforces it.
+
+### Facade laundering
+
+`no-cross-module-internals` matches the **import path**. A facade that re-exports an
+internal defeats it: `export { BService } from './service.js'` in `b/types.ts` lets A write
+`import type { BService } from '../b/types.js'` and pass the gate while depending on B's
+concrete service. Judge a cross-module import by the file that **declares** the symbol:
+
+- A facade (`domain.ts`, `ports.ts`, `types.ts`) re-exports only from its module's other
+  core files. Re-exporting `service.ts`, `repository*`, `helpers.ts`, `constants.ts` or
+  `routes.ts` is a finding on the facade.
+- Each importer in another module that reaches such a symbol is a finding too — for a
+  service class, depend on a port that B owns (or a Container getter typed as that port);
+  for a constant, move it into B's `domain.ts` if it is a business rule, or own a copy.
+- Importing B's pure `domain.ts` functions and types is fine — that is what the facade is for.

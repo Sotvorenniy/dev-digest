@@ -1,0 +1,71 @@
+{
+  "note": "Facts true on 2026-10-21. Tier 1 is visible in package.json; tier 2 needs a source or config scan. dependency-cruiser was removed from must_find: it is a planned runtime dependency.",
+  "must_find": [
+    {
+      "id": "zod-drift",
+      "tier": 1,
+      "dep": "zod",
+      "pass_if": "names ^3.24.1 vs ^3.25.0 and mcp as the odd one out"
+    },
+    {
+      "id": "multi-lockfile",
+      "tier": 1,
+      "packages": [
+        "client",
+        "server",
+        "mcp"
+      ],
+      "pass_if": "names all three packages as having both pnpm-lock.yaml and package-lock.json"
+    },
+    {
+      "id": "heavy-client",
+      "tier": 1,
+      "package": "client",
+      "deps": [
+        "next",
+        "mermaid"
+      ],
+      "pass_if": "names next and mermaid as the heaviest client deps with sizes next 130-290 MB and mermaid 70-120 MB"
+    },
+    {
+      "id": "size-order",
+      "tier": 1,
+      "pass_if": "client is largest (500-650 MB), server second (190-260 MB)"
+    },
+    {
+      "id": "phantom-codemirror",
+      "tier": 2,
+      "package": "client",
+      "deps": [
+        "@codemirror/view",
+        "@codemirror/state"
+      ],
+      "pass_if": "says they are imported but not declared in client/package.json"
+    },
+    {
+      "id": "mcp-pm-conflict",
+      "tier": 2,
+      "package": "mcp",
+      "pass_if": "says packageManager is pnpm while package-lock.json is also present, or that mcp mixes npm and pnpm"
+    },
+    {
+      "id": "mcp-workspace-placeholder",
+      "tier": 2,
+      "package": "mcp",
+      "pass_if": "says pnpm-workspace.yaml has an unresolved 'set this to true or false' value"
+    },
+    {
+      "id": "autoload-unused",
+      "tier": 2,
+      "package": "server",
+      "dep": "@fastify/autoload",
+      "pass_if": "says it is declared but never imported"
+    }
+  ],
+  "uncertain_not_penalised": [
+    "server/dependency-cruiser in dependencies: no import in src, but repo-intel (container.ts, pipeline/full.ts) plans to use it at runtime in the T3 stage. Either answer is acceptable if the report names the trade-off.",
+    "server/testcontainers unused (also pulled by @testcontainers/postgresql)",
+    "server/@vscode/ripgrep unused",
+    "mcp has no CI workflow"
+  ]
+}

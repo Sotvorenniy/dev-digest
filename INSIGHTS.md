@@ -67,6 +67,16 @@ implementer, doc-writer, planner and spec-creator guards read `.cwd` the same
 way.
 Evidence: `.claude/hooks/test-writer-path-guard.sh:8`
 
+### Running evals mutates the live repo — check `git status` after every run
+`2026-10-21` — Two side effects, both seen while verifying the merged `evals/` package:
+(1) `pnpm install --frozen-lockfile` in `evals/` (pnpm 12.14) rewrote `evals/package.json` (`openai` `^4.77.0` →
+`^6.0.0`), changed `evals/pnpm-lock.yaml`, created `evals/package-lock.json` and exited 1 on the `esbuild`
+build-script prompt. (2) The model sessions started by `pnpm eval:skills` / `eval:workflow` ran against the real
+checkout: afterwards the index held staged files and a stray root `package-lock.json` and `evals/pnpm-workspace.yaml`
+(`allowBuilds: esbuild: true`) had appeared. Revert with `git checkout -- <file>` / `git reset`, delete the strays,
+and do not commit them. Never unify lockfiles. Evidence: `evals/package.json`, `evals/src/tasks.ts:49`
+(`workflowTask` runs on the live repo), `evals/src/config.ts` (`WORKFLOW_ALLOWED_TOOLS`).
+
 ## Codebase Patterns
 <!-- Conventions and architectural decisions, with the reason. -->
 
