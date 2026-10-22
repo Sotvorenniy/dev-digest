@@ -5,10 +5,12 @@ import { useTranslations } from "next-intl";
 import { Button, Modal, SelectInput } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
 import { ApiError } from "@/lib/api";
-import { useAgents, useCreateEvalCase } from "@/lib/hooks";
+import { useAgents, useEvalCaseDraft } from "@/lib/hooks";
 import { s } from "../../styles";
+import { EvalCaseModal } from "./_components/EvalCaseModal";
 
-/** "Turn into eval case" on a decided finding. Uses the review's own agent; when the
+/** "Turn into eval case" on a decided finding. Opens EvalCaseModal with a prefilled draft;
+ *  nothing is saved until the user presses Save there. Uses the review's own agent; when the
  *  review has none (or it was deleted) a picker asks which agent owns the case.
  *  All text is rendered as text — finding content never reaches this component. */
 export function EvalCaseAction({
@@ -20,25 +22,30 @@ export function EvalCaseAction({
 }) {
   const t = useTranslations("eval");
   const agents = useAgents();
-  const create = useCreateEvalCase();
+  const draft = useEvalCaseDraft();
   const [picking, setPicking] = React.useState(false);
   const [chosen, setChosen] = React.useState("");
+  const [saved, setSaved] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState(false);
 
   const decided = !!finding.accepted_at || !!finding.dismissed_at;
   const reasonId = `eval-reason-${finding.id}`;
   const agentList = agents.data ?? [];
   const hasOwnAgent = !!reviewAgentId && agentList.some((a) => a.id === reviewAgentId);
   const selected = chosen || agentList[0]?.id || "";
-  const diffGone = create.error instanceof ApiError && create.error.code === "diff_unavailable";
+  const diffGone = draft.error instanceof ApiError && draft.error.code === "diff_unavailable";
+
+  const openDraft = (agentId?: string) =>
+    draft.mutate({ findingId: finding.id, agentId }, { onSuccess: () => setModalOpen(true) });
 
   const activate = () => {
-    if (hasOwnAgent) create.mutate({ findingId: finding.id });
+    if (hasOwnAgent) openDraft();
     else setPicking(true);
   };
 
   const confirmPick = () => {
     if (!selected) return;
-    create.mutate({ findingId: finding.id, agentId: selected });
+    openDraft(selected);
     setPicking(false);
   };
 
@@ -48,11 +55,11 @@ export function EvalCaseAction({
         kind="ghost"
         size="sm"
         icon="FlaskConical"
-        disabled={!decided || create.isPending || create.isSuccess}
+        disabled={!decided || draft.isPending || saved}
         aria-describedby={decided ? undefined : reasonId}
         onClick={activate}
       >
-        {create.isPending ? t("findingAction.creating") : t("findingAction.turnInto")}
+        {draft.isPending ? t("findingAction.creating") : t("findingAction.turnInto")}
       </Button>
       {!decided && (
         <span id={reasonId} style={s.evalNote}>
@@ -60,10 +67,22 @@ export function EvalCaseAction({
         </span>
       )}
       <span aria-live="polite" style={s.evalNote}>
-        {create.isSuccess && <span style={s.evalCreated}>{t("findingAction.created")}</span>}
+        {saved && <span style={s.evalCreated}>{t("findingAction.created")}</span>}
         {diffGone && <span style={s.evalError}>{t("findingAction.diffUnavailable")}</span>}
-        {create.isError && !diffGone && <span style={s.evalError}>{t("findingAction.createFailed")}</span>}
+        {draft.isError && !diffGone && <span style={s.evalError}>{t("findingAction.createFailed")}</span>}
       </span>
+
+      {modalOpen && draft.data && (
+        <EvalCaseModal
+          draft={draft.data}
+          findingId={finding.id}
+          onClose={() => setModalOpen(false)}
+          onSaved={() => {
+            setModalOpen(false);
+            setSaved(true);
+          }}
+        />
+      )}
 
       {picking && (
         <Modal width={420} title={t("findingAction.pickAgentTitle")} onClose={() => setPicking(false)}>

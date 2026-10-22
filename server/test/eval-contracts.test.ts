@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EvalCaseResult, EvalExpectationItem, EvalSetRun } from '@devdigest/shared';
+import { EvalCaseResult, EvalExpectationItem, EvalSetRun, RunEvalCaseDraftBody, CreateEvalCaseBody } from '@devdigest/shared';
 
 describe('eval contracts (SPEC-06)', () => {
   it('the server and client eval.ts copies are byte-identical', () => {
@@ -74,5 +74,20 @@ describe('eval contracts (SPEC-06)', () => {
     };
     expect(EvalSetRun.safeParse(run).success).toBe(true);
     expect(EvalSetRun.safeParse({ ...run, recall: 1.5 }).success).toBe(false);
+  });
+
+  it('bounds a saved case and a draft run (modal flow)', () => {
+    const fields = {
+      name: 'n',
+      input_diff: 'd',
+      input_files: ['a.ts'],
+      input_meta: { pr_number: 1, title: 't', body: null },
+      expected_output: { type: 'must_find', items: [] },
+    };
+    expect(RunEvalCaseDraftBody.safeParse(fields).success).toBe(true);
+    expect(RunEvalCaseDraftBody.safeParse({ ...fields, input_diff: 'x'.repeat(100_001) }).success).toBe(false);
+    expect(CreateEvalCaseBody.safeParse({ case: { ...fields, input_diff: 'x'.repeat(100_001) } }).success).toBe(true);
+    expect(CreateEvalCaseBody.safeParse({ case: { ...fields, input_meta: { ...fields.input_meta, title: 'x'.repeat(501) } } }).success).toBe(false);
+    expect(CreateEvalCaseBody.safeParse({ case: { ...fields, input_files: ['x'.repeat(501)] } }).success).toBe(false);
   });
 });

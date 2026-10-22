@@ -53,10 +53,34 @@ export const EvalCase = z.object({
 });
 export type EvalCase = z.infer<typeof EvalCase>;
 
+/** The editable part of a case: what the modal warms up before Save. */
+export const EvalCaseFields = z.object({
+  name: z.string().trim().min(1).max(200),
+  input_diff: z.string().min(1).max(500_000),
+  input_files: z.array(z.string().max(500)).max(200),
+  input_meta: EvalInputMeta.extend({ title: z.string().max(500), body: z.string().max(20_000).nullable() }),
+  expected_output: EvalExpectedOutput.extend({ items: z.array(EvalExpectationItem).max(50) }),
+});
+export type EvalCaseFields = z.infer<typeof EvalCaseFields>;
+
+/** Save a case from a finding. Without the edited fields the server builds them from the finding. */
 export const CreateEvalCaseBody = z.object({
   agent_id: z.string().uuid().optional(),
+  case: EvalCaseFields.optional(),
 });
 export type CreateEvalCaseBody = z.infer<typeof CreateEvalCaseBody>;
+
+/** Prefilled, unsaved case built from a decided finding. */
+export const EvalCaseDraft = EvalCaseFields.extend({
+  agent_id: z.string(),
+  source_finding_id: z.string(),
+});
+export type EvalCaseDraft = z.infer<typeof EvalCaseDraft>;
+
+/** Run one unsaved case against an agent; nothing is persisted. */
+// A draft run spends a model call outside any run record, so its diff is capped tighter than a saved case.
+export const RunEvalCaseDraftBody = EvalCaseFields.extend({ input_diff: z.string().min(1).max(100_000) });
+export type RunEvalCaseDraftBody = z.infer<typeof RunEvalCaseDraftBody>;
 
 export const EvalSetRunStatus = z.enum(['running', 'done', 'partial', 'failed']);
 export type EvalSetRunStatus = z.infer<typeof EvalSetRunStatus>;

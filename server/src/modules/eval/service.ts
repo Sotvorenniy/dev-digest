@@ -1,6 +1,8 @@
 import type {
   CreateEvalCaseBody,
   EvalCase,
+  EvalCaseDraft,
+  EvalCaseFields,
   EvalAgentDashboard,
   EvalCaseResult,
   EvalSetRun,
@@ -82,59 +84,71 @@ export class EvalService {
 
   // ---- cases ---------------------------------------------------------------
 
+  /** Prefilled, unsaved case for the modal. Nothing is written. */
+  async draftFromFinding(
+    workspaceId: string,
+    findingId: string,
+    body: { agent_id?: string } | null | undefined,
+  ): Promise<EvalCaseDraft> {
+    const { ownerId, fields } = await this.resolveDraft(workspaceId, findingId, body?.agent_id);
+    return { ...fields, agent_id: ownerId, source_finding_id: findingId };
+  }
+
   async createCaseFromFinding(
     workspaceId: string,
     findingId: string,
     body: CreateEvalCaseBody | null | undefined,
     _opts: ServiceOpts,
   ): Promise<{ evalCase: EvalCase; created: boolean }> {
-    const source = await this.deps.repo.findFindingSource(workspaceId, findingId);
-    if (!source) throw new NotFoundError('Finding not found');
-
     // Checked before the decision so a later decision change still answers 200.
     const existing = await this.deps.repo.findCaseBySourceFinding(workspaceId, findingId);
     if (existing) return { evalCase: this.toEvalCase(existing, 'never_run'), created: false };
 
-    const type = expectationTypeFor(source);
-    if (!type) throw new FindingUndecidedError();
-
-    let ownerId: string | null = null;
-    if (source.reviewAgentId) {
-      const reviewAgent = await this.deps.agents.getAgent(workspaceId, source.reviewAgentId);
-      if (reviewAgent) ownerId = reviewAgent.id;
-    }
-    if (!ownerId) {
-      if (!body?.agent_id) throw new AgentRequiredError();
-      const chosen = await this.deps.agents.getAgent(workspaceId, body.agent_id);
-      if (!chosen) throw new NotFoundError('Agent not found');
-      ownerId = chosen.id;
-    }
-
-    if (!source.filePatch) throw new DiffUnavailableError();
+    const { ownerId, fields: built } = await this.resolveDraft(workspaceId, findingId, body?.agent_id);
+    // The modal sends the warmed-up fields; without them the finding's own values are saved.
+    const fields = body?.case ?? built;
 
     const { record, created } = await this.deps.repo.insertCase({
       workspaceId,
       ownerId,
-      name: caseNameFor(source.title, source.file, source.startLine),
-      inputDiff: source.filePatch,
-      inputFiles: [source.file],
-      inputMeta: { pr_number: source.prNumber, title: source.prTitle, body: source.prBody },
-      expected: {
-        type,
-        items: [
-          {
-            file: source.file,
-            start_line: source.startLine,
-            end_line: source.endLine,
-            title: source.title,
-            severity: source.severity,
-            category: source.category,
-          },
-        ],
-      },
+      name: fields.name,
+      inputDiff: fields.input_diff,
+      inputFiles: fields.input_files,
+      inputMeta: fields.input_meta,
+      expected: fields.expected_output,
       sourceFindingId: findingId,
     });
     return { evalCase: this.toEvalCase(record, 'never_run'), created };
+  }
+
+  /** Run one unsaved case with the agent's current prompt. Persists nothing. */
+  async runDraft(
+    workspaceId: string,
+    agentId: string,
+    fields: EvalCaseFields,
+    opts: ServiceOpts,
+  ): Promise<EvalCaseResult> {
+    const agent = await this.requireAgent(workspaceId, agentId);
+    if (!(await this.deps.providerConfigured(agent.provider))) throw new ProviderNotConfiguredError();
+    const llm = await this.deps.llm(agent.provider);
+    const { result } = await this.reviewCase(
+      { systemPrompt: agent.systemPrompt, model: agent.model, strategy: agent.strategy },
+      llm,
+      {
+        id: null,
+        name: fields.name,
+        inputDiff: fields.input_diff,
+        inputFiles: fields.input_files,
+        inputMeta: fields.input_meta,
+        expected: fields.expected_output,
+      },
+      this.deps.timeoutMs ?? EVAL_CASE_TIMEOUT_MS,
+    );
+    opts.logger.info(
+      { agent_id: agentId, status: result.status, kept: result.kept.length, matched_items: result.matched_items },
+      'eval.draft.finished',
+    );
+    return result;
   }
 
   async listCases(workspaceId: string, agentId: string): Promise<EvalCase[]> {
@@ -291,56 +305,8 @@ export class EvalService {
     try {
       const llm = await this.deps.llm(run.provider);
       for (const c of caseSet) {
-        let result: EvalCaseResult;
-        try {
-          const patch = c.inputDiff;
-          const path = c.inputFiles[0] ?? c.expected.items[0]?.file ?? '';
-          const outcome = await withTimeout(
-            reviewPullRequest({
-              systemPrompt: run.systemPrompt,
-              model: run.model,
-              strategy: run.strategy as ReviewStrategy,
-              diff: this.deps.parseDiff(path, patch),
-              llm,
-              prDescription: evalPrDescription(c.inputMeta),
-              task: evalTaskLine(c.inputMeta),
-            }),
-            timeoutMs,
-          );
-          const kept = outcome.review.findings.map((f) => ({
-            file: f.file,
-            start_line: f.start_line,
-            end_line: f.end_line,
-            title: f.title,
-            severity: f.severity,
-            category: f.category,
-          }));
-          const dropped = outcome.dropped.map((d) => ({
-            file: d.finding.file,
-            start_line: d.finding.start_line,
-            end_line: d.finding.end_line,
-            title: d.finding.title,
-            reason: d.reason,
-          }));
-          result = {
-            case_id: c.id,
-            case_name: c.name,
-            error: null,
-            ...scoreCase(c.expected, kept, dropped),
-          };
-          costUsd = costUsd === null || outcome.costUsd === null ? null : costUsd + outcome.costUsd;
-        } catch (err) {
-          result = {
-            case_id: c.id,
-            case_name: c.name,
-            expectation_type: c.expected.type,
-            status: 'error',
-            error: safeErrorMessage(err),
-            kept: [],
-            dropped: [],
-            matched_items: 0,
-          };
-        }
+        const { result, costUsd: caseCost } = await this.reviewCase(run, llm, c, timeoutMs);
+        costUsd = costUsd === null || caseCost === null ? null : costUsd + caseCost;
         results.push(result);
         logger.info(
           {
@@ -404,6 +370,113 @@ export class EvalService {
       } catch (inner) {
         logger.warn({ run_id: run.id, error_class: errorClass(inner) }, 'eval.run.fail_mark_failed');
       }
+    }
+  }
+
+  /** Finding → owner agent and the case fields built from it. Throws when the finding cannot become a case. */
+  private async resolveDraft(
+    workspaceId: string,
+    findingId: string,
+    agentId: string | undefined,
+  ): Promise<{ ownerId: string; fields: EvalCaseFields }> {
+    const source = await this.deps.repo.findFindingSource(workspaceId, findingId);
+    if (!source) throw new NotFoundError('Finding not found');
+
+    const type = expectationTypeFor(source);
+    if (!type) throw new FindingUndecidedError();
+
+    let ownerId: string | null = null;
+    if (source.reviewAgentId) {
+      const reviewAgent = await this.deps.agents.getAgent(workspaceId, source.reviewAgentId);
+      if (reviewAgent) ownerId = reviewAgent.id;
+    }
+    if (!ownerId) {
+      if (!agentId) throw new AgentRequiredError();
+      const chosen = await this.deps.agents.getAgent(workspaceId, agentId);
+      if (!chosen) throw new NotFoundError('Agent not found');
+      ownerId = chosen.id;
+    }
+
+    if (!source.filePatch) throw new DiffUnavailableError();
+
+    return {
+      ownerId,
+      fields: {
+        name: caseNameFor(source.title, source.file, source.startLine),
+        input_diff: source.filePatch,
+        input_files: [source.file],
+        input_meta: { pr_number: source.prNumber, title: source.prTitle, body: source.prBody },
+        expected_output: {
+          type,
+          items: [
+            {
+              file: source.file,
+              start_line: source.startLine,
+              end_line: source.endLine,
+              title: source.title,
+              severity: source.severity,
+              category: source.category,
+            },
+          ],
+        },
+      },
+    };
+  }
+
+  /** One case through the reviewer and the scorer. Never throws: a failure becomes an `error` result. */
+  private async reviewCase(
+    cfg: { systemPrompt: string; model: string; strategy: string },
+    llm: Awaited<ReturnType<EvalServiceDeps['llm']>>,
+    c: Omit<EvalCaseSnapshot, 'id'> & { id: string | null },
+    timeoutMs: number,
+  ): Promise<{ result: EvalCaseResult; costUsd: number | null }> {
+    try {
+      const path = c.inputFiles[0] ?? c.expected.items[0]?.file ?? '';
+      const outcome = await withTimeout(
+        reviewPullRequest({
+          systemPrompt: cfg.systemPrompt,
+          model: cfg.model,
+          strategy: cfg.strategy as ReviewStrategy,
+          diff: this.deps.parseDiff(path, c.inputDiff),
+          llm,
+          prDescription: evalPrDescription(c.inputMeta),
+          task: evalTaskLine(c.inputMeta),
+        }),
+        timeoutMs,
+      );
+      const kept = outcome.review.findings.map((f) => ({
+        file: f.file,
+        start_line: f.start_line,
+        end_line: f.end_line,
+        title: f.title,
+        severity: f.severity,
+        category: f.category,
+      }));
+      const dropped = outcome.dropped.map((d) => ({
+        file: d.finding.file,
+        start_line: d.finding.start_line,
+        end_line: d.finding.end_line,
+        title: d.finding.title,
+        reason: d.reason,
+      }));
+      return {
+        result: { case_id: c.id, case_name: c.name, error: null, ...scoreCase(c.expected, kept, dropped) },
+        costUsd: outcome.costUsd,
+      };
+    } catch (err) {
+      return {
+        result: {
+          case_id: c.id,
+          case_name: c.name,
+          expectation_type: c.expected.type,
+          status: 'error',
+          error: safeErrorMessage(err),
+          kept: [],
+          dropped: [],
+          matched_items: 0,
+        },
+        costUsd: null,
+      };
     }
   }
 

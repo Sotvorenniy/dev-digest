@@ -482,6 +482,72 @@ const runRec = (agentId: string, at: number, over: Partial<EvalSetRunRecord> = {
 const CA = { agentId: 'a1', name: 'Agent One', model: 'm/x', casesTotal: 4 };
 const CB = { agentId: 'a2', name: 'Agent Two', model: 'm/y', casesTotal: 2 };
 
+describe('EvalService modal flow (draft, save with edits, run draft)', () => {
+  const opts = (s: ReturnType<typeof setup>) => ({ logger: s.logger });
+  const edited = {
+    name: 'edited name',
+    input_diff: PATCH,
+    input_files: ['src/a.ts'],
+    input_meta: meta,
+    expected_output: expected('must_not_flag'),
+  };
+
+  it('draftFromFinding returns the prefilled fields and writes nothing', async () => {
+    const s = setup();
+    const draft = await s.svc.draftFromFinding('w1', 'f1', undefined);
+    expect(draft).toMatchObject({
+      agent_id: 'a1',
+      source_finding_id: 'f1',
+      input_diff: PATCH,
+      input_files: ['src/a.ts'],
+      expected_output: { type: 'must_find' },
+    });
+    expect(s.inserted).toHaveLength(0);
+    expect(s.llmState.calls).toBe(0);
+  });
+
+  it('draftFromFinding rejects an undecided finding and needs an agent when the review has none', async () => {
+    const undecided = setup({ source: { acceptedAt: null, dismissedAt: null } });
+    await expect(undecided.svc.draftFromFinding('w1', 'f1', undefined)).rejects.toMatchObject({ code: 'finding_undecided' });
+    const noAgent = setup({ source: { reviewAgentId: null } });
+    await expect(noAgent.svc.draftFromFinding('w1', 'f1', undefined)).rejects.toMatchObject({ code: 'agent_required' });
+  });
+
+  it('saves the edited fields instead of the finding-built ones', async () => {
+    const s = setup();
+    await s.svc.createCaseFromFinding('w1', 'f1', { case: edited }, opts(s));
+    expect(s.inserted[0]).toMatchObject({
+      name: 'edited name',
+      expected: { type: 'must_not_flag' },
+      sourceFindingId: 'f1',
+    });
+  });
+
+  it('runDraft scores one case with one model call and persists nothing', async () => {
+    const s = setup();
+    const result = await s.svc.runDraft('w1', 'a1', { ...edited, expected_output: expected('must_find') }, opts(s));
+    expect(s.llmState.calls).toBe(1);
+    expect(result).toMatchObject({ case_id: null, case_name: 'edited name', status: 'pass' });
+    expect(s.inserted).toHaveLength(0);
+    expect(s.completed).toHaveLength(0);
+  });
+
+  it('runDraft needs a configured provider and a known agent', async () => {
+    const off = setup({ configured: false });
+    await expect(off.svc.runDraft('w1', 'a1', edited, opts(off))).rejects.toMatchObject({ code: 'provider_not_configured' });
+    expect(off.llmState.calls).toBe(0);
+    const s = setup();
+    await expect(s.svc.runDraft('w1', 'nope', edited, opts(s))).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('runDraft turns a failing model call into an error result, not a throw', async () => {
+    const s = setup({ throwAfter: 0 });
+    const result = await s.svc.runDraft('w1', 'a1', edited, opts(s));
+    expect(result.status).toBe('error');
+    expect(result.error).toBeTruthy();
+  });
+});
+
 describe('EvalService.workspaceDashboard', () => {
   it('lists the agents the repo returns with cases_total and the stored latest run values', async () => {
     const s = setup({

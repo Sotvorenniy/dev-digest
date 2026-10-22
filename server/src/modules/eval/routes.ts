@@ -5,6 +5,9 @@ import {
   CreateEvalCaseBody,
   EvalAgentDashboard,
   EvalCase,
+  EvalCaseDraft,
+  EvalCaseResult,
+  RunEvalCaseDraftBody,
   EvalSetRun,
   EvalSetRunDetail,
   EvalWorkspaceDashboard,
@@ -16,6 +19,8 @@ import { EVAL_RUN_RATE_LIMIT } from './constants.js';
 /**
  * eval module.
  *   POST   /findings/:id/eval-case → turn a decided finding into an eval case (201 new, 200 existing)
+ *   POST   /findings/:id/eval-case/draft → prefilled unsaved case for the modal (nothing written)
+ *   POST   /agents/:id/eval-cases/run → run one unsaved case (nothing persisted)
  *   GET    /agents/:id/eval-cases  → the agent's cases
  *   DELETE /eval-cases/:id         → remove a case (past results are kept)
  *   POST   /agents/:id/eval-runs   → run the agent over all its cases (202, async)
@@ -62,6 +67,34 @@ export default async function evalRoutes(appBase: FastifyInstance) {
       );
       reply.code(created ? 201 : 200);
       return evalCase;
+    },
+  );
+
+  app.post(
+    '/findings/:id/eval-case/draft',
+    {
+      schema: {
+        params: IdParams,
+        body: z.object({ agent_id: z.string().uuid().optional() }).nullish(),
+        response: { 200: EvalCaseDraft },
+      },
+    },
+    async (req): Promise<EvalCaseDraft> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.draftFromFinding(workspaceId, req.params.id, req.body);
+    },
+  );
+
+  // One LLM call per request: same tight limit as a set run.
+  app.post(
+    '/agents/:id/eval-cases/run',
+    {
+      schema: { params: IdParams, body: RunEvalCaseDraftBody, response: { 200: EvalCaseResult } },
+      config: { rateLimit: EVAL_RUN_RATE_LIMIT },
+    },
+    async (req): Promise<EvalCaseResult> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.runDraft(workspaceId, req.params.id, req.body, { logger: req.log });
     },
   );
 

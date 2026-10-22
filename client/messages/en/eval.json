@@ -76,7 +76,22 @@
     "invalidJson": "invalid JSON",
     "lastRunPassed": "Last run passed",
     "lastRunFailed": "Last run failed",
-    "resultSummary": "recall {recall}% · precision {precision}% · citation {citation}% · {duration}s"
+    "resultSummary": "recall {recall}% · precision {precision}% · citation {citation}% · {duration}s",
+    "modalTitle": "Turn into eval case",
+    "modalSubtitle": "Check the case, run it and adjust it. Nothing is saved until you press Save.",
+    "diffLabel": "Diff",
+    "expectedHint": "must_find: the agent has to report this. must_not_flag: the agent must stay silent.",
+    "cancel": "Cancel",
+    "notRun": "Not run yet. Press Run case to see what the agent reports.",
+    "runPassed": "Pass",
+    "runFailed": "Fail",
+    "runErrored": "Error",
+    "runSummary": "{matched} of {expected} expected items matched · {kept} reported",
+    "reported": "Agent reported",
+    "reportedNone": "The agent reported nothing.",
+    "runRequestFailed": "The case could not be run. Check the agent's API key in Settings and try again.",
+    "saveFailed": "The case could not be saved. Check the fields and try again.",
+    "invalidExpected": "Expected output must be JSON with type must_find or must_not_flag and an items array."
   },
   "evalsTab": {
     "metricsTitle": "Eval metrics",
@@ -134,7 +149,7 @@
   },
   "findingAction": {
     "turnInto": "Turn into eval case",
-    "creating": "Creating…",
+    "creating": "Preparing…",
     "created": "Eval case created",
     "undecidedReason": "Accept or dismiss this finding first — the decision becomes the expected result.",
     "diffUnavailable": "The diff for this pull request is no longer available, so a case cannot be built.",

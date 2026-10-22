@@ -8,6 +8,9 @@ import { isNewestRunning } from "../eval-metrics";
 import type {
   EvalAgentDashboard,
   EvalCase,
+  EvalCaseDraft,
+  EvalCaseFields,
+  EvalCaseResult,
   EvalSetRun,
   EvalSetRunDetail,
   EvalWorkspaceDashboard,
@@ -21,19 +24,46 @@ export function useEvalCases(agentId: string | null | undefined) {
   });
 }
 
-/** Turn a decided finding into an eval case. `agentId` is sent only when the
-   review has no agent of its own (the picker path). */
+/** Save a decided finding as an eval case. `agentId` is sent only when the review has no
+   agent of its own (the picker path); `fields` are the warmed-up values from the modal. */
 export function useCreateEvalCase() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ findingId, agentId }: { findingId: string; agentId?: string }) =>
+    mutationFn: ({
+      findingId,
+      agentId,
+      fields,
+    }: {
+      findingId: string;
+      agentId?: string;
+      fields?: EvalCaseFields;
+    }) =>
       api.post<EvalCase>(
         `/findings/${findingId}/eval-case`,
-        agentId ? { agent_id: agentId } : undefined,
+        agentId || fields ? { agent_id: agentId, case: fields } : undefined,
       ),
     onSuccess: (evalCase) => {
       qc.invalidateQueries({ queryKey: ["eval-cases", evalCase.owner_id] });
     },
+  });
+}
+
+/** Prefilled, unsaved case for the modal. Writes nothing. */
+export function useEvalCaseDraft() {
+  return useMutation({
+    mutationFn: ({ findingId, agentId }: { findingId: string; agentId?: string }) =>
+      api.post<EvalCaseDraft>(
+        `/findings/${findingId}/eval-case/draft`,
+        agentId ? { agent_id: agentId } : undefined,
+      ),
+  });
+}
+
+/** Run one unsaved case with the agent's current prompt. Writes nothing. */
+export function useRunEvalCaseDraft(agentId: string) {
+  return useMutation({
+    mutationFn: (fields: EvalCaseFields) =>
+      api.post<EvalCaseResult>(`/agents/${agentId}/eval-cases/run`, fields),
   });
 }
 
