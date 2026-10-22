@@ -119,3 +119,43 @@ export const EvalSetRunDetail = EvalSetRun.extend({
   results: z.array(EvalCaseResult),
 });
 export type EvalSetRunDetail = z.infer<typeof EvalSetRunDetail>;
+
+export const EvalAgentSummary = z.object({
+  agent_id: z.string(),
+  name: z.string(),
+  model: z.string(),
+  cases_total: z.number().int(),
+  latest: EvalSetRun.nullable(),
+  recall_series: z.array(z.number()),
+});
+export type EvalAgentSummary = z.infer<typeof EvalAgentSummary>;
+
+export const EvalRecentRun = EvalSetRun.extend({ agent_name: z.string() });
+export type EvalRecentRun = z.infer<typeof EvalRecentRun>;
+
+export const EvalWorkspaceDashboard = z.object({
+  agents: z.array(EvalAgentSummary),
+  recent_runs: z.array(EvalRecentRun),
+});
+export type EvalWorkspaceDashboard = z.infer<typeof EvalWorkspaceDashboard>;
+
+export const EvalMetricPoint = z.object({
+  run_id: z.string(),
+  finished_at: z.string(),
+  recall: z.number().nullable(),
+  precision: z.number().nullable(),
+  citation_accuracy: z.number().nullable(),
+});
+export type EvalMetricPoint = z.infer<typeof EvalMetricPoint>;
+
+export const EvalAgentDashboard = z.object({
+  agent_id: z.string(),
+  name: z.string(),
+  model: z.string(),
+  cases_total: z.number().int(),
+  latest: EvalSetRun.nullable(),
+  previous: EvalSetRun.nullable(),
+  trend: z.array(EvalMetricPoint),
+  runs: z.array(EvalSetRun),
+});
+export type EvalAgentDashboard = z.infer<typeof EvalAgentDashboard>;

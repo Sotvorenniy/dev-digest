@@ -1,9 +1,11 @@
 import type {
   CreateEvalCaseBody,
   EvalCase,
+  EvalAgentDashboard,
   EvalCaseResult,
   EvalSetRun,
   EvalSetRunDetail,
+  EvalWorkspaceDashboard,
   ReviewStrategy,
   UnifiedDiff,
 } from '@devdigest/shared';
@@ -22,11 +24,22 @@ import {
   evalPrDescription,
   evalTaskLine,
   expectationTypeFor,
+  latestAndPrevious,
+  recallSeries,
   safeErrorMessage,
   scoreCase,
   scoreRun,
+  trendPoints,
 } from './domain.js';
-import { EVAL_CASE_TIMEOUT_MS, EVAL_RESTART_REASON, EVAL_RUN_HISTORY_LIMIT } from './constants.js';
+import {
+  AGENT_RUN_TABLE_LIMIT,
+  AGENT_TREND_RUNS_LIMIT,
+  EVAL_CASE_TIMEOUT_MS,
+  EVAL_RESTART_REASON,
+  EVAL_RUN_HISTORY_LIMIT,
+  RECALL_SERIES_RUNS,
+  RECENT_RUNS_LIMIT,
+} from './constants.js';
 import type {
   EvalAgentsPort,
   EvalCaseRecord,
@@ -198,6 +211,65 @@ export class EvalService {
     await this.requireAgent(workspaceId, agentId);
     const runs = await this.deps.repo.listRuns(workspaceId, agentId, EVAL_RUN_HISTORY_LIMIT);
     return runs.map((r) => this.toRun(r));
+  }
+
+  // ---- dashboards (read-only) ------------------------------------------------
+
+  async workspaceDashboard(workspaceId: string): Promise<EvalWorkspaceDashboard> {
+    const agents = await this.deps.repo.listAgentsWithCases(workspaceId);
+    const [runs, recent] = await Promise.all([
+      this.deps.repo.listFinishedRunsPerAgent(
+        workspaceId,
+        agents.map((a) => a.agentId),
+        RECALL_SERIES_RUNS,
+      ),
+      this.deps.repo.listRecentRuns(workspaceId, RECENT_RUNS_LIMIT),
+    ]);
+    const byAgent = new Map<string, EvalSetRunRecord[]>();
+    for (const r of runs) {
+      const list = byAgent.get(r.agentId);
+      if (list) list.push(r);
+      else byAgent.set(r.agentId, [r]);
+    }
+    return {
+      agents: agents.map((a) => {
+        const agentRuns = byAgent.get(a.agentId) ?? [];
+        const { latest } = latestAndPrevious(agentRuns);
+        return {
+          agent_id: a.agentId,
+          name: a.name,
+          model: a.model,
+          cases_total: a.casesTotal,
+          latest: latest ? this.toRun(latest) : null,
+          recall_series: recallSeries(agentRuns),
+        };
+      }),
+      recent_runs: recent.map((r) => ({ ...this.toRun(r), agent_name: r.agentName })),
+    };
+  }
+
+  async agentDashboard(workspaceId: string, agentId: string): Promise<EvalAgentDashboard> {
+    const agent = await this.requireAgent(workspaceId, agentId);
+    const [finished, tableRuns, casesTotal] = await Promise.all([
+      // Finished runs filtered in SQL so older ones are not hidden by newer failed/running rows.
+      this.deps.repo.listFinishedRunsPerAgent(workspaceId, [agentId], AGENT_TREND_RUNS_LIMIT),
+      this.deps.repo.listRunSummaries(workspaceId, {
+        agentIds: [agentId],
+        limit: AGENT_RUN_TABLE_LIMIT,
+      }),
+      this.deps.repo.countCases(workspaceId, agentId),
+    ]);
+    const { latest, previous } = latestAndPrevious(finished);
+    return {
+      agent_id: agent.id,
+      name: agent.name,
+      model: agent.model,
+      cases_total: casesTotal,
+      latest: latest ? this.toRun(latest) : null,
+      previous: previous ? this.toRun(previous) : null,
+      trend: trendPoints(finished),
+      runs: tableRuns.map((r) => this.toRun(r)),
+    };
   }
 
   /** Boot reaping: runs left `running` by a dead process. */

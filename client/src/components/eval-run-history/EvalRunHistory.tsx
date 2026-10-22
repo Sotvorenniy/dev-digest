@@ -48,6 +48,8 @@ export function EvalRunHistory({ runs, agentName }: { runs: EvalSetRun[]; agentN
               <th style={s.th}>{t("compare.colStatus")}</th>
               <th style={s.th}>{t("compare.colPassed")}</th>
               <th style={s.th}>{t("compare.colRecall")}</th>
+              <th style={s.th}>{t("compare.colPrecision")}</th>
+              <th style={s.th}>{t("compare.colCitation")}</th>
               <th style={s.th}>{t("compare.colCost")}</th>
             </tr>
           </thead>
@@ -68,10 +70,12 @@ export function EvalRunHistory({ runs, agentName }: { runs: EvalSetRun[]; agentN
                   )}
                 </td>
                 <td style={s.td} title={`v${r.agent_version}`}>{`v${r.agent_version}`}</td>
-                <td style={s.td} title={when(r.started_at)}>{when(r.started_at)}</td>
+                <td style={s.td} title={when(r.finished_at ?? r.started_at)}>{when(r.finished_at ?? r.started_at)}</td>
                 <td style={s.td}>{t(`runStatus.${r.status}`)}</td>
                 <td style={s.td}>{`${r.cases_passed} / ${r.cases_total}`}</td>
                 <td style={s.td}>{formatPct(r.recall)}</td>
+                <td style={s.td}>{formatPct(r.precision)}</td>
+                <td style={s.td}>{formatPct(r.citation_accuracy)}</td>
                 <td style={s.td}>{formatCost(r.cost_usd)}</td>
               </tr>
             ))}

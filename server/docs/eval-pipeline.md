@@ -23,6 +23,8 @@ tolerant parser so a `POST` with `content-type: application/json` and an empty b
 | `POST /agents/:id/eval-runs` | `202` `EvalSetRun` (status `running`) | per-route limit 10/min (`EVAL_RUN_RATE_LIMIT`) |
 | `GET /agents/:id/eval-runs` | `EvalSetRun[]` | newest first, last 20 (`EVAL_RUN_HISTORY_LIMIT`) |
 | `GET /eval-runs/:id` | `EvalSetRunDetail` | adds `system_prompt` and per-case `results` |
+| `GET /eval/dashboard` | `EvalWorkspaceDashboard` | SPEC-07; read-only, global rate limit only (see "Dashboard reads") |
+| `GET /agents/:id/eval-dashboard` | `EvalAgentDashboard` | SPEC-07; read-only, `404 not_found` for an unknown agent |
 
 Domain errors (`domain.ts`, all `AppError`):
 
@@ -204,6 +206,60 @@ provider-key check are bound closures there.
 3 `must_not_flag`, each with its own fake-secret patch), idempotent by owner and name, and called
 outside the `if (!pr)` block of `seed.ts` so it also reaches an already-seeded DB.
 
+## Explanation: dashboard reads (SPEC-07)
+
+Spec: `specs/2026-10-22-eval-dashboard.md`. Plan: `.claude/plans/eval-dashboard.md`. Two read-only
+routes in the same module (`routes.ts:111-127`) feed the `/eval` and `/eval/agents/[agentId]`
+pages. No new table, index or migration; scoring and run execution are unchanged. Contracts
+`EvalAgentSummary`, `EvalRecentRun`, `EvalWorkspaceDashboard`, `EvalMetricPoint`,
+`EvalAgentDashboard` are appended to `contracts/eval.ts` in both shared copies. Responses are
+fresh (never re-parsed from stored JSON), so `latest` and the metrics are `.nullable()`.
+
+```mermaid
+flowchart LR
+  W["GET /eval/dashboard"] --> S1["EvalService.workspaceDashboard"]
+  A["GET /agents/:id/eval-dashboard"] --> S2["EvalService.agentDashboard"]
+  S1 --> R1["listAgentsWithCases"]
+  S1 --> R2["listFinishedRunsPerAgent (10 per agent)"]
+  S1 --> R3["listRecentRuns (10, any status)"]
+  S2 --> R4["listRunSummaries (newest 100)"]
+  S2 --> R5["countCases"]
+  R2 --> D["domain: latestAndPrevious, recallSeries"]
+  R4 --> D2["domain: latestAndPrevious, trendPoints"]
+```
+
+### Selection rules (`domain.ts:206-257`)
+
+Pure functions over runs sorted newest first.
+
+- Finished for metrics = `done` or `partial` (`isFinishedForMetrics`). `running` has no metrics
+  and `failed` never counts as latest, so an agent with only failed runs has `latest: null`.
+- `latestAndPrevious`: the first two finished runs.
+- `recallSeries` (workspace route): recall of the newest 10 finished runs (`RECALL_SERIES_RUNS`),
+  oldest first, runs with null recall dropped.
+- `trendPoints` (agent route): every finished run in the window, chronological, null metrics kept
+  on the wire (the client drops them per series).
+- Sort key everywhere is `coalesce(finished_at, started_at) desc, id desc` (`runSortKey`,
+  `repository.ts:99`), so a running run sorts by its start.
+
+### Bounded reads (`repository.ts:324-407`)
+
+Every dashboard read selects only metric columns (`runSummaryColumns`; no `results`,
+`system_prompt` or `case_set` jsonb) and is bounded.
+
+| Method | Bound |
+|---|---|
+| `listAgentsWithCases` | one grouped query; inner join `agents` on `eval_cases.owner_id` with `owner_kind = 'agent'`, so agents without cases are absent; ordered by name |
+| `listFinishedRunsPerAgent(ws, agentIds, perAgent)` | one query for all agents: `row_number() over (partition by agent_id order by runSortKey desc, id desc)` over `done`/`partial` runs, keeps `rn <= perAgent`. Returns `[]` for no agents. This is the window read: cost is `agents x 10` rows, not the full run history |
+| `listRecentRuns(ws, limit)` | newest 10 runs of any status (running included), inner join `agents` for `agent_name` |
+| `listRunSummaries(ws, { agentIds?, limit? })` | per-agent route passes `limit = AGENT_TREND_RUNS_LIMIT` (100) |
+
+`agentDashboard` reads the newest 100 runs of any status, derives `latest`/`previous`/`trend`
+from the finished ones, and returns the first 20 (`AGENT_RUN_TABLE_LIMIT`, equal to
+`EVAL_RUN_HISTORY_LIMIT`) as `runs`, running included. `cases_total` comes from `countCases` and
+may be 0 (the page shows its own state). `trend` therefore covers finished runs within the newest
+100 runs, not the full history.
+
 ## How-to: run `verify:l06`
 
 `server/package.json` defines `verify:l06`: it runs `eval-domain`, `eval-service`, `eval-contracts`,
@@ -236,7 +292,31 @@ Client-side behaviour is summarised here because it is one feature end to end.
   helpers in `client/src/lib/eval-metrics.ts` (percent formatting, point deltas, latest and
   previous finished run). Strings are in `client/messages/en/eval.json`.
 
+### Eval Dashboard pages (SPEC-07)
+
+| Route | Files | Data |
+|---|---|---|
+| `/eval` | `client/src/app/eval/page.tsx` -> `_components/EvalDashboardView/` (`AgentEvalRow`, `RecentEvalRuns`) | `useEvalDashboard` |
+| `/eval/agents/[agentId]` | `client/src/app/eval/agents/[agentId]/page.tsx` -> `_components/AgentEvalView/` (`EvalTrend`) | `useAgentEvalDashboard(agentId)`, `useStartEvalRun` |
+
+- Sidebar: SKILLS LAB item `{ key: "eval", label: "Eval Dashboard", icon: "Gauge", href: "/eval" }`
+  (`client/src/vendor/ui/nav.ts:36`). `NavItem` sets `aria-current="page"` on the active item
+  (`client/src/vendor/ui/shell/NavItem.tsx:23`). `/eval/...` resolves to the `eval` active key via
+  `startsWith("/eval")` in `client/src/components/app-shell/helpers.ts`.
+- Hooks (`client/src/lib/hooks/eval.ts:72-87`): `useEvalDashboard` (key `["eval-dashboard"]`,
+  `refetchOnWindowFocus: true`); `useAgentEvalDashboard` (key `["eval-dashboard", agentId]`,
+  polls every 4 s while `runs[0].status === "running"`). `useStartEvalRun` also invalidates
+  `["eval-dashboard"]` (line 66).
+- Reuses `EvalMetricCards` and `EvalRunHistory` (Compare) from `client/src/components/`.
+
 ## Gaps
+
+- SPEC-07: the sidebar icon is `Gauge` (code), the plan said `FlaskConical`. Cosmetic.
+- SPEC-07: the plan's `listRecentRuns`/`listRunSummaries` were implemented as planned, plus an
+  added `listFinishedRunsPerAgent` window read and a `countCases` call, and `AGENT_TREND_RUNS_LIMIT`
+  (100) that the plan did not name. The 100-run trend window is a code decision, not in the spec.
+- SPEC-07 client views were not read line by line for this page; the table above is from file
+  names, hook code and the plan.
 
 - No gaps to the plan were found in the read sources, but the client files were not read
   line by line for this page; the Client surface section is a summary from names and plan.

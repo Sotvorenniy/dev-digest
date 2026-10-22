@@ -1,6 +1,6 @@
 # Spec: Eval Dashboard
 Spec ID: SPEC-07
-Status: approved
+Status: implemented
 Supersedes: None
 Modules: server, client
 

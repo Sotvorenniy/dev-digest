@@ -331,6 +331,7 @@ export class Container {
           if (!a) return undefined;
           return {
             id: a.id,
+            name: a.name,
             version: a.version,
             provider: a.provider,
             model: a.model,

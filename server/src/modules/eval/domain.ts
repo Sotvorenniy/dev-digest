@@ -9,6 +9,7 @@ import type {
   EvalSetRunStatus,
 } from '@devdigest/shared';
 import { AppError } from '../../platform/errors.js';
+import { RECALL_SERIES_RUNS } from './constants.js';
 
 /**
  * Eval domain rules — pure functions, no I/O, no runtime zod. All scoring runs in
@@ -200,4 +201,57 @@ export function scoreRun(results: EvalCaseResult[], mustFindItemTotal?: number):
     citation_accuracy: ratio(keptCount, keptCount + droppedCount),
     status,
   };
+}
+
+// ---- Dashboard selection ---------------------------------------------------
+
+/** The run fields the dashboard rules read. */
+export interface DashboardRun {
+  id: string;
+  status: EvalSetRunStatus;
+  startedAt: Date;
+  finishedAt: Date | null;
+  recall: number | null;
+  precision: number | null;
+  citationAccuracy: number | null;
+}
+
+/** `done` and `partial` carry metrics; `running` has none yet and `failed` never counts as latest. */
+export function isFinishedForMetrics(run: Pick<DashboardRun, 'status'>): boolean {
+  return run.status === 'done' || run.status === 'partial';
+}
+
+/** Runs are newest first. */
+export function latestAndPrevious<T extends DashboardRun>(runs: T[]): { latest: T | null; previous: T | null } {
+  const finished = runs.filter(isFinishedForMetrics);
+  return { latest: finished[0] ?? null, previous: finished[1] ?? null };
+}
+
+/** Recall of the newest `n` finished runs, oldest to newest; runs with null recall are dropped. */
+export function recallSeries(runs: DashboardRun[], n: number = RECALL_SERIES_RUNS): number[] {
+  return runs
+    .filter(isFinishedForMetrics)
+    .slice(0, n)
+    .reverse()
+    .flatMap((r) => (r.recall === null ? [] : [r.recall]));
+}
+
+/** Every finished run in chronological order; null metrics are kept. */
+export function trendPoints(runs: DashboardRun[]): Array<{
+  run_id: string;
+  finished_at: string;
+  recall: number | null;
+  precision: number | null;
+  citation_accuracy: number | null;
+}> {
+  return runs
+    .filter(isFinishedForMetrics)
+    .reverse()
+    .map((r) => ({
+      run_id: r.id,
+      finished_at: (r.finishedAt ?? r.startedAt).toISOString(),
+      recall: r.recall,
+      precision: r.precision,
+      citation_accuracy: r.citationAccuracy,
+    }));
 }

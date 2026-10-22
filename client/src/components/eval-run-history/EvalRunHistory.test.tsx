@@ -118,7 +118,7 @@ describe("EvalRunHistory selection", () => {
   it("row cells carry a title with the full version and time", () => {
     renderHistory([OLD]);
     expect(screen.getByText("v1")).toHaveAttribute("title", "v1");
-    expect(screen.getByText(when(OLD.started_at))).toHaveAttribute("title", when(OLD.started_at));
+    expect(screen.getByText(when(OLD.finished_at!))).toHaveAttribute("title", when(OLD.finished_at!));
   });
 });
 

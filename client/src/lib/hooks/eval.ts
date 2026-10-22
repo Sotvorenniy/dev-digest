@@ -4,7 +4,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { EvalCase, EvalSetRun, EvalSetRunDetail } from "@devdigest/shared";
+import { isNewestRunning } from "../eval-metrics";
+import type {
+  EvalAgentDashboard,
+  EvalCase,
+  EvalSetRun,
+  EvalSetRunDetail,
+  EvalWorkspaceDashboard,
+} from "@devdigest/shared";
 
 export function useEvalCases(agentId: string | null | undefined) {
   return useQuery({
@@ -46,7 +53,7 @@ export function useEvalRuns(agentId: string | null | undefined) {
     queryKey: ["eval-runs", agentId],
     queryFn: () => api.get<EvalSetRun[]>(`/agents/${agentId}/eval-runs`),
     enabled: !!agentId,
-    refetchInterval: (query) => (query.state.data?.[0]?.status === "running" ? 4000 : false),
+    refetchInterval: (query) => (isNewestRunning(query.state.data) ? 4000 : false),
   });
 }
 
@@ -57,7 +64,28 @@ export function useStartEvalRun(agentId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["eval-runs", agentId] });
       qc.invalidateQueries({ queryKey: ["eval-cases", agentId] });
+      qc.invalidateQueries({ queryKey: ["eval-dashboard"] });
     },
+  });
+}
+
+/** Workspace Eval Dashboard (SPEC-07): agents with cases + the newest runs. */
+export function useEvalDashboard() {
+  return useQuery({
+    queryKey: ["eval-dashboard"],
+    queryFn: () => api.get<EvalWorkspaceDashboard>("/eval/dashboard"),
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** One agent's dashboard. Polls while the newest run is running; no retry so a 404 shows at once. */
+export function useAgentEvalDashboard(agentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["eval-dashboard", agentId],
+    queryFn: () => api.get<EvalAgentDashboard>(`/agents/${agentId}/eval-dashboard`),
+    enabled: !!agentId,
+    retry: false,
+    refetchInterval: (query) => (isNewestRunning(query.state.data?.runs) ? 4000 : false),
   });
 }
 

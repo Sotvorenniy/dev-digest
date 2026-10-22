@@ -13,6 +13,7 @@ import type {
   EvalAgent,
   EvalCaseRecord,
   EvalFindingSource,
+  EvalRecentRunRecord,
   EvalRepositoryPort,
   EvalSetRunRecord,
 } from '../src/modules/eval/ports.js';
@@ -44,6 +45,7 @@ const caseRec = (id: string, type: 'must_find' | 'must_not_flag' = 'must_find'):
 
 const AGENT: EvalAgent = {
   id: 'a1',
+  name: 'Agent One',
   version: 3,
   provider: 'openrouter',
   model: 'm/x',
@@ -76,6 +78,10 @@ interface Opts {
   agents?: EvalAgent[];
   llmFactoryThrows?: boolean;
   timeoutMs?: number;
+  /** Seeded run rows served by the dashboard reads (any status, any order). */
+  seedRuns?: EvalSetRunRecord[];
+  /** Agents-with-cases served by `listAgentsWithCases`. */
+  casesAgents?: { agentId: string; name: string; model: string; casesTotal: number }[];
 }
 
 function setup(o: Opts = {}) {
@@ -85,6 +91,13 @@ function setup(o: Opts = {}) {
   const logs: { level: string; obj: unknown; msg?: string }[] = [];
   const llmState = { calls: 0, requests: [] as Record<string, unknown>[] };
   const inserted: unknown[] = [];
+  const dashCalls = {
+    perAgent: [] as { agentIds: string[]; perAgent: number }[],
+    summaries: [] as { agentIds?: string[]; limit?: number }[],
+    recent: [] as number[],
+  };
+  const sortKey = (r: EvalSetRunRecord) => (r.finishedAt ?? r.startedAt).getTime();
+  const newestFirst = (a: EvalSetRunRecord, b: EvalSetRunRecord) => sortKey(b) - sortKey(a);
 
   const repo: EvalRepositoryPort = {
     findFindingSource: async () =>
@@ -156,6 +169,35 @@ function setup(o: Opts = {}) {
     listRuns: async () => [...runs.values()],
     latestCaseStatuses: async () => new Map([['c1', 'pass' as const]]),
     failRunningRuns: async () => 2,
+    listAgentsWithCases: async () => o.casesAgents ?? [],
+    listRunSummaries: async (_w, opts) => {
+      dashCalls.summaries.push({ agentIds: opts?.agentIds, limit: opts?.limit });
+      const rows = (o.seedRuns ?? [])
+        .filter((r) => !opts?.agentIds || opts.agentIds.includes(r.agentId))
+        .sort(newestFirst);
+      return opts?.limit === undefined ? rows : rows.slice(0, opts.limit);
+    },
+    listFinishedRunsPerAgent: async (_w, agentIds, perAgent) => {
+      dashCalls.perAgent.push({ agentIds, perAgent });
+      const out: EvalSetRunRecord[] = [];
+      for (const id of agentIds) {
+        out.push(
+          ...(o.seedRuns ?? [])
+            .filter((r) => r.agentId === id && (r.status === 'done' || r.status === 'partial'))
+            .sort(newestFirst)
+            .slice(0, perAgent),
+        );
+      }
+      return out.sort(newestFirst);
+    },
+    listRecentRuns: async (_w, limit) => {
+      dashCalls.recent.push(limit);
+      const names = new Map((o.casesAgents ?? []).map((a) => [a.agentId, a.name]));
+      return [...(o.seedRuns ?? [])]
+        .sort(newestFirst)
+        .slice(0, limit)
+        .map((r): EvalRecentRunRecord => ({ ...r, agentName: names.get(r.agentId) ?? 'unknown' }));
+    },
   };
 
   const provider = {
@@ -203,6 +245,7 @@ function setup(o: Opts = {}) {
     completed,
     runs,
     inserted,
+    dashCalls,
     removeCase: (id: string) => {
       cases = cases.filter((c) => c.id !== id);
     },
@@ -403,5 +446,190 @@ describe('EvalService.createCaseFromFinding', () => {
   it('an unknown finding is 404', async () => {
     const s = setup({ source: null });
     await expect(s.svc.createCaseFromFinding('w1', 'f1', undefined, opts(s))).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+// ---- dashboards (read-only) --------------------------------------------------
+
+const T0 = Date.UTC(2026, 9, 1);
+let runSeq = 0;
+/** A stored run summary; `at` is minutes after T0 and is the finish time (start 1 min earlier). */
+const runRec = (agentId: string, at: number, over: Partial<EvalSetRunRecord> = {}): EvalSetRunRecord => ({
+  id: `r${++runSeq}`,
+  workspaceId: 'w1',
+  agentId,
+  agentVersion: 2,
+  provider: 'openrouter',
+  model: 'm/x',
+  strategy: 'single-pass',
+  systemPrompt: SECRET_PROMPT,
+  status: 'done',
+  error: null,
+  startedAt: new Date(T0 + (at - 1) * 60_000),
+  finishedAt: new Date(T0 + at * 60_000),
+  casesTotal: 4,
+  casesPassed: 3,
+  casesErrored: 0,
+  recall: 0.5,
+  precision: 0.6,
+  citationAccuracy: 0.7,
+  costUsd: 0.01,
+  durationMs: 1000,
+  results: [],
+  ...over,
+});
+
+const CA = { agentId: 'a1', name: 'Agent One', model: 'm/x', casesTotal: 4 };
+const CB = { agentId: 'a2', name: 'Agent Two', model: 'm/y', casesTotal: 2 };
+
+describe('EvalService.workspaceDashboard', () => {
+  it('lists the agents the repo returns with cases_total and the stored latest run values', async () => {
+    const s = setup({
+      casesAgents: [CA, CB],
+      seedRuns: [runRec('a1', 10, { recall: 0.9, precision: 0.8, citationAccuracy: 0.7, casesPassed: 3 })],
+    });
+    const d = await s.svc.workspaceDashboard('w1');
+    expect(d.agents.map((a) => a.agent_id)).toEqual(['a1', 'a2']);
+    expect(d.agents[0]).toMatchObject({
+      name: 'Agent One',
+      model: 'm/x',
+      cases_total: 4,
+      latest: { agent_id: 'a1', recall: 0.9, precision: 0.8, citation_accuracy: 0.7, cases_passed: 3, status: 'done' },
+    });
+    expect(d.agents[0]!.latest!.finished_at).toBe(new Date(T0 + 10 * 60_000).toISOString());
+  });
+
+  it('gives latest null and an empty series with no finished run, never treating failed/running as latest', async () => {
+    const s = setup({
+      casesAgents: [CA, CB],
+      seedRuns: [
+        runRec('a1', 20, { status: 'failed', recall: null }),
+        runRec('a1', 21, { status: 'running', finishedAt: null, recall: null }),
+        runRec('a2', 5, { recall: 0.4 }),
+        runRec('a2', 30, { status: 'failed', recall: null }),
+      ],
+    });
+    const d = await s.svc.workspaceDashboard('w1');
+    const a1 = d.agents.find((a) => a.agent_id === 'a1')!;
+    const a2 = d.agents.find((a) => a.agent_id === 'a2')!;
+    expect(a1.latest).toBeNull();
+    expect(a1.recall_series).toEqual([]);
+    expect(a2.latest!.recall).toBe(0.4);
+    expect(a2.recall_series).toEqual([0.4]);
+  });
+
+  it('asks the repo for 10 finished runs per agent; series is oldest first with null recalls dropped', async () => {
+    const seed = Array.from({ length: 12 }, (_, i) => runRec('a1', i + 1, { recall: (i + 1) / 100 }));
+    seed.push(runRec('a1', 6.5, { recall: null, status: 'partial' }));
+    const s = setup({ casesAgents: [CA], seedRuns: seed });
+    const d = await s.svc.workspaceDashboard('w1');
+    expect(s.dashCalls.perAgent).toEqual([{ agentIds: ['a1'], perAgent: 10 }]);
+    // 13 finished rows; the newest 10 are minutes 12..6, 6.5 (null, dropped), 5, 4
+    expect(d.agents[0]!.recall_series).toEqual([0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12]);
+  });
+
+  it('returns recent_runs with agent_name in repo order, requesting 10, running rows included', async () => {
+    const s = setup({
+      casesAgents: [CA, CB],
+      seedRuns: [
+        runRec('a1', 1),
+        runRec('a2', 3, { status: 'running', finishedAt: null, startedAt: new Date(T0 + 99 * 60_000) }),
+        runRec('a1', 2),
+      ],
+    });
+    const d = await s.svc.workspaceDashboard('w1');
+    expect(s.dashCalls.recent).toEqual([10]);
+    expect(d.recent_runs.map((r) => [r.agent_name, r.status])).toEqual([
+      ['Agent Two', 'running'],
+      ['Agent One', 'done'],
+      ['Agent One', 'done'],
+    ]);
+  });
+
+  it('never leaks system_prompt or results onto the wire', async () => {
+    const s = setup({ casesAgents: [CA], seedRuns: [runRec('a1', 1)] });
+    const text = JSON.stringify(await s.svc.workspaceDashboard('w1'));
+    expect(text).not.toContain(SECRET_PROMPT);
+    expect(text).not.toContain('system_prompt');
+  });
+
+  it('returns empty lists when no agent has cases', async () => {
+    const s = setup({ casesAgents: [], seedRuns: [] });
+    expect(await s.svc.workspaceDashboard('w1')).toEqual({ agents: [], recent_runs: [] });
+  });
+});
+
+describe('EvalService.agentDashboard', () => {
+  it('throws a 404 for an unknown agent', async () => {
+    const s = setup();
+    await expect(s.svc.agentDashboard('w1', 'nope')).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('sets name, model, cases_total and picks latest/previous among finished runs only', async () => {
+    const s = setup({
+      cases: [caseRec('c1'), caseRec('c2'), caseRec('c3')],
+      seedRuns: [
+        runRec('a1', 1, { recall: 0.1 }),
+        runRec('a1', 2, { recall: 0.2, status: 'partial' }),
+        runRec('a1', 3, { status: 'failed', recall: null }),
+        runRec('a1', 4, { status: 'running', finishedAt: null, recall: null }),
+        runRec('a2', 9, { recall: 0.9 }),
+      ],
+    });
+    const d = await s.svc.agentDashboard('w1', 'a1');
+    expect(d).toMatchObject({ agent_id: 'a1', name: 'Agent One', model: 'm/x', cases_total: 3 });
+    expect(d.latest!.recall).toBe(0.2);
+    expect(d.latest!.status).toBe('partial');
+    expect(d.previous!.recall).toBe(0.1);
+    expect(s.dashCalls.perAgent).toEqual([{ agentIds: ['a1'], perAgent: 100 }]);
+    expect(s.dashCalls.summaries).toEqual([{ agentIds: ['a1'], limit: 20 }]);
+  });
+
+  it('keeps latest/previous/trend when the newest runs are all failed or running but older finished runs exist', async () => {
+    const seed = [
+      runRec('a1', 1, { recall: 0.3 }),
+      runRec('a1', 2, { recall: 0.6 }),
+      ...Array.from({ length: 25 }, (_, i) => runRec('a1', 10 + i, { status: 'failed', recall: null })),
+      runRec('a1', 99, { status: 'running', finishedAt: null, recall: null }),
+    ];
+    const s = setup({ seedRuns: seed });
+    const d = await s.svc.agentDashboard('w1', 'a1');
+    expect(d.latest!.recall).toBe(0.6);
+    expect(d.previous!.recall).toBe(0.3);
+    expect(d.trend.map((p) => p.recall)).toEqual([0.3, 0.6]);
+    expect(d.runs).toHaveLength(20);
+    expect(d.runs.every((r) => r.status === 'failed' || r.status === 'running')).toBe(true);
+  });
+
+  it('has trend chronological over finished runs only, and runs newest first capped at 20 (failed included)', async () => {
+    const seed = Array.from({ length: 25 }, (_, i) => runRec('a1', i + 1, { recall: (i + 1) / 100 }));
+    seed.push(runRec('a1', 40, { status: 'failed', recall: null }));
+    const s = setup({ seedRuns: seed });
+    const d = await s.svc.agentDashboard('w1', 'a1');
+    expect(d.trend).toHaveLength(25);
+    expect(d.trend.map((p) => p.recall)).toEqual(Array.from({ length: 25 }, (_, i) => (i + 1) / 100));
+    expect(d.runs).toHaveLength(20);
+    expect(d.runs[0]!.status).toBe('failed');
+    expect(d.runs[1]!.recall).toBe(0.25);
+  });
+
+  it('gives null latest/previous and an empty trend with only failed runs; keeps null metrics in trend', async () => {
+    const s = setup({ seedRuns: [runRec('a1', 1, { status: 'failed', recall: null })] });
+    const d = await s.svc.agentDashboard('w1', 'a1');
+    expect(d.latest).toBeNull();
+    expect(d.previous).toBeNull();
+    expect(d.trend).toEqual([]);
+    expect(d.runs).toHaveLength(1);
+
+    const s2 = setup({ seedRuns: [runRec('a1', 1, { recall: null, precision: null })] });
+    const d2 = await s2.svc.agentDashboard('w1', 'a1');
+    expect(d2.trend[0]).toMatchObject({ recall: null, precision: null, citation_accuracy: 0.7 });
+    expect(d2.previous).toBeNull();
+  });
+
+  it('allows cases_total 0 with no runs', async () => {
+    const s = setup({ cases: [] });
+    const d = await s.svc.agentDashboard('w1', 'a1');
+    expect(d).toMatchObject({ cases_total: 0, latest: null, previous: null, trend: [], runs: [] });
   });
 });

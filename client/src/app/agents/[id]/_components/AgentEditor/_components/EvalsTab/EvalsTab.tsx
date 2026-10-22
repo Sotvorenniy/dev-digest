@@ -9,9 +9,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EvalMetricCards } from "@/components/eval-metric-cards";
 import { EvalRunHistory } from "@/components/eval-run-history";
 import { useDeleteEvalCase, useEvalCases, useEvalRuns, useStartEvalRun } from "@/lib/hooks";
-import { latestFinished, previousFinished } from "@/lib/eval-metrics";
-import { API_KEYS_HREF, METRIC_KEYS } from "./constants";
-import { erroredCases, isRunning, passingCount, startErrorKey } from "./helpers";
+import { isNewestRunning, latestFinished, previousFinished } from "@/lib/eval-metrics";
+import { API_KEYS_HREF, startErrorKey } from "@/lib/eval-errors";
+import { METRIC_KEYS } from "./constants";
+import { erroredCases, passingCount } from "./helpers";
 import { s } from "./styles";
 import { EvalCaseRow } from "./_components/EvalCaseRow";
 
@@ -26,7 +27,7 @@ export function EvalsTab({ agent }: { agent: Agent }) {
 
   const caseList = cases.data ?? [];
   const runList = runs.data ?? [];
-  const running = isRunning(runs.data);
+  const running = isNewestRunning(runs.data);
   const latest = latestFinished(runs.data);
   const errored = erroredCases(runList[0]);
   const errorKey = start.isError ? startErrorKey(start.error) : null;

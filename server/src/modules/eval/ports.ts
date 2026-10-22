@@ -91,6 +91,19 @@ export interface EvalSetRunRecord {
   results: EvalCaseResult[];
 }
 
+/** A run summary (no `results` / `systemPrompt`) joined to its agent's name. */
+export interface EvalRecentRunRecord extends EvalSetRunRecord {
+  agentName: string;
+}
+
+/** An agent that owns at least one eval case. */
+export interface EvalAgentCaseCount {
+  agentId: string;
+  name: string;
+  model: string;
+  casesTotal: number;
+}
+
 export interface StartEvalRun {
   workspaceId: string;
   agentId: string;
@@ -136,12 +149,28 @@ export interface EvalRepositoryPort {
   listRuns(workspaceId: string, agentId: string, limit: number): Promise<EvalSetRunRecord[]>;
   /** Each case's most recent result across the agent's finished runs. */
   latestCaseStatuses(workspaceId: string, agentId: string): Promise<Map<string, 'pass' | 'fail' | 'error'>>;
+  /** Agents with at least one case, with their case counts; agents without cases are excluded. */
+  listAgentsWithCases(workspaceId: string): Promise<EvalAgentCaseCount[]>;
+  /** Summary runs (no `results` / `systemPrompt`), newest first by finish-or-start time. */
+  listRunSummaries(
+    workspaceId: string,
+    opts?: { agentIds?: string[]; limit?: number },
+  ): Promise<EvalSetRunRecord[]>;
+  /** Each agent's newest `perAgent` finished (`done`/`partial`) summary runs, newest first overall. */
+  listFinishedRunsPerAgent(
+    workspaceId: string,
+    agentIds: string[],
+    perAgent: number,
+  ): Promise<EvalSetRunRecord[]>;
+  /** Newest runs across the workspace with the agent name, newest first. */
+  listRecentRuns(workspaceId: string, limit: number): Promise<EvalRecentRunRecord[]>;
   /** Marks every `running` run `failed` with `reason`; returns how many. */
   failRunningRuns(reason: string): Promise<number>;
 }
 
 export interface EvalAgent {
   id: string;
+  name: string;
   version: number;
   provider: Provider;
   model: string;

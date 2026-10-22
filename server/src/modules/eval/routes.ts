@@ -1,7 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { CreateEvalCaseBody, EvalCase, EvalSetRun, EvalSetRunDetail } from '@devdigest/shared';
+import {
+  CreateEvalCaseBody,
+  EvalAgentDashboard,
+  EvalCase,
+  EvalSetRun,
+  EvalSetRunDetail,
+  EvalWorkspaceDashboard,
+} from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { EVAL_RUN_RATE_LIMIT } from './constants.js';
@@ -14,6 +21,8 @@ import { EVAL_RUN_RATE_LIMIT } from './constants.js';
  *   POST   /agents/:id/eval-runs   → run the agent over all its cases (202, async)
  *   GET    /agents/:id/eval-runs   → run history, newest first
  *   GET    /eval-runs/:id          → one run with per-case results
+ *   GET    /eval/dashboard         → agents with cases, latest scores, recall series, recent runs
+ *   GET    /agents/:id/eval-dashboard → one agent's cards, trend and run table (404 unknown agent)
  */
 export default async function evalRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -96,6 +105,24 @@ export default async function evalRoutes(appBase: FastifyInstance) {
     async (req): Promise<EvalSetRun[]> => {
       const { workspaceId } = await getContext(container, req);
       return service.listRuns(workspaceId, req.params.id);
+    },
+  );
+
+  app.get(
+    '/eval/dashboard',
+    { schema: { response: { 200: EvalWorkspaceDashboard } } },
+    async (req): Promise<EvalWorkspaceDashboard> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.workspaceDashboard(workspaceId);
+    },
+  );
+
+  app.get(
+    '/agents/:id/eval-dashboard',
+    { schema: { params: IdParams, response: { 200: EvalAgentDashboard } } },
+    async (req): Promise<EvalAgentDashboard> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.agentDashboard(workspaceId, req.params.id);
     },
   );
 

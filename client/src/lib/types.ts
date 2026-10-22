@@ -44,6 +44,7 @@ export type { PrIntentRecord, IntentSource, IntentChangeType, IntentBasis } from
 export type { AgentPerf, AgentPerfRow, PerfCostSegment, PerfCostSegmentKind, PerfPeriod, PerfMostActive, PerfSeriesPoint, AgentStats } from "@devdigest/shared";
 
 export type { EvalCase, EvalCaseStatus, EvalCaseResult, EvalExpectationType, EvalSetRun, EvalSetRunStatus, EvalSetRunDetail } from "@devdigest/shared";
+export type { EvalAgentSummary, EvalRecentRun, EvalWorkspaceDashboard, EvalMetricPoint, EvalAgentDashboard } from "@devdigest/shared";
 
 /** UI-only view model for a PR list row (derives display fields from PrMeta). */
 export interface PrRowView {

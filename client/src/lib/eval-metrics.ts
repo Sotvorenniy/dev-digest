@@ -18,6 +18,11 @@ export function previousFinished(runs: readonly EvalSetRun[] | undefined): EvalS
   return (runs ?? []).filter(isFinished)[1] ?? null;
 }
 
+/** The newest run (first, server order) is the only one that can be in flight. */
+export function isNewestRunning(runs: readonly EvalSetRun[] | undefined): boolean {
+  return runs?.[0]?.status === "running";
+}
+
 export function formatPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return DASH;
   return `${Math.round(v * 100)}%`;

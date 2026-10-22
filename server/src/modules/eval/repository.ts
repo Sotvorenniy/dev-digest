@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import type { EvalCaseResult, EvalExpectedOutput, EvalInputMeta, UnifiedDiff } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
@@ -7,7 +7,9 @@ import { EVAL_RUN_HISTORY_LIMIT } from './constants.js';
 import { EvalCaseConflictError, EvalRunActiveError } from './domain.js';
 import type {
   CompleteEvalRun,
+  EvalAgentCaseCount,
   EvalCaseRecord,
+  EvalRecentRunRecord,
   EvalFindingSource,
   EvalRepositoryPort,
   EvalSetRunRecord,
@@ -44,7 +46,11 @@ function toCaseRecord(row: CaseRow, decision: FindingDecision): EvalCaseRecord {
   };
 }
 
-function toRunRecord(row: RunRow): EvalSetRunRecord {
+type RunSummaryRow = Omit<RunRow, 'systemPrompt' | 'results' | 'caseSet'>;
+
+function toRunRecord(
+  row: RunSummaryRow & Partial<Pick<RunRow, 'systemPrompt' | 'results'>>,
+): EvalSetRunRecord {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
@@ -53,7 +59,7 @@ function toRunRecord(row: RunRow): EvalSetRunRecord {
     provider: row.provider as EvalSetRunRecord['provider'],
     model: row.model,
     strategy: row.strategy,
-    systemPrompt: row.systemPrompt,
+    systemPrompt: row.systemPrompt ?? '',
     status: row.status,
     error: row.error,
     startedAt: row.startedAt,
@@ -68,6 +74,36 @@ function toRunRecord(row: RunRow): EvalSetRunRecord {
     durationMs: row.durationMs,
     results: (row.results as EvalCaseResult[] | null) ?? [],
   };
+}
+
+/** Summary columns only: system_prompt / results / case_set stay out of list reads. */
+const runSummaryColumns = {
+  id: t.evalSetRuns.id,
+  workspaceId: t.evalSetRuns.workspaceId,
+  agentId: t.evalSetRuns.agentId,
+  agentVersion: t.evalSetRuns.agentVersion,
+  provider: t.evalSetRuns.provider,
+  model: t.evalSetRuns.model,
+  strategy: t.evalSetRuns.strategy,
+  status: t.evalSetRuns.status,
+  error: t.evalSetRuns.error,
+  startedAt: t.evalSetRuns.startedAt,
+  finishedAt: t.evalSetRuns.finishedAt,
+  casesTotal: t.evalSetRuns.casesTotal,
+  casesPassed: t.evalSetRuns.casesPassed,
+  casesErrored: t.evalSetRuns.casesErrored,
+  recall: t.evalSetRuns.recall,
+  precision: t.evalSetRuns.precision,
+  citationAccuracy: t.evalSetRuns.citationAccuracy,
+  costUsd: t.evalSetRuns.costUsd,
+  durationMs: t.evalSetRuns.durationMs,
+};
+
+/** A running run sorts by its start; a finished one by its finish. */
+const runSortKey = sql`coalesce(${t.evalSetRuns.finishedAt}, ${t.evalSetRuns.startedAt})`;
+
+function summaryToRecord(r: RunSummaryRow): EvalSetRunRecord {
+  return toRunRecord(r);
 }
 
 /** Postgres unique violation, however the driver wraps it. */
@@ -254,32 +290,12 @@ export class EvalRepository implements EvalRepositoryPort {
   async listRuns(workspaceId: string, agentId: string, limit: number): Promise<EvalSetRunRecord[]> {
     // Summary columns only: system_prompt / results / case_set stay out of the list read.
     const rows = await this.db
-      .select({
-        id: t.evalSetRuns.id,
-        workspaceId: t.evalSetRuns.workspaceId,
-        agentId: t.evalSetRuns.agentId,
-        agentVersion: t.evalSetRuns.agentVersion,
-        provider: t.evalSetRuns.provider,
-        model: t.evalSetRuns.model,
-        strategy: t.evalSetRuns.strategy,
-        status: t.evalSetRuns.status,
-        error: t.evalSetRuns.error,
-        startedAt: t.evalSetRuns.startedAt,
-        finishedAt: t.evalSetRuns.finishedAt,
-        casesTotal: t.evalSetRuns.casesTotal,
-        casesPassed: t.evalSetRuns.casesPassed,
-        casesErrored: t.evalSetRuns.casesErrored,
-        recall: t.evalSetRuns.recall,
-        precision: t.evalSetRuns.precision,
-        citationAccuracy: t.evalSetRuns.citationAccuracy,
-        costUsd: t.evalSetRuns.costUsd,
-        durationMs: t.evalSetRuns.durationMs,
-      })
+      .select(runSummaryColumns)
       .from(t.evalSetRuns)
       .where(and(eq(t.evalSetRuns.workspaceId, workspaceId), eq(t.evalSetRuns.agentId, agentId)))
       .orderBy(desc(t.evalSetRuns.startedAt))
       .limit(limit);
-    return rows.map((r) => toRunRecord({ ...r, systemPrompt: '', results: null } as RunRow));
+    return rows.map(summaryToRecord);
   }
 
   /** Newest-first walk over finished runs; a case keeps the first result seen (R1). */
@@ -307,6 +323,91 @@ export class EvalRepository implements EvalRepositoryPort {
       }
     }
     return out;
+  }
+
+  async listAgentsWithCases(workspaceId: string): Promise<EvalAgentCaseCount[]> {
+    const rows = await this.db
+      .select({
+        agentId: t.agents.id,
+        name: t.agents.name,
+        model: t.agents.model,
+        casesTotal: sql<number>`count(${t.evalCases.id})::int`,
+      })
+      .from(t.evalCases)
+      .innerJoin(t.agents, eq(t.agents.id, t.evalCases.ownerId))
+      .where(
+        and(
+          eq(t.evalCases.workspaceId, workspaceId),
+          eq(t.evalCases.ownerKind, 'agent'),
+          eq(t.agents.workspaceId, workspaceId),
+        ),
+      )
+      .groupBy(t.agents.id, t.agents.name, t.agents.model)
+      .orderBy(t.agents.name, t.agents.id);
+    return rows;
+  }
+
+  async listRunSummaries(
+    workspaceId: string,
+    opts: { agentIds?: string[]; limit?: number } = {},
+  ): Promise<EvalSetRunRecord[]> {
+    if (opts.agentIds && opts.agentIds.length === 0) return [];
+    const query = this.db
+      .select(runSummaryColumns)
+      .from(t.evalSetRuns)
+      .where(
+        and(
+          eq(t.evalSetRuns.workspaceId, workspaceId),
+          opts.agentIds ? inArray(t.evalSetRuns.agentId, opts.agentIds) : undefined,
+        ),
+      )
+      .orderBy(desc(runSortKey), desc(t.evalSetRuns.id));
+    const rows = await (opts.limit === undefined ? query : query.limit(opts.limit));
+    return rows.map(summaryToRecord);
+  }
+
+  async listFinishedRunsPerAgent(
+    workspaceId: string,
+    agentIds: string[],
+    perAgent: number,
+  ): Promise<EvalSetRunRecord[]> {
+    if (agentIds.length === 0) return [];
+    const ranked = this.db
+      .select({
+        ...runSummaryColumns,
+        rn: sql<number>`row_number() over (partition by ${t.evalSetRuns.agentId} order by ${t.evalSetRuns.startedAt} desc, ${t.evalSetRuns.id} desc)`.as(
+          'rn',
+        ),
+      })
+      .from(t.evalSetRuns)
+      .where(
+        and(
+          eq(t.evalSetRuns.workspaceId, workspaceId),
+          inArray(t.evalSetRuns.agentId, agentIds),
+          inArray(t.evalSetRuns.status, ['done', 'partial']),
+        ),
+      )
+      .as('ranked');
+    const rows = await this.db
+      .select()
+      .from(ranked)
+      .where(lte(ranked.rn, perAgent))
+      .orderBy(desc(ranked.startedAt), desc(ranked.id));
+    return rows.map(({ rn: _rn, ...r }) => summaryToRecord(r));
+  }
+
+  async listRecentRuns(workspaceId: string, limit: number): Promise<EvalRecentRunRecord[]> {
+    const rows = await this.db
+      .select({ ...runSummaryColumns, agentName: t.agents.name })
+      .from(t.evalSetRuns)
+      .innerJoin(
+        t.agents,
+        and(eq(t.agents.id, t.evalSetRuns.agentId), eq(t.agents.workspaceId, workspaceId)),
+      )
+      .where(eq(t.evalSetRuns.workspaceId, workspaceId))
+      .orderBy(desc(runSortKey), desc(t.evalSetRuns.id))
+      .limit(limit);
+    return rows.map(({ agentName, ...r }) => ({ ...summaryToRecord(r), agentName }));
   }
 
   async failRunningRuns(reason: string): Promise<number> {
