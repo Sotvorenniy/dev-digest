@@ -19,6 +19,7 @@ export const s = {
   } satisfies CSSProperties,
   resultList: { margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text-secondary)" } satisfies CSSProperties,
   error: { fontSize: 12, color: "var(--danger, #e5484d)" } satisfies CSSProperties,
+  preview: { margin: "8px 0 0", padding: 10, overflow: "auto", maxHeight: 200, fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-surface)", whiteSpace: "pre" } satisfies CSSProperties,
   negative: {
     display: "flex",
     flexDirection: "column",

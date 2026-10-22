@@ -1,3 +1,4 @@
+import { createTwoFilesPatch } from "diff";
 import type { EvalCaseFields, EvalExpectedOutput } from "@devdigest/shared";
 
 /** Light client-side check of the expected-output JSON. The server owns the full schema. */
@@ -42,4 +43,19 @@ export function toFields(
     input_meta: draft.input_meta,
     expected_output: edited.expected,
   };
+}
+
+/** Hunks-only unified diff of `before` → `after`, the shape the eval runner expects (it adds the
+ *  file headers itself). Empty `before` is a new file. Empty string when nothing changed.
+ *  `createTwoFilesPatch` puts `Index:` / `---` / `+++` lines ahead of the first `@@`; they are cut. */
+export function hunkFromTexts(before: string, after: string): string {
+  // A missing final newline would add a "\\ No newline at end of file" marker line to the hunk.
+  // CRLF and lone CR are folded to LF so text pasted from a Windows file diffs line by line.
+  const nl = (raw: string) => {
+    const v = raw.replace(/\r\n?/g, "\n");
+    return v === "" || v.endsWith("\n") ? v : `${v}\n`;
+  };
+  const full = createTwoFilesPatch("a", "b", nl(before), nl(after), "", "");
+  const start = full.indexOf("\n@@");
+  return start === -1 ? "" : full.slice(start + 1).trimEnd();
 }

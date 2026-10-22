@@ -94,12 +94,18 @@
     "invalidExpected": "Expected output must be JSON with type must_find or must_not_flag and an items array.",
     "editTitle": "Edit eval case",
     "editSubtitle": "Changes are saved only when you press Save.",
-    "newSubtitle": "Write a case by hand. Leave the items list empty and choose must_not_flag for a negative case.",
+    "newSubtitle": "Write a case by hand: paste the code before and after the change, and the diff is generated. Leave the items list empty and choose must_not_flag for a negative case.",
     "filePathLabel": "File path",
     "filePathPlaceholder": "src/config.ts",
     "skeleton": "Finding skeleton",
     "negativeTitle": "Negative case",
-    "negativeBody": "must_not_flag: the agent has to stay silent on this diff."
+    "negativeBody": "must_not_flag: the agent has to stay silent on this diff.",
+    "beforeLabel": "Before (leave empty for a new file)",
+    "beforePlaceholder": "const q = db.query(\"SELECT * FROM users WHERE id = \" + id);",
+    "afterLabel": "After",
+    "afterPlaceholder": "const q = db.query(\"SELECT * FROM users WHERE id = $1\", [id]);",
+    "previewDiff": "Preview generated diff",
+    "noChange": "Nothing to show yet. Fill in After, and Before when the file already existed."
   },
   "evalsTab": {
     "metricsTitle": "Eval metrics",

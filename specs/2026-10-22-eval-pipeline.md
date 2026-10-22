@@ -224,8 +224,8 @@ reused by SPEC-07.
   id answers 404)_
 - AC23 (US2). WHEN the user presses "New eval case" in the agent's Evals tab, the client (shall) open
   the case modal empty, with a "Finding skeleton" button that adds a template expected item and a
-  negative-case banner while the expected type is `must_not_flag`, and Save (shall) create a case
-  owned by that agent with no source finding. _(observable: Save sends `POST
+  negative-case banner while the expected type is `must_not_flag`, and the input is typed as Before / After text from which the diff is generated (with a preview), and
+  Save (shall) create a case owned by that agent with no source finding. _(observable: Save sends `POST
   /agents/:id/eval-cases`; the stored `source_finding_id` is null; an unknown agent answers 404;
   Save is disabled until name, file path and diff are filled)_
 - AC24 (US5). WHEN the two compared runs have different system prompts, the Compare dialog (shall)
@@ -632,3 +632,5 @@ manual with the reasons given; NFR10 → review.
   NG2 no longer holds for the case editor itself (still no "Run on save" or Files / PR meta tabs).
 - 2026-10-22 — added AC24: "Promote vN" in the Compare dialog copies the newer run's system prompt onto
   the agent through the existing versioned agent update; NG5 narrowed to model and strategy.
+- 2026-10-22 — AC23: the hand-written case takes Before / After text and generates the diff (hunks only,
+  with a preview) instead of asking for a pasted unified diff.

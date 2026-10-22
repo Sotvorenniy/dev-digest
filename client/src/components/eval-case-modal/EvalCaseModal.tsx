@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button, Modal, Textarea, TextInput } from "@devdigest/ui";
 import type { EvalCaseFields } from "@devdigest/shared";
 import { useRunEvalCaseDraft } from "@/lib/hooks";
-import { parseExpected, toFields, withSkeleton } from "./helpers";
+import { hunkFromTexts, parseExpected, toFields, withSkeleton } from "./helpers";
 import { s } from "./styles";
 
 /** Warm-up and edit step for an eval case: the caller supplies the starting fields, the user can
@@ -37,15 +37,29 @@ export function EvalCaseModal({
 
   const [name, setName] = React.useState(initial.name);
   const [diff, setDiff] = React.useState(initial.input_diff);
+  // A hand-written case is typed as before / after text; the diff is generated from them.
+  const [before, setBefore] = React.useState("");
+  const [after, setAfter] = React.useState("");
   const [filePath, setFilePath] = React.useState(initial.input_files[0] ?? "");
   const [expectedText, setExpectedText] = React.useState(() =>
     JSON.stringify(initial.expected_output, null, 2),
   );
 
   const expected = parseExpected(expectedText);
+  // The diff walk is not free on large pastes: recompute only when its inputs change, not per keystroke elsewhere.
+  const effectiveDiff = React.useMemo(
+    () => (mode === "new" ? hunkFromTexts(before, after) : diff),
+    [mode, before, after, diff],
+  );
   const ready =
-    !!expected && name.trim() !== "" && diff.trim() !== "" && (mode !== "new" || filePath.trim() !== "");
-  const current = () => toFields(initial, { name, diff, expected: expected!, filePath: mode === "new" ? filePath : undefined });
+    !!expected && name.trim() !== "" && effectiveDiff.trim() !== "" && (mode !== "new" || filePath.trim() !== "");
+  const current = () =>
+    toFields(initial, {
+      name,
+      diff: effectiveDiff,
+      expected: expected!,
+      filePath: mode === "new" ? filePath : undefined,
+    });
   const result = run.data;
 
   // An edit makes the shown result stale; clear it so it never looks like it applies to the new text.
@@ -110,10 +124,29 @@ export function EvalCaseModal({
             <TextInput mono value={filePath} onChange={edit(setFilePath)} placeholder={t("filePathPlaceholder")} />
           </label>
         )}
-        <label style={s.label}>
-          {t("diffLabel")}
-          <Textarea mono rows={10} value={diff} onChange={edit(setDiff)} placeholder={t("diffPlaceholder")} />
-        </label>
+        {mode === "new" ? (
+          <>
+            <label style={s.label}>
+              {t("beforeLabel")}
+              <Textarea mono rows={6} value={before} onChange={edit(setBefore)} placeholder={t("beforePlaceholder")} />
+            </label>
+            <label style={s.label}>
+              {t("afterLabel")}
+              <Textarea mono rows={6} value={after} onChange={edit(setAfter)} placeholder={t("afterPlaceholder")} />
+            </label>
+            <details style={s.hint}>
+              <summary>{t("previewDiff")}</summary>
+              <pre data-generated-diff tabIndex={0} aria-label={t("previewDiff")} style={s.preview}>
+                {effectiveDiff || t("noChange")}
+              </pre>
+            </details>
+          </>
+        ) : (
+          <label style={s.label}>
+            {t("diffLabel")}
+            <Textarea mono rows={10} value={diff} onChange={edit(setDiff)} placeholder={t("diffPlaceholder")} />
+          </label>
+        )}
         <label style={s.label}>
           {t("expectedOutput")}
           <Textarea mono rows={9} value={expectedText} onChange={edit(setExpectedText)} />

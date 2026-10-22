@@ -201,7 +201,7 @@ describe("EvalsTab cases", () => {
 
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "safe query" } });
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "src/safe.ts" } });
-    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.diffPlaceholder), { target: { value: "@@ -0,0 +1 @@\n+ok" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "ok" } });
     expect(save()).toBeEnabled();
     fireEvent.click(save());
 
@@ -209,7 +209,7 @@ describe("EvalsTab cases", () => {
     expect(createMutate.mock.calls[0]![0]).toMatchObject({
       name: "safe query",
       input_files: ["src/safe.ts"],
-      input_diff: "@@ -0,0 +1 @@\n+ok",
+      input_diff: "@@ -0,0 +1,1 @@\n+ok",
       expected_output: { type: "must_find", items: [] },
     });
   });
@@ -219,6 +219,25 @@ describe("EvalsTab cases", () => {
     fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.newCase }));
     return screen.getAllByRole("textbox").find((el) => (el as HTMLTextAreaElement).value.includes("must_find")) as HTMLTextAreaElement;
   };
+
+  it("the Before / After text generates the diff shown in the preview, and an unchanged pair keeps Save disabled", () => {
+    openNew();
+    const box = (ph: string) => screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === ph);
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "n" } });
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
+    const save = () => screen.getByRole("button", { name: evalMessages.caseEditor.save });
+    const preview = () => document.querySelector("[data-generated-diff]") as HTMLElement;
+
+    expect(preview()).toHaveTextContent(evalMessages.caseEditor.noChange);
+    fireEvent.change(box(evalMessages.caseEditor.beforePlaceholder), { target: { value: "same" } });
+    fireEvent.change(box(evalMessages.caseEditor.afterPlaceholder), { target: { value: "same" } });
+    expect(save()).toBeDisabled();
+
+    fireEvent.change(box(evalMessages.caseEditor.afterPlaceholder), { target: { value: "different" } });
+    expect(preview()).toHaveTextContent("-same");
+    expect(preview()).toHaveTextContent("+different");
+    expect(save()).toBeEnabled();
+  });
 
   it("Finding skeleton adds one template item to the expected output", () => {
     const expectedBox = openNew();
@@ -239,7 +258,7 @@ describe("EvalsTab cases", () => {
     openNew();
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "x" } });
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
-    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.diffPlaceholder), { target: { value: "@@ -0,0 +1 @@\n+x" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
     act(() => createMutate.mock.calls[0]![1].onSuccess());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
