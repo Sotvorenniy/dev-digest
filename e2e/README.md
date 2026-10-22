@@ -102,3 +102,5 @@ a CI artifact by `.github/workflows/e2e-web.yml`).
 | `07-settings` | `/settings/api-keys` + `/settings/models` → section titles render |
 | `08-onboarding-tour` | sidebar "Onboarding Tour" → seeded repo (no clone) shows the not-indexed empty state with Resync (read-only, no click) |
 | `09-pr-brief` | PR #482 Overview → seeded PR Brief (summary, Risk areas, Review focus) → re-open shows the same brief → click `src/config.ts:11` → `?tab=diff&file=src%2Fconfig.ts` (no model call; real generation is manual) |
+
+<!-- e2e baseline probe: touches e2e/ so the e2e web workflow runs on untouched main code. Do not merge. -->
