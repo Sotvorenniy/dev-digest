@@ -155,7 +155,12 @@ export function scoreCase(
     ...f,
     is_noise: isMustFind ? !items.some((item) => findingMatchesItem(f, item)) : true,
   }));
-  const passed = isMustFind ? matchedItems === items.length : matchedItems === 0;
+  // A must_not_flag case with no items is a clean-diff case: the agent has to report nothing at all.
+  const passed = isMustFind
+    ? matchedItems === items.length
+    : items.length === 0
+      ? kept.length === 0
+      : matchedItems === 0;
   return {
     expectation_type: expected.type,
     status: passed ? 'pass' : 'fail',

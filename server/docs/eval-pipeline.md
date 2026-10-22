@@ -62,8 +62,9 @@ All scoring is pure code in `domain.ts`; no model call happens after the reviews
 
 - Match: same `file` and inclusive line-range overlap (`findingMatchesItem`); severity, category
   and title are ignored.
-- Case pass: `must_find` passes when every item is matched; `must_not_flag` passes when no item
-  is matched (`scoreCase`). An item matched by several findings counts once.
+- Case pass: `must_find` passes when every item is matched; `must_not_flag` passes when no item is
+  matched, and a `must_not_flag` case with no items (a clean-diff case) passes only when the agent
+  kept no finding at all (`scoreCase`). An item matched by several findings counts once.
 - Noise: in a `must_find` case, a kept finding matching none of its items; in a `must_not_flag`
   case, every kept finding.
 - Run metrics (`scoreRun`), over non-errored cases only; `null` on a zero denominator:

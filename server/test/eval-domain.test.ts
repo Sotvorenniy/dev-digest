@@ -75,6 +75,14 @@ describe('scoreCase', () => {
     expect(scoreCase(exp, [kept('a.ts', 99, 99)], []).status).toBe('pass');
     expect(scoreCase(exp, [kept('a.ts', 10, 10)], []).status).toBe('fail');
   });
+  it('a must_not_flag case with no items is a clean-diff case: any kept finding fails it', () => {
+    const clean = mustNot();
+    expect(scoreCase(clean, [], []).status).toBe('pass');
+    expect(scoreCase(clean, [], [{ file: 'a.ts', start_line: 1, end_line: 1, title: 't', reason: 'dropped' }]).status).toBe('pass');
+    const failed = scoreCase(clean, [kept('a.ts', 5, 5)], []);
+    expect(failed.status).toBe('fail');
+    expect(failed.kept[0]!.is_noise).toBe(true);
+  });
   it('every kept finding in a must_not_flag case is noise', () => {
     const r = scoreCase(mustNot(item('a.ts', 10, 10)), [kept('a.ts', 99, 99)], []);
     expect(r.kept[0]!.is_noise).toBe(true);

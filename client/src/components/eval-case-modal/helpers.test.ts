@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hunkFromTexts, withSkeleton } from "./helpers";
+import { hunkFromTexts, parseExpected, withSkeleton } from "./helpers";
 
 describe("hunkFromTexts", () => {
   it("an empty before is a new file: one added hunk, no file headers", () => {
@@ -47,5 +47,20 @@ describe("withSkeleton", () => {
   });
   it("returns null for invalid JSON", () => {
     expect(withSkeleton("{ nope")).toBeNull();
+  });
+});
+
+describe("parseExpected", () => {
+  it("reads the object form", () => {
+    expect(parseExpected('{"type":"must_find","items":[]}')).toEqual({ type: "must_find", items: [] });
+  });
+  it("reads [] as a clean-diff case: must_not_flag with no items", () => {
+    expect(parseExpected("[]")).toEqual({ type: "must_not_flag", items: [] });
+    expect(parseExpected("  [ ]  ")).toEqual({ type: "must_not_flag", items: [] });
+  });
+  it("rejects a non-empty array, an unknown type and broken JSON", () => {
+    expect(parseExpected('[{"file":"a.ts"}]')).toBeNull();
+    expect(parseExpected('{"type":"nope","items":[]}')).toBeNull();
+    expect(parseExpected("{ nope")).toBeNull();
   });
 });

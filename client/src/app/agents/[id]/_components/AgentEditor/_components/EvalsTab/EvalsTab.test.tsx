@@ -254,6 +254,17 @@ describe("EvalsTab cases", () => {
     expect(screen.getByRole("status")).toHaveTextContent(evalMessages.caseEditor.negativeBody);
   });
 
+  it("typing [] as the expected output saves a must_not_flag case with no items and shows the banner", () => {
+    const expectedBox = openNew();
+    fireEvent.change(expectedBox, { target: { value: "[]" } });
+    expect(screen.getByRole("status")).toHaveTextContent(evalMessages.caseEditor.negativeBody);
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "clean" } });
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "ok" } });
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
+    expect(createMutate.mock.calls[0]![0]).toMatchObject({ expected_output: { type: "must_not_flag", items: [] } });
+  });
+
   it("a successful create closes the modal, and reopening starts empty", () => {
     openNew();
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "x" } });

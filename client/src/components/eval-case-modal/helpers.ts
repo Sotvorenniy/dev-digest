@@ -4,7 +4,10 @@ import type { EvalCaseFields, EvalExpectedOutput } from "@devdigest/shared";
 /** Light client-side check of the expected-output JSON. The server owns the full schema. */
 export function parseExpected(text: string): EvalExpectedOutput | null {
   try {
-    const v = JSON.parse(text) as Partial<EvalExpectedOutput> | null;
+    const raw = JSON.parse(text) as unknown;
+    // `[]` is the short form of a clean-diff case: the agent must report nothing.
+    if (Array.isArray(raw)) return raw.length === 0 ? { type: "must_not_flag", items: [] } : null;
+    const v = raw as Partial<EvalExpectedOutput> | null;
     if (!v || typeof v !== "object") return null;
     if (v.type !== "must_find" && v.type !== "must_not_flag") return null;
     if (!Array.isArray(v.items)) return null;

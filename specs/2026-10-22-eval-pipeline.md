@@ -228,6 +228,11 @@ reused by SPEC-07.
   Save (shall) create a case owned by that agent with no source finding. _(observable: Save sends `POST
   /agents/:id/eval-cases`; the stored `source_finding_id` is null; an unknown agent answers 404;
   Save is disabled until name, file path and diff are filled)_
+- AC25 (US2). IF a `must_not_flag` case has no expected items, THEN the system (shall) score it `pass`
+  only when the agent reports no finding on the case's diff, and the case editor (shall) accept `[]`
+  as the short form of that case. _(observable: a run of such a case with one kept finding is `fail`
+  with that finding marked as noise, with none it is `pass`; typing `[]` in Expected output shows the
+  negative-case banner and Save sends `{type: must_not_flag, items: []}`)_
 - AC24 (US5). WHEN the two compared runs have different system prompts, the Compare dialog (shall)
   offer "Promote vN" for the newer run, and WHEN the user confirms, the system (shall) set the
   agent's system prompt to that run's prompt, which the agent update saves as a new agent version.
@@ -285,8 +290,9 @@ All rules run in code over stored results; none calls a model (AC12, NFR1).
 - **Kept / dropped.** Per case, *kept* = the findings that survived the grounding gate; *dropped*
   = the findings the gate removed.
 - **Case pass.** A `must_find` case passes when every expectation item is matched by at least one
-  kept finding. A `must_not_flag` case passes when no kept finding matches its expectation item.
-  An `error` case does not pass.
+  kept finding. A `must_not_flag` case passes when no kept finding matches its expectation item; with
+  no items at all (a clean-diff case) it passes only when nothing was kept, and dropped findings do
+  not count against it. An `error` case does not pass.
 - **Noise.** A kept finding is noise when it matches no `must_find` item of its own case. In a
   `must_not_flag` case every kept finding is noise.
 - **recall** = matched `must_find` items ÷ all `must_find` items, over non-errored cases. An item
@@ -503,6 +509,7 @@ must be `nullish` (root INSIGHTS "A contract field added to RunStats must be opt
 | AC22 | US2 | G2 | — | client-unit, server-unit, server-integration |
 | AC23 | US2 | G2 | — | client-unit, server-unit, server-integration |
 | AC24 | US5 | G5 | — | client-unit |
+| AC25 | US2 | G2 | — | client-unit, server-unit |
 
 NFR2 → server-integration; NFR8 → server-integration (EC22); NFR9 → server-unit; NFR4, NFR6 →
 manual with the reasons given; NFR10 → review.
@@ -634,3 +641,5 @@ manual with the reasons given; NFR10 → review.
   the agent through the existing versioned agent update; NG5 narrowed to model and strategy.
 - 2026-10-22 — AC23: the hand-written case takes Before / After text and generates the diff (hunks only,
   with a preview) instead of asking for a pasted unified diff.
+- 2026-10-22 — added AC25: an empty `must_not_flag` case is a clean-diff case (any kept finding fails it);
+  `[]` is accepted as its short form in the case editor.
