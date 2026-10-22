@@ -56,6 +56,15 @@ export interface NewEvalCase {
   sourceFindingId: string;
 }
 
+/** The editable fields of a saved case. Owner and source finding never change. */
+export interface EvalCasePatch {
+  name: string;
+  inputDiff: string;
+  inputFiles: string[];
+  inputMeta: EvalInputMeta;
+  expected: EvalExpectedOutput;
+}
+
 /** The case inputs frozen at run start (EC8: later edits never change a running run). */
 export interface EvalCaseSnapshot {
   id: string;
@@ -137,6 +146,8 @@ export interface EvalRepositoryPort {
   /** Insert-or-return: a lost race on the source-finding unique index returns the existing row with `created: false`. */
   insertCase(values: NewEvalCase): Promise<{ record: EvalCaseRecord; created: boolean }>;
   listCases(workspaceId: string, agentId: string): Promise<EvalCaseRecord[]>;
+  /** The updated case, or `undefined` when no such case exists in the workspace. */
+  updateCase(workspaceId: string, caseId: string, patch: EvalCasePatch): Promise<EvalCaseRecord | undefined>;
   /** `false` when no such case exists in the workspace. */
   deleteCase(workspaceId: string, caseId: string): Promise<boolean>;
   countCases(workspaceId: string, agentId: string): Promise<number>;

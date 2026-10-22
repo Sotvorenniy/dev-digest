@@ -13,6 +13,7 @@ import type {
   EvalFindingSource,
   EvalRepositoryPort,
   EvalSetRunRecord,
+  EvalCasePatch,
   NewEvalCase,
   StartEvalRun,
 } from './ports.js';
@@ -202,6 +203,31 @@ export class EvalRepository implements EvalRepositoryPort {
       )
       .orderBy(t.evalCases.createdAt, t.evalCases.id);
     return rows.map((r) => toCaseRecord(r.c, r.f ?? null));
+  }
+
+  async updateCase(
+    workspaceId: string,
+    caseId: string,
+    patch: EvalCasePatch,
+  ): Promise<EvalCaseRecord | undefined> {
+    const updated = await this.db
+      .update(t.evalCases)
+      .set({
+        name: patch.name,
+        inputDiff: patch.inputDiff,
+        inputFiles: patch.inputFiles,
+        inputMeta: patch.inputMeta,
+        expectedOutput: patch.expected,
+      })
+      .where(and(eq(t.evalCases.workspaceId, workspaceId), eq(t.evalCases.id, caseId)))
+      .returning({ id: t.evalCases.id });
+    if (updated.length === 0) return undefined;
+    const [row] = await this.db
+      .select({ c: t.evalCases, f: t.findings })
+      .from(t.evalCases)
+      .leftJoin(t.findings, eq(t.findings.id, t.evalCases.sourceFindingId))
+      .where(and(eq(t.evalCases.workspaceId, workspaceId), eq(t.evalCases.id, caseId)));
+    return row ? toCaseRecord(row.c, row.f ?? null) : undefined;
   }
 
   async deleteCase(workspaceId: string, caseId: string): Promise<boolean> {

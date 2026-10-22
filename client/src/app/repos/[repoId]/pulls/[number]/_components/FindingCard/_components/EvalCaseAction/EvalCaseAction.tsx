@@ -6,9 +6,9 @@ import { useTranslations } from "next-intl";
 import { Button, Modal, SelectInput } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
 import { ApiError } from "@/lib/api";
-import { useAgents, useEvalCaseDraft } from "@/lib/hooks";
+import { useAgents, useCreateEvalCase, useEvalCaseDraft } from "@/lib/hooks";
 import { s } from "../../styles";
-import { EvalCaseModal } from "./_components/EvalCaseModal";
+import { EvalCaseModal } from "@/components/eval-case-modal";
 
 /** "Turn into eval case" on a decided finding. Opens EvalCaseModal with a prefilled draft;
  *  nothing is saved until the user presses Save there. Uses the review's own agent; when the
@@ -24,6 +24,7 @@ export function EvalCaseAction({
   const t = useTranslations("eval");
   const agents = useAgents();
   const draft = useEvalCaseDraft();
+  const create = useCreateEvalCase();
   const [picking, setPicking] = React.useState(false);
   const [chosen, setChosen] = React.useState("");
   const [saved, setSaved] = React.useState(false);
@@ -73,22 +74,26 @@ export function EvalCaseAction({
         {draft.isError && !diffGone && <span style={s.evalError}>{t("findingAction.createFailed")}</span>}
       </span>
 
-      {/* Portalled to <body>: inside the card, `position: fixed` is trapped by the card's
-          stacking context and the page content shows through the modal. */}
-      {modalOpen &&
-        draft.data &&
-        createPortal(
-          <EvalCaseModal
-            draft={draft.data}
-            findingId={finding.id}
-            onClose={() => setModalOpen(false)}
-            onSaved={() => {
-              setModalOpen(false);
-              setSaved(true);
-            }}
-          />,
-          document.body,
-        )}
+      {modalOpen && draft.data && (
+        <EvalCaseModal
+          agentId={draft.data.agent_id}
+          initial={draft.data}
+          saving={create.isPending}
+          saveFailed={create.isError}
+          onClose={() => setModalOpen(false)}
+          onSave={(fields) =>
+            create.mutate(
+              { findingId: finding.id, agentId: draft.data.agent_id, fields },
+              {
+                onSuccess: () => {
+                  setModalOpen(false);
+                  setSaved(true);
+                },
+              },
+            )
+          }
+        />
+      )}
 
       {picking &&
         createPortal(

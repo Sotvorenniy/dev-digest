@@ -10,6 +10,9 @@ import { ApiError } from "@/lib/api";
 // case rows are the real components.
 const startMutate = vi.fn();
 const deleteMutate = vi.fn();
+const updateMutate = vi.fn();
+const runCaseMutate = vi.fn();
+let runCaseState: { data?: unknown; isPending: boolean; isError: boolean } = { isPending: false, isError: false };
 let cases: EvalCase[] = [];
 let runs: EvalSetRun[] = [];
 let startState: { isPending: boolean; isError: boolean; error: unknown } = {
@@ -22,6 +25,8 @@ vi.mock("@/lib/hooks", () => ({
   useEvalRuns: () => ({ data: runs }),
   useStartEvalRun: () => ({ mutate: startMutate, ...startState }),
   useDeleteEvalCase: () => ({ mutate: deleteMutate, isPending: false }),
+  useUpdateEvalCase: () => ({ mutate: updateMutate, reset: vi.fn(), isPending: false, isError: false }),
+  useRunEvalCaseDraft: () => ({ mutate: runCaseMutate, reset: vi.fn(), ...runCaseState }),
   useEvalRun: () => ({ data: undefined, isError: false }),
 }));
 
@@ -69,6 +74,7 @@ beforeEach(() => {
   cases = [mkCase("c1"), mkCase("c2")];
   runs = [];
   startState = { isPending: false, isError: false, error: null };
+  runCaseState = { isPending: false, isError: false };
 });
 afterEach(() => {
   cleanup();
@@ -135,6 +141,40 @@ describe("EvalsTab cases", () => {
     const el = screen.getByText(evil);
     expect(el).toHaveAttribute("title", evil);
     expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("Run on a row runs just that case with its stored fields and shows the outcome", () => {
+    cases = [mkCase("c1", { input_diff: "@@ diff", input_files: ["a.ts"] })];
+    const view = render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.runCase.replace("{name}", "case-c1") }));
+    expect(runCaseMutate).toHaveBeenCalledWith({
+      name: "case-c1",
+      input_diff: "@@ diff",
+      input_files: ["a.ts"],
+      input_meta: { pr_number: 1, title: "t", body: null },
+      expected_output: { type: "must_find", items: [] },
+    });
+    runCaseState = { isPending: false, isError: false, data: { status: "fail" } };
+    view.rerender(tree());
+    expect(screen.getByText(evalMessages.evalsTab.rowRun.fail)).toBeInTheDocument();
+  });
+
+  it("Edit opens the modal prefilled; Save sends the edited fields and Cancel saves nothing", () => {
+    cases = [mkCase("c1", { input_diff: "@@ diff" })];
+    render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.editCase.replace("{name}", "case-c1") }));
+    expect(screen.getByText(evalMessages.caseEditor.editTitle)).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue("case-c1"), { target: { value: "renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
+    expect(updateMutate).toHaveBeenCalledTimes(1);
+    expect(updateMutate.mock.calls[0]![0]).toMatchObject({
+      caseId: "c1",
+      fields: { name: "renamed", input_diff: "@@ diff", expected_output: { type: "must_find", items: [] } },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.cancel }));
+    expect(screen.queryByText(evalMessages.caseEditor.editTitle)).not.toBeInTheDocument();
+    expect(updateMutate).toHaveBeenCalledTimes(1);
   });
 
   it("empty state points to 'Turn into eval case' and Run all is disabled with 0 cases", () => {

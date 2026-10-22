@@ -91,7 +91,9 @@
     "reportedNone": "The agent reported nothing.",
     "runRequestFailed": "The case could not be run. Check the agent's API key in Settings and try again.",
     "saveFailed": "The case could not be saved. Check the fields and try again.",
-    "invalidExpected": "Expected output must be JSON with type must_find or must_not_flag and an items array."
+    "invalidExpected": "Expected output must be JSON with type must_find or must_not_flag and an items array.",
+    "editTitle": "Edit eval case",
+    "editSubtitle": "Changes are saved only when you press Save."
   },
   "evalsTab": {
     "metricsTitle": "Eval metrics",
@@ -145,7 +147,15 @@
     "noDelta": "No earlier run to compare",
     "deleteCase": "Delete case {name}",
     "deleteFailed": "The case could not be deleted.",
-    "loadError": "Could not load the eval cases."
+    "loadError": "Could not load the eval cases.",
+    "runCase": "Run case {name}",
+    "editCase": "Edit case {name}",
+    "runCaseFailed": "Run failed",
+    "rowRun": {
+      "pass": "Run: pass",
+      "fail": "Run: fail",
+      "error": "Run: error"
+    }
   },
   "findingAction": {
     "turnInto": "Turn into eval case",

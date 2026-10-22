@@ -291,6 +291,36 @@ d('eval pipeline (Testcontainers pg)', () => {
     expect(EvalCase.parse(ok.json()).owner_id).toBe(agent.id);
   });
 
+  it('PATCH /eval-cases/:id edits the case in place and 404s for an unknown id', async () => {
+    const { app: a } = await makeApp();
+    const agent = await makeAgent();
+    const { evalCase } = await caseFor(a, agent.id);
+    const body = {
+      name: 'edited by the user',
+      input_diff: evalCase.input_diff,
+      input_files: evalCase.input_files,
+      input_meta: evalCase.input_meta,
+      expected_output: { ...evalCase.expected_output, type: 'must_not_flag' },
+    };
+    const res = await a.inject({ method: 'PATCH', url: `/eval-cases/${evalCase.id}`, payload: body });
+    expect(res.statusCode).toBe(200);
+    expect(EvalCase.parse(res.json())).toMatchObject({
+      id: evalCase.id,
+      owner_id: agent.id,
+      name: 'edited by the user',
+      source_finding_id: evalCase.source_finding_id,
+      expected_output: { type: 'must_not_flag' },
+    });
+    const list = await a.inject({ method: 'GET', url: `/agents/${agent.id}/eval-cases` });
+    expect(list.json()).toHaveLength(1);
+    expect(list.json()[0].name).toBe('edited by the user');
+
+    const missing = await a.inject({ method: 'PATCH', url: '/eval-cases/00000000-0000-4000-8000-000000000000', payload: body });
+    expect(missing.statusCode).toBe(404);
+    const bad = await a.inject({ method: 'PATCH', url: `/eval-cases/${evalCase.id}`, payload: { ...body, name: '' } });
+    expect(bad.statusCode).toBe(422);
+  });
+
   it('AC8: delete -> 204, the case leaves the list, an older run keeps the case name', async () => {
     const { app: a } = await makeApp();
     const agent = await makeAgent();

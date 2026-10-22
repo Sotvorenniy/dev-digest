@@ -160,6 +160,20 @@ export class EvalService {
     return cases.map((c) => this.toEvalCase(c, statuses.get(c.id) ?? 'never_run'));
   }
 
+  /** Replace a saved case's editable fields. Owner and source finding stay. */
+  async updateCase(workspaceId: string, caseId: string, fields: EvalCaseFields): Promise<EvalCase> {
+    const record = await this.deps.repo.updateCase(workspaceId, caseId, {
+      name: fields.name,
+      inputDiff: fields.input_diff,
+      inputFiles: fields.input_files,
+      inputMeta: fields.input_meta,
+      expected: fields.expected_output,
+    });
+    if (!record) throw new NotFoundError('Eval case not found');
+    const statuses = await this.deps.repo.latestCaseStatuses(workspaceId, record.ownerId);
+    return this.toEvalCase(record, statuses.get(record.id) ?? 'never_run');
+  }
+
   async deleteCase(workspaceId: string, caseId: string): Promise<void> {
     const removed = await this.deps.repo.deleteCase(workspaceId, caseId);
     if (!removed) throw new NotFoundError('Eval case not found');

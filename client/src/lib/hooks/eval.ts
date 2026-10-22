@@ -67,6 +67,18 @@ export function useRunEvalCaseDraft(agentId: string) {
   });
 }
 
+/** Replace a saved case's editable fields (name, diff, meta, expected output). */
+export function useUpdateEvalCase(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ caseId, fields }: { caseId: string; fields: EvalCaseFields }) =>
+      api.patch<EvalCase>(`/eval-cases/${caseId}`, fields),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["eval-cases", agentId] });
+    },
+  });
+}
+
 export function useDeleteEvalCase(agentId: string) {
   const qc = useQueryClient();
   return useMutation({

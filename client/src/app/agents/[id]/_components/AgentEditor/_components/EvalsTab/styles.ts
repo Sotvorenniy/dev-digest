@@ -33,6 +33,7 @@ export const s = {
   } satisfies CSSProperties,
   caseMeta: { fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
   caseStatus: { fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", flexShrink: 0 } satisfies CSSProperties,
+  caseRunNote: { fontSize: 12, color: "var(--text-secondary)", flexShrink: 0 } satisfies CSSProperties,
   badge: {
     fontSize: 11,
     fontWeight: 600,

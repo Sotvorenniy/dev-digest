@@ -1,40 +1,48 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Button, Modal, Textarea, TextInput } from "@devdigest/ui";
-import type { EvalCaseDraft } from "@devdigest/shared";
-import { useCreateEvalCase, useRunEvalCaseDraft } from "@/lib/hooks";
+import type { EvalCaseFields } from "@devdigest/shared";
+import { useRunEvalCaseDraft } from "@/lib/hooks";
 import { parseExpected, toFields } from "./helpers";
 import { s } from "./styles";
 
-/** Warm-up step for a new eval case: the finding fills the fields, the user can run the case
- *  and edit it, and only Save writes it. All values render as text — finding content is
- *  never interpreted as markup. */
+/** Warm-up and edit step for an eval case: the caller supplies the starting fields, the user can
+ *  run the case and edit it, and only Save hands the fields back. All values render as text —
+ *  finding and PR content is never interpreted as markup. Portalled to <body> so a parent's
+ *  stacking context cannot trap the fixed overlay. */
 export function EvalCaseModal({
-  draft,
-  findingId,
+  mode = "create",
+  agentId,
+  initial,
+  saving,
+  saveFailed,
+  onSave,
   onClose,
-  onSaved,
 }: {
-  draft: EvalCaseDraft;
-  findingId: string;
+  mode?: "create" | "edit";
+  agentId: string;
+  initial: EvalCaseFields;
+  saving: boolean;
+  saveFailed: boolean;
+  /** Called with the edited fields; the caller closes the modal when the save succeeds. */
+  onSave: (fields: EvalCaseFields) => void;
   onClose: () => void;
-  onSaved: () => void;
 }) {
   const t = useTranslations("eval.caseEditor");
-  const run = useRunEvalCaseDraft(draft.agent_id);
-  const save = useCreateEvalCase();
+  const run = useRunEvalCaseDraft(agentId);
 
-  const [name, setName] = React.useState(draft.name);
-  const [diff, setDiff] = React.useState(draft.input_diff);
+  const [name, setName] = React.useState(initial.name);
+  const [diff, setDiff] = React.useState(initial.input_diff);
   const [expectedText, setExpectedText] = React.useState(() =>
-    JSON.stringify(draft.expected_output, null, 2),
+    JSON.stringify(initial.expected_output, null, 2),
   );
 
   const expected = parseExpected(expectedText);
   const ready = !!expected && name.trim() !== "" && diff.trim() !== "";
-  const current = () => toFields(draft, { name, diff, expected: expected! });
+  const current = () => toFields(initial, { name, diff, expected: expected! });
   const result = run.data;
 
   // An edit makes the shown result stale; clear it so it never looks like it applies to the new text.
@@ -42,41 +50,37 @@ export function EvalCaseModal({
     set(v);
     run.reset();
   };
-  // Closing mid-save would drop the per-call onSaved callback while the case is still written.
+  // Closing mid-save would drop the caller's success handling while the case is still written.
   const close = () => {
-    if (!save.isPending) onClose();
+    if (!saving) onClose();
   };
 
   const doRun = () => {
     if (ready) run.mutate(current());
   };
   const doSave = () => {
-    if (!ready) return;
-    save.mutate(
-      { findingId, agentId: draft.agent_id, fields: current() },
-      { onSuccess: onSaved },
-    );
+    if (ready) onSave(current());
   };
 
   const statusLabel =
     result?.status === "pass" ? t("runPassed") : result?.status === "fail" ? t("runFailed") : t("runErrored");
 
-  return (
+  return createPortal(
     <Modal
       width={760}
-      title={t("modalTitle")}
-      subtitle={t("modalSubtitle")}
+      title={mode === "edit" ? t("editTitle") : t("modalTitle")}
+      subtitle={mode === "edit" ? t("editSubtitle") : t("modalSubtitle")}
       onClose={close}
       footer={
         <div style={s.footer}>
-          <Button kind="ghost" size="sm" disabled={save.isPending} onClick={close}>
+          <Button kind="ghost" size="sm" disabled={saving} onClick={close}>
             {t("cancel")}
           </Button>
           <Button kind="secondary" size="sm" disabled={!ready || run.isPending} onClick={doRun}>
             {run.isPending ? t("running") : t("runCase")}
           </Button>
-          <Button kind="primary" size="sm" disabled={!ready || save.isPending} onClick={doSave}>
-            {save.isPending ? t("saving") : t("save")}
+          <Button kind="primary" size="sm" disabled={!ready || saving} onClick={doSave}>
+            {saving ? t("saving") : t("save")}
           </Button>
         </div>
       }
@@ -133,8 +137,9 @@ export function EvalCaseModal({
             </>
           )}
         </div>
-        {save.isError && <span style={s.error}>{t("saveFailed")}</span>}
+        {saveFailed && <span style={s.error}>{t("saveFailed")}</span>}
       </div>
-    </Modal>
+    </Modal>,
+    document.body,
   );
 }

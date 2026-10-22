@@ -212,6 +212,13 @@ reused by SPEC-07.
   /agents/:id/eval-cases/run` returns an `EvalCaseResult` with `case_id: null`; `eval_cases` and
   `eval_set_runs` row counts are unchanged; editing a field clears the shown result; invalid
   expected-output JSON disables Run case and Save)_
+- AC22 (US2). WHEN the user presses Run on a case row in the agent's Evals tab, the system (shall)
+  run the agent once over that saved case and show pass / fail / error on the row, without storing
+  a run. WHEN the user presses Edit, the client (shall) open the same modal prefilled from the
+  case, and Save (shall) replace the case's name, diff, files, PR meta and expected output.
+  _(observable: Run sends `POST /agents/:id/eval-cases/run` and writes no `eval_set_runs` row;
+  Save sends `PATCH /eval-cases/:id`; the owner and source finding are unchanged; an unknown
+  id answers 404)_
 
 ## Workflow
 ```mermaid
@@ -478,6 +485,7 @@ must be `nullish` (root INSIGHTS "A contract field added to RunStats must be opt
 | AC19 | US3 | G3 | EC13 | server-integration |
 | AC20 | US1 | G1 | — | client-unit, server-unit |
 | AC21 | US1 | G1 | — | client-unit, server-unit |
+| AC22 | US2 | G2 | — | client-unit, server-unit, server-integration |
 
 NFR2 → server-integration; NFR8 → server-integration (EC22); NFR9 → server-unit; NFR4, NFR6 →
 manual with the reasons given; NFR10 → review.
@@ -601,3 +609,5 @@ manual with the reasons given; NFR10 → review.
 - 2026-10-22 — revision after mentor feedback: "Turn into eval case" opens a warm-up modal and
   saves only on Save (AC20); "Run case" runs one unsaved draft (AC21); NG3 narrowed. Added
   `POST /findings/:id/eval-case/draft` and `POST /agents/:id/eval-cases/run`.
+- 2026-10-22 — added AC22: Run and Edit on a case row, `PATCH /eval-cases/:id`; the modal moved to
+  `client/src/components/eval-case-modal` and is shared by the finding card and the Evals tab.

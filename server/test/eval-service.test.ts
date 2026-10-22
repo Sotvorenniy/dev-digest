@@ -126,6 +126,13 @@ function setup(o: Opts = {}) {
       return { record: { ...caseRec('new'), ownerId: v.ownerId, name: v.name, expected: v.expected }, created: true };
     },
     listCases: async () => cases,
+    updateCase: async (_w, id, patch) => {
+      const found = cases.find((c) => c.id === id);
+      if (!found) return undefined;
+      const next = { ...found, name: patch.name, inputDiff: patch.inputDiff, inputFiles: patch.inputFiles, inputMeta: patch.inputMeta, expected: patch.expected };
+      cases = cases.map((c) => (c.id === id ? next : c));
+      return next;
+    },
     deleteCase: async (_w, id) => {
       const before = cases.length;
       cases = cases.filter((c) => c.id !== id);
@@ -481,6 +488,29 @@ const runRec = (agentId: string, at: number, over: Partial<EvalSetRunRecord> = {
 
 const CA = { agentId: 'a1', name: 'Agent One', model: 'm/x', casesTotal: 4 };
 const CB = { agentId: 'a2', name: 'Agent Two', model: 'm/y', casesTotal: 2 };
+
+describe('EvalService.updateCase', () => {
+  const fields = {
+    name: 'renamed',
+    input_diff: PATCH,
+    input_files: ['src/a.ts'],
+    input_meta: meta,
+    expected_output: expected('must_not_flag'),
+  };
+
+  it('replaces the editable fields and keeps owner and the last run status', async () => {
+    const s = setup();
+    const updated = await s.svc.updateCase('w1', 'c1', fields);
+    expect(updated).toMatchObject({ id: 'c1', name: 'renamed', owner_id: 'a1', expected_output: { type: 'must_not_flag' } });
+    expect(updated.last_status).toBe('pass');
+    expect((await s.svc.listCases('w1', 'a1')).find((c) => c.id === 'c1')?.name).toBe('renamed');
+  });
+
+  it('404s for an unknown case', async () => {
+    const s = setup();
+    await expect(s.svc.updateCase('w1', 'nope', fields)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
 
 describe('EvalService modal flow (draft, save with edits, run draft)', () => {
   const opts = (s: ReturnType<typeof setup>) => ({ logger: s.logger });

@@ -6,6 +6,7 @@ import {
   EvalAgentDashboard,
   EvalCase,
   EvalCaseDraft,
+  EvalCaseFields,
   EvalCaseResult,
   RunEvalCaseDraftBody,
   EvalSetRun,
@@ -22,6 +23,7 @@ import { EVAL_RUN_RATE_LIMIT } from './constants.js';
  *   POST   /findings/:id/eval-case/draft → prefilled unsaved case for the modal (nothing written)
  *   POST   /agents/:id/eval-cases/run → run one unsaved case (nothing persisted)
  *   GET    /agents/:id/eval-cases  → the agent's cases
+ *   PATCH  /eval-cases/:id         → edit a saved case (name, diff, meta, expected output)
  *   DELETE /eval-cases/:id         → remove a case (past results are kept)
  *   POST   /agents/:id/eval-runs   → run the agent over all its cases (202, async)
  *   GET    /agents/:id/eval-runs   → run history, newest first
@@ -104,6 +106,15 @@ export default async function evalRoutes(appBase: FastifyInstance) {
     async (req): Promise<EvalCase[]> => {
       const { workspaceId } = await getContext(container, req);
       return service.listCases(workspaceId, req.params.id);
+    },
+  );
+
+  app.patch(
+    '/eval-cases/:id',
+    { schema: { params: IdParams, body: EvalCaseFields, response: { 200: EvalCase } } },
+    async (req): Promise<EvalCase> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.updateCase(workspaceId, req.params.id, req.body);
     },
   );
 

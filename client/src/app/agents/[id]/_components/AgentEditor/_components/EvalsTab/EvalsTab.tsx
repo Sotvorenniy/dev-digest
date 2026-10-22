@@ -6,9 +6,10 @@ import { useTranslations } from "next-intl";
 import { Button, EmptyState, ErrorState, Skeleton } from "@devdigest/ui";
 import type { Agent, EvalCase } from "@devdigest/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EvalCaseModal } from "@/components/eval-case-modal";
 import { EvalMetricCards } from "@/components/eval-metric-cards";
 import { EvalRunHistory } from "@/components/eval-run-history";
-import { useDeleteEvalCase, useEvalCases, useEvalRuns, useStartEvalRun } from "@/lib/hooks";
+import { useDeleteEvalCase, useEvalCases, useEvalRuns, useStartEvalRun, useUpdateEvalCase } from "@/lib/hooks";
 import { isNewestRunning, latestFinished, previousFinished } from "@/lib/eval-metrics";
 import { API_KEYS_HREF, startErrorKey } from "@/lib/eval-errors";
 import { METRIC_KEYS } from "./constants";
@@ -23,6 +24,8 @@ export function EvalsTab({ agent }: { agent: Agent }) {
   const runs = useEvalRuns(agent.id);
   const start = useStartEvalRun(agent.id);
   const remove = useDeleteEvalCase(agent.id);
+  const update = useUpdateEvalCase(agent.id);
+  const [editing, setEditing] = React.useState<EvalCase | null>(null);
   const [toDelete, setToDelete] = React.useState<EvalCase | null>(null);
 
   const caseList = cases.data ?? [];
@@ -44,7 +47,16 @@ export function EvalsTab({ agent }: { agent: Agent }) {
     list = (
       <ul style={s.list}>
         {caseList.map((c) => (
-          <EvalCaseRow key={c.id} evalCase={c} onDelete={() => setToDelete(c)} />
+          <EvalCaseRow
+            key={c.id}
+            evalCase={c}
+            agentId={agent.id}
+            onEdit={() => {
+              update.reset();
+              setEditing(c);
+            }}
+            onDelete={() => setToDelete(c)}
+          />
         ))}
       </ul>
     );
@@ -94,6 +106,26 @@ export function EvalsTab({ agent }: { agent: Agent }) {
       {list}
 
       <EvalRunHistory runs={runList} agentName={agent.name} />
+
+      {editing && (
+        <EvalCaseModal
+          mode="edit"
+          agentId={agent.id}
+          initial={{
+            name: editing.name,
+            input_diff: editing.input_diff,
+            input_files: editing.input_files,
+            input_meta: editing.input_meta,
+            expected_output: editing.expected_output,
+          }}
+          saving={update.isPending}
+          saveFailed={update.isError}
+          onClose={() => setEditing(null)}
+          onSave={(fields) =>
+            update.mutate({ caseId: editing.id, fields }, { onSuccess: () => setEditing(null) })
+          }
+        />
+      )}
 
       {toDelete && (
         <ConfirmDialog
