@@ -7,7 +7,9 @@
  * Cases with no baseline entry are reported as "new". Token use is tallied against a budget.
  *
  *   node scripts/ci-report.mjs <tier>            report (reads results/records.jsonl)
- *   node scripts/ci-report.mjs --write-baseline  rewrite evals/baseline.json from the records
+ *   node scripts/ci-report.mjs --write-baseline [--runs N] [--merge] [--only <substring>]
+ *                                                rewrite evals/baseline.json (mean over the last N runs;
+ *                                                --merge refreshes only the cases present in those runs)
  *
  * Env: EVAL_OUTCOME (outcome of the vitest step), EVAL_TOKEN_BUDGET (default 1500000),
  *      REGRESSION_TOLERANCE (default 0.2), GITHUB_STEP_SUMMARY.
@@ -24,12 +26,14 @@ const BASELINE = join(EVALS_DIR, "baseline.json");
 /** nodeid is absolute and carries the `> describe > test` chain: key it by repo-relative path. */
 const keyOf = (nodeid) => nodeid.replace(/^.*\/evals\//, "");
 
-function latestRun() {
+/** Records of the last `n` distinct runs (default 1), in file order. */
+function lastRuns(n = 1) {
   if (!existsSync(RECORDS)) return [];
   const rows = readFileSync(RECORDS, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
-  const last = rows.at(-1)?.run_id;
-  return rows.filter((r) => r.run_id === last);
+  const ids = [...new Set(rows.map((r) => r.run_id))].slice(-n);
+  return rows.filter((r) => ids.includes(r.run_id));
 }
+const latestRun = () => lastRuns(1);
 
 /** An API-level failure (credits, rate limit, 5xx) is not an eval regression: classify it apart. */
 function apiError(r) {
@@ -47,10 +51,22 @@ const arg = process.argv[2];
 const rows = latestRun();
 
 if (arg === "--write-baseline") {
-  const out = {};
-  for (const r of rows) out[keyOf(r.nodeid)] = Number(r.score.toFixed(2));
+  // --runs N averages each case's score over the last N runs (a repeat series); default 1.
+  const runsIdx = process.argv.indexOf("--runs");
+  const n = runsIdx > -1 ? Number(process.argv[runsIdx + 1]) : 1;
+  const onlyIdx = process.argv.indexOf("--only");
+  const only = onlyIdx > -1 ? process.argv[onlyIdx + 1] : "";
+  const acc = {};
+  for (const r of lastRuns(n)) {
+    if (only && !r.nodeid.includes(only)) continue;
+    if (typeof r.score !== "number" || apiError(r)) continue; // trace cases have no score; API errors are not data
+    (acc[keyOf(r.nodeid)] ??= []).push(r.score);
+  }
+  // --merge keeps every other case's baseline and only refreshes the cases seen in these runs.
+  const out = process.argv.includes("--merge") && existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
+  for (const [k, v] of Object.entries(acc)) out[k] = Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(2));
   writeFileSync(BASELINE, JSON.stringify(out, null, 2) + "\n");
-  console.log(`baseline.json: ${Object.keys(out).length} cases from run ${rows[0]?.run_id}`);
+  console.log(`baseline.json: ${Object.keys(out).length} cases, mean over the last ${n} run(s)`);
   process.exit(0);
 }
 
