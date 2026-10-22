@@ -17,7 +17,9 @@ tolerant parser so a `POST` with `content-type: application/json` and an empty b
 
 | Route | Result | Notes |
 |---|---|---|
-| `POST /findings/:id/eval-case` | `201` new, `200` existing `EvalCase` | body `{ agent_id? }` (only needed when the review has no owning agent) |
+| `POST /findings/:id/eval-case/draft` | `EvalCaseDraft` | prefilled, unsaved case for the modal; writes nothing; body `{ agent_id? }` |
+| `POST /agents/:id/eval-cases/run` | `EvalCaseResult` | runs one unsaved case, persists nothing; limit 10/min; diff capped at 100k chars |
+| `POST /findings/:id/eval-case` | `201` new, `200` existing `EvalCase` | body `{ agent_id?, case? }`; `agent_id` only when the review has no owning agent, `case` carries the fields edited in the modal |
 | `GET /agents/:id/eval-cases` | `EvalCase[]` | adds `decision_changed` and `last_status` |
 | `DELETE /eval-cases/:id` | `204` | past run results are kept |
 | `POST /agents/:id/eval-runs` | `202` `EvalSetRun` (status `running`) | per-route limit 10/min (`EVAL_RUN_RATE_LIMIT`) |

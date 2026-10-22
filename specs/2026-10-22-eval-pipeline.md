@@ -54,8 +54,8 @@ metric definitions and compare view; it does not redefine them.
    delta, a SYSTEM PROMPT DIFF with "v6 (old)" / "v7 (new)", buttons Close and "Promote v7".
 
 Deviations from the design, decided with the user: Learn, Reply and the CI tab are not built
-(NG4); the manual case editor, "Run case", "Run on save" and "Promote" are not built (NG2, NG3,
-NG5); the design word "traces" is shown as "cases"; Compare lives in the Evals tab here and is
+(NG4); the manual "New eval case" editor, "Run on save" and "Promote" are not built (NG2, NG5), and
+"Run case" exists only in the finding's warm-up modal (AC20, AC21); the design word "traces" is shown as "cases"; Compare lives in the Evals tab here and is
 reused by SPEC-07.
 
 ## Goals / Non-goals
@@ -76,7 +76,9 @@ reused by SPEC-07.
   `productionize.ts` contracts stay unused (user decision, Q2).
 - NG2 The manual "New eval case" editor (JSON expected output, "Finding skeleton", "Run on
   save") and editing a case after creation.
-- NG3 "Run case" for a single case. A run always covers the whole set.
+- NG3 "Run case" for a saved case from the agent's Evals tab. A set run always covers the whole
+  set. _(Revision 2026-10-22: "Run case" exists only inside the warm-up modal, on an unsaved
+  draft; see AC20 and AC21.)_
 - NG4 Learn, Reply to author and the CI tab shown in the design.
 - NG5 "Promote vN" (rolling an agent back or forward to a run's prompt).
 - NG6 Eval cases owned by a skill (`owner_kind = skill`); this spec covers agents only.
@@ -197,6 +199,19 @@ reused by SPEC-07.
   `failed` with a reason saying the server restarted, so that AC10's 409 no longer applies to
   that agent. _(observable: after a boot with a seeded `running` row, that row has `status =
   failed`, `finished_at` set and a non-null restart reason; a new start for the agent → 202)_
+- AC20 (US1). WHEN the user activates "Turn into eval case" on a decided finding, the client
+  (shall) open a modal prefilled from the finding (diff, PR meta, case name, expected output
+  `must_find` for an accepted finding, `must_not_flag` for a dismissed one) and the system
+  (shall) store no case until the user presses Save. _(observable: after the click,
+  `POST /findings/:id/eval-case/draft` is sent, no `eval_cases` row exists and the Evals tab
+  lists no new case; Cancel leaves it that way; Save sends `POST /findings/:id/eval-case` with
+  the edited fields and the case then appears in the Evals tab)_
+- AC21 (US1). WHILE the modal is open, WHEN the user presses "Run case", the system (shall) run
+  the agent once over the edited, unsaved case and show its pass / fail result and the findings
+  it reported, without storing a case or a run. _(observable: `POST
+  /agents/:id/eval-cases/run` returns an `EvalCaseResult` with `case_id: null`; `eval_cases` and
+  `eval_set_runs` row counts are unchanged; editing a field clears the shown result; invalid
+  expected-output JSON disables Run case and Save)_
 
 ## Workflow
 ```mermaid
@@ -461,6 +476,8 @@ must be `nullish` (root INSIGHTS "A contract field added to RunStats must be opt
 | AC17 | US6 | G6 | NFR1, NFR7 | server-integration (script exit code) |
 | AC18 | US1 | G1 | EC3 | server-integration, client |
 | AC19 | US3 | G3 | EC13 | server-integration |
+| AC20 | US1 | G1 | — | client-unit, server-unit |
+| AC21 | US1 | G1 | — | client-unit, server-unit |
 
 NFR2 → server-integration; NFR8 → server-integration (EC22); NFR9 → server-unit; NFR4, NFR6 →
 manual with the reasons given; NFR10 → review.
@@ -581,3 +598,6 @@ manual with the reasons given; NFR10 → review.
   renumbered.
 - 2026-10-22 — OQ2 answered (mid-run deletion scored from the run-start snapshot, EC8) and OQ4
   answered (history = newest 20, no paging, EC19); last markers removed. Status unchanged.
+- 2026-10-22 — revision after mentor feedback: "Turn into eval case" opens a warm-up modal and
+  saves only on Save (AC20); "Run case" runs one unsaved draft (AC21); NG3 narrowed. Added
+  `POST /findings/:id/eval-case/draft` and `POST /agents/:id/eval-cases/run`.

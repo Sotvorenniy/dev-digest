@@ -31,3 +31,6 @@ test-results/
 !.claude/plans/project-context/
 !.claude/plans/onboarding-tour.md
 !.claude/plans/onboarding-tour/
+
+# vitest result cache (test durations and failures), regenerated on every run
+.vite/
