@@ -1,0 +1,46 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for EvalsTab and its nested children. */
+export const s = {
+  root: { display: "flex", flexDirection: "column", gap: 20, maxWidth: 1000, minWidth: 0 } satisfies CSSProperties,
+  toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" } satisfies CSSProperties,
+  heading: { margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text-primary)" } satisfies CSSProperties,
+  summary: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  runRow: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } satisfies CSSProperties,
+  live: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  error: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)" } satisfies CSSProperties,
+  link: { color: "var(--accent)" } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 8, margin: 0, padding: 0, listStyle: "none" } satisfies CSSProperties,
+  caseRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    minWidth: 0,
+  } satisfies CSSProperties,
+  caseName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  caseMeta: { fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  caseStatus: { fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", flexShrink: 0 } satisfies CSSProperties,
+  badge: {
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "2px 6px",
+    borderRadius: 4,
+    border: "1px solid var(--border-strong)",
+    color: "var(--text-secondary)",
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  empty: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+} as const;

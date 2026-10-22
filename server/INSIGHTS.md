@@ -38,6 +38,14 @@ Evidence: `server/src/modules/reviews/run-executor.ts:412,600`,
 `server/src/modules/agent-performance/domain.ts` (`readSkillsUsed`,
 `readMemoryPulled`)
 
+### A PR title must not be interpolated into reviewer-core's `task` line
+`2026-10-22` — The `task` line goes into the user message outside
+`wrapUntrusted`, so a crafted title stored in an eval case is replayed on every
+run and can push the model to withhold findings. Pass title and body through
+`prDescription` instead: it is cut to 4000 chars and delimiter-wrapped.
+Evidence: `reviewer-core/src/prompt.ts:219-227`,
+`server/src/modules/eval/domain.ts` (`evalPrDescription`)
+
 ## Codebase Patterns
 <!-- Module layout, DI flow, repository conventions — with the reason. -->
 
@@ -179,6 +187,13 @@ unlike the PR-list "newest review per agent" rollup (root INSIGHTS).
 Evidence: `server/src/db/schema/reviews.ts:20`,
 `server/src/modules/agent-performance/repository.ts:57`
 
+### `eval_cases.owner_id` has no FK, so agent delete must remove the cases itself
+`2026-10-22` — The owner is polymorphic (`owner_kind`), so the database never
+cascades. `AgentsRepository.deleteById` deletes the agent's cases in the same
+transaction. A new eval owner kind needs the same line, or it leaves orphans.
+Evidence: `server/src/modules/agents/repository.ts` (`deleteById`),
+`server/src/db/schema/eval.ts`
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
@@ -276,6 +291,15 @@ worktree reproduces the `waitForPrRuns` hang. Run the lane without
 the normal test app and the 11th POST still returns 200. For the 429 case,
 build a separate app with `NODE_ENV=development` and `API_HOST=127.0.0.1`.
 Evidence: `server/src/app.ts:110`, `server/test/brief.it.test.ts:256`
+
+### `body: Schema.optional()` rejects an empty POST with 422 `validation_error`
+`2026-10-22` — Under `fastify-type-provider-zod`, Fastify hands the validator
+`null` for a body-less POST, and `.optional()` refuses `null`
+("Expected object, received null"). A custom content-type parser returning
+`undefined` does not help. Use `.nullish()` on any route the client calls
+without a body (`api.post(path, undefined)` sends none).
+Evidence: `server/src/modules/eval/routes.ts`,
+`server/test/eval.it.test.ts` ("AC4/AC5: an empty-body POST")
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->

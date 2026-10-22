@@ -43,6 +43,8 @@ export type { PrBrief, SmartDiff, BlastRadius, DownstreamImpact, BlastCaller, Ch
 export type { PrIntentRecord, IntentSource, IntentChangeType, IntentBasis } from "@devdigest/shared";
 export type { AgentPerf, AgentPerfRow, PerfCostSegment, PerfCostSegmentKind, PerfPeriod, PerfMostActive, PerfSeriesPoint, AgentStats } from "@devdigest/shared";
 
+export type { EvalCase, EvalCaseStatus, EvalCaseResult, EvalExpectationType, EvalSetRun, EvalSetRunStatus, EvalSetRunDetail } from "@devdigest/shared";
+
 /** UI-only view model for a PR list row (derives display fields from PrMeta). */
 export interface PrRowView {
   number: number;

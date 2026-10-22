@@ -53,6 +53,9 @@ import { BriefRepository } from '../modules/brief/repository.js';
 import { BriefService } from '../modules/brief/service.js';
 import { AgentPerformanceRepository } from '../modules/agent-performance/repository.js';
 import { AgentPerformanceService } from '../modules/agent-performance/service.js';
+import { EvalRepository, parseCaseDiff } from '../modules/eval/repository.js';
+import { EvalService } from '../modules/eval/service.js';
+import { SECRET_KEY_BY_PROVIDER } from '../modules/settings/constants.js';
 import { LLM_TIMEOUT_MS, ONBOARDING_JOB_KIND } from '../modules/onboarding/constants.js';
 import { loadPromptTemplate } from './prompts.js';
 import { EXCLUDED_DIRS } from '../modules/repo-intel/constants.js';
@@ -129,6 +132,7 @@ export class Container {
   private _onboardingService?: OnboardingService;
   private _briefService?: BriefService;
   private _agentPerformanceService?: AgentPerformanceService;
+  private _evalService?: EvalService;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -311,6 +315,34 @@ export class Container {
       llm: (provider) => this.llmSingleShot(provider),
       resolveModel: (workspaceId) => this.resolveFeatureModelFor(workspaceId, 'risk_brief'),
       systemPrompt: () => loadPromptTemplate('brief.system.md'),
+    }));
+  }
+
+  /**
+   * Eval pipeline. MUST be memoized: the in-flight run map lives on the instance.
+   * Runs use `llmSingleShot` so each case is exactly one provider call budget.
+   */
+  get evalService(): EvalService {
+    return (this._evalService ??= new EvalService({
+      repo: new EvalRepository(this.db),
+      agents: {
+        getAgent: async (workspaceId, id) => {
+          const a = await this.agentsRepo.getById(workspaceId, id);
+          if (!a) return undefined;
+          return {
+            id: a.id,
+            version: a.version,
+            provider: a.provider,
+            model: a.model,
+            strategy: a.strategy,
+            systemPrompt: a.systemPrompt,
+          };
+        },
+      },
+      llm: (provider) => this.llmSingleShot(provider),
+      providerConfigured: async (provider) =>
+        !!this.overrides.llm?.[provider] || !!(await this.secrets.get(SECRET_KEY_BY_PROVIDER[provider])),
+      parseDiff: parseCaseDiff,
     }));
   }
 

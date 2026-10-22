@@ -1,0 +1,110 @@
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+import { CreateEvalCaseBody, EvalCase, EvalSetRun, EvalSetRunDetail } from '@devdigest/shared';
+import { getContext } from '../_shared/context.js';
+import { IdParams } from '../_shared/schemas.js';
+import { EVAL_RUN_RATE_LIMIT } from './constants.js';
+
+/**
+ * eval module.
+ *   POST   /findings/:id/eval-case → turn a decided finding into an eval case (201 new, 200 existing)
+ *   GET    /agents/:id/eval-cases  → the agent's cases
+ *   DELETE /eval-cases/:id         → remove a case (past results are kept)
+ *   POST   /agents/:id/eval-runs   → run the agent over all its cases (202, async)
+ *   GET    /agents/:id/eval-runs   → run history, newest first
+ *   GET    /eval-runs/:id          → one run with per-case results
+ */
+export default async function evalRoutes(appBase: FastifyInstance) {
+  const app = appBase.withTypeProvider<ZodTypeProvider>();
+  const { container } = app;
+  const service = container.evalService;
+
+  // Clients may POST with `content-type: application/json` and no body; the default
+  // parser rejects that with 400. Encapsulated: applies to this module's routes only.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const text = typeof body === 'string' ? body : body.toString('utf8');
+    if (text.trim() === '') return done(null, undefined);
+    try {
+      done(null, JSON.parse(text));
+    } catch {
+      const err = Object.assign(new Error('Invalid JSON body'), { statusCode: 400 });
+      done(err, undefined);
+    }
+  });
+
+  app.post(
+    '/findings/:id/eval-case',
+    {
+      schema: {
+        params: IdParams,
+        // An empty body reaches the validator as null, not undefined.
+        body: CreateEvalCaseBody.nullish(),
+        response: { 200: EvalCase, 201: EvalCase },
+      },
+    },
+    async (req, reply): Promise<EvalCase> => {
+      const { workspaceId } = await getContext(container, req);
+      const { evalCase, created } = await service.createCaseFromFinding(
+        workspaceId,
+        req.params.id,
+        req.body,
+        { logger: req.log },
+      );
+      reply.code(created ? 201 : 200);
+      return evalCase;
+    },
+  );
+
+  app.get(
+    '/agents/:id/eval-cases',
+    { schema: { params: IdParams, response: { 200: z.array(EvalCase) } } },
+    async (req): Promise<EvalCase[]> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.listCases(workspaceId, req.params.id);
+    },
+  );
+
+  app.delete(
+    '/eval-cases/:id',
+    { schema: { params: IdParams } },
+    async (req, reply) => {
+      const { workspaceId } = await getContext(container, req);
+      await service.deleteCase(workspaceId, req.params.id);
+      reply.code(204).send();
+    },
+  );
+
+  // Each accepted request can spend one LLM call per case: tight per-route limit.
+  app.post(
+    '/agents/:id/eval-runs',
+    {
+      schema: { params: IdParams, response: { 202: EvalSetRun } },
+      config: { rateLimit: EVAL_RUN_RATE_LIMIT },
+    },
+    async (req, reply): Promise<EvalSetRun> => {
+      const { workspaceId } = await getContext(container, req);
+      const run = await service.startRun(workspaceId, req.params.id, { logger: req.log });
+      reply.code(202);
+      return run;
+    },
+  );
+
+  app.get(
+    '/agents/:id/eval-runs',
+    { schema: { params: IdParams, response: { 200: z.array(EvalSetRun) } } },
+    async (req): Promise<EvalSetRun[]> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.listRuns(workspaceId, req.params.id);
+    },
+  );
+
+  app.get(
+    '/eval-runs/:id',
+    { schema: { params: IdParams, response: { 200: EvalSetRunDetail } } },
+    async (req): Promise<EvalSetRunDetail> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.getRun(workspaceId, req.params.id);
+    },
+  );
+}

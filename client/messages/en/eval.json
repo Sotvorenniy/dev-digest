@@ -71,7 +71,90 @@
     "run": "Run",
     "running": "Running…",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "runAll": "Run all evals",
+    "runningState": "Running evals…",
+    "runFinished": "Run finished: {status}",
+    "casesPassing": "{passed} / {total} passing",
+    "casesErrored": "{errored} of {total} cases errored",
+    "status": {
+      "pass": "pass",
+      "fail": "fail",
+      "error": "error",
+      "never_run": "never run"
+    },
+    "type": {
+      "must_find": "must find",
+      "must_not_flag": "must not flag"
+    },
+    "decisionChanged": "Decision changed",
+    "emptyCasesHint": "No eval cases yet. Open a decided finding on a pull request and choose \"Turn into eval case\".",
+    "deleteConfirmTitle": "Delete eval case \"{name}\"?",
+    "deleteConfirmBody": "The case is removed from this agent. Results of past runs are kept.",
+    "deleteConfirm": "Delete case",
+    "errors": {
+      "eval_run_active": "An eval run is already in progress for this agent.",
+      "no_eval_cases": "Add at least one eval case before running.",
+      "provider_not_configured": "No API key is configured for this agent's provider.",
+      "rate_limited": "Too many eval runs. Wait a minute and try again.",
+      "generic": "The eval run could not be started."
+    },
+    "settingsLink": "Open Settings → API Keys",
+    "metrics": {
+      "recall": "Recall",
+      "precision": "Precision",
+      "citation": "Citation accuracy",
+      "passed": "Cases passed"
+    },
+    "noDelta": "No earlier run to compare",
+    "deleteCase": "Delete case {name}",
+    "deleteFailed": "The case could not be deleted.",
+    "loadError": "Could not load the eval cases."
+  },
+  "findingAction": {
+    "turnInto": "Turn into eval case",
+    "creating": "Creating…",
+    "created": "Eval case created",
+    "undecidedReason": "Accept or dismiss this finding first — the decision becomes the expected result.",
+    "diffUnavailable": "The diff for this pull request is no longer available, so a case cannot be built.",
+    "pickAgentTitle": "Choose an agent",
+    "pickAgentLabel": "Add the eval case to agent",
+    "pickAgentConfirm": "Create case",
+    "noAgents": "No agents exist yet. Create an agent first.",
+    "createFailed": "The eval case could not be created. Try again.",
+    "agentsLoading": "Loading agents…",
+    "agentsError": "Could not load agents."
+  },
+  "runStatus": {
+    "running": "running",
+    "done": "done",
+    "partial": "partial",
+    "failed": "failed"
+  },
+  "compare": {
+    "title": "{old} → {new}",
+    "compareButton": "Compare",
+    "selectRun": "Select run v{version} from {time}",
+    "old": "Old",
+    "new": "New",
+    "recall": "Recall",
+    "precision": "Precision",
+    "citation": "Citation accuracy",
+    "cost": "Cost",
+    "promptDiff": "System prompt changes",
+    "promptsIdentical": "System prompts are identical",
+    "modelsDiffer": "Models differ: {old} → {new}",
+    "close": "Close",
+    "history": "Run history",
+    "noRuns": "No runs yet.",
+    "loading": "Loading runs…",
+    "loadError": "Could not load the runs.",
+    "colVersion": "Version",
+    "colStarted": "Started",
+    "colStatus": "Status",
+    "colPassed": "Passed",
+    "colRecall": "Recall",
+    "colCost": "Cost"
   },
   "page": {
     "crumbSkillsLab": "Skills Lab",

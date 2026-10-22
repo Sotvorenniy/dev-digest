@@ -79,6 +79,18 @@ export const s = {
     marginTop: 14,
     flexWrap: "wrap",
   } satisfies CSSProperties,
+  evalAction: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  } satisfies CSSProperties,
+  evalNote: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  evalCreated: { fontSize: 12, fontWeight: 600, color: "var(--ok)" } satisfies CSSProperties,
+  evalError: { fontSize: 12, fontWeight: 600, color: "var(--danger, var(--text-primary))" } satisfies CSSProperties,
+  picker: { display: "flex", flexDirection: "column", gap: 10, padding: "18px 24px" } satisfies CSSProperties,
+  pickerLabel: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  pickerFooter: { display: "flex", justifyContent: "flex-end" } satisfies CSSProperties,
   composer: {
     marginTop: 12,
     display: "flex",
