@@ -232,7 +232,8 @@ reused by SPEC-07.
   only when the agent reports no finding on the case's diff, and the case editor (shall) accept `[]`
   as the short form of that case. _(observable: a run of such a case with one kept finding is `fail`
   with that finding marked as noise, with none it is `pass`; typing `[]` in Expected output shows the
-  negative-case banner and Save sends `{type: must_not_flag, items: []}`)_
+  negative-case banner and Save sends `{type: must_not_flag, items: []}`; a `must_find` case with no
+  items shows an explanation and keeps Run case and Save disabled)_
 - AC24 (US5). WHEN the two compared runs have different system prompts, the Compare dialog (shall)
   offer "Promote vN" for the newer run, and WHEN the user confirms, the system (shall) set the
   agent's system prompt to that run's prompt, which the agent update saves as a new agent version.
@@ -643,3 +644,4 @@ manual with the reasons given; NFR10 → review.
   with a preview) instead of asking for a pasted unified diff.
 - 2026-10-22 — added AC25: an empty `must_not_flag` case is a clean-diff case (any kept finding fails it);
   `[]` is accepted as its short form in the case editor.
+- 2026-10-22 — AC25 also: the case editor refuses a `must_find` case with no items (it would pass whatever the agent does).

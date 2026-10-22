@@ -105,7 +105,8 @@
     "afterLabel": "After",
     "afterPlaceholder": "const q = db.query(\"SELECT * FROM users WHERE id = $1\", [id]);",
     "previewDiff": "Preview generated diff",
-    "noChange": "Nothing to show yet. Fill in After, and Before when the file already existed."
+    "noChange": "Nothing to show yet. Fill in After, and Before when the file already existed.",
+    "emptyMustFind": "This case expects findings, so it needs at least one expected item. Add one, or write [] if the agent should report nothing."
   },
   "evalsTab": {
     "metricsTitle": "Eval metrics",

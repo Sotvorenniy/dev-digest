@@ -51,8 +51,10 @@ export function EvalCaseModal({
     () => (mode === "new" ? hunkFromTexts(before, after) : diff),
     [mode, before, after, diff],
   );
+  // A must_find case with nothing to find would pass whatever the agent does and sit outside recall.
+  const emptyMustFind = expected?.type === "must_find" && expected.items.length === 0;
   const ready =
-    !!expected && name.trim() !== "" && effectiveDiff.trim() !== "" && (mode !== "new" || filePath.trim() !== "");
+    !!expected && !emptyMustFind && name.trim() !== "" && effectiveDiff.trim() !== "" && (mode !== "new" || filePath.trim() !== "");
   const current = () =>
     toFields(initial, {
       name,
@@ -157,8 +159,8 @@ export function EvalCaseModal({
           </Button>
         </div>
         <span style={s.hint}>{t("expectedHint")}</span>
-        <span style={{ ...s.jsonState, ...(expected ? s.jsonOk : s.jsonBad) }}>
-          {expected ? t("validJson") : t("invalidExpected")}
+        <span aria-live="polite" style={{ ...s.jsonState, ...(expected && !emptyMustFind ? s.jsonOk : s.jsonBad) }}>
+          {!expected ? t("invalidExpected") : emptyMustFind ? t("emptyMustFind") : t("validJson")}
         </span>
 
         <div aria-live="polite" data-eval-case-result style={s.result}>

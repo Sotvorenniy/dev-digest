@@ -53,6 +53,11 @@ const mkCase = (id: string, over: Partial<EvalCase> = {}): EvalCase => ({
   ...over,
 });
 
+const WITH_ITEM: EvalCase["expected_output"] = {
+  type: "must_find",
+  items: [{ file: "a.ts", start_line: 1, end_line: 1, title: "t", severity: "WARNING", category: "security" }],
+};
+
 const mkRun = (id: string, over: Partial<EvalSetRun> = {}): EvalSetRun => ({
   id,
   agent_id: "ag1",
@@ -163,7 +168,7 @@ describe("EvalsTab cases", () => {
   });
 
   it("Edit opens the modal prefilled; Save sends the edited fields and Cancel saves nothing", () => {
-    cases = [mkCase("c1", { input_diff: "@@ diff" })];
+    cases = [mkCase("c1", { input_diff: "@@ diff", expected_output: WITH_ITEM })];
     render(tree());
     fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.editCase.replace("{name}", "case-c1") }));
     expect(screen.getByText(evalMessages.caseEditor.editTitle)).toBeInTheDocument();
@@ -172,7 +177,7 @@ describe("EvalsTab cases", () => {
     expect(updateMutate).toHaveBeenCalledTimes(1);
     expect(updateMutate.mock.calls[0]![0]).toMatchObject({
       caseId: "c1",
-      fields: { name: "renamed", input_diff: "@@ diff", expected_output: { type: "must_find", items: [] } },
+      fields: { name: "renamed", input_diff: "@@ diff", expected_output: WITH_ITEM },
     });
 
     fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.cancel }));
@@ -199,6 +204,7 @@ describe("EvalsTab cases", () => {
     const save = () => screen.getByRole("button", { name: evalMessages.caseEditor.save });
     expect(save()).toBeDisabled();
 
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.skeleton }));
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "safe query" } });
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "src/safe.ts" } });
     fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "ok" } });
@@ -210,7 +216,7 @@ describe("EvalsTab cases", () => {
       name: "safe query",
       input_files: ["src/safe.ts"],
       input_diff: "@@ -0,0 +1,1 @@\n+ok",
-      expected_output: { type: "must_find", items: [] },
+      expected_output: { type: "must_find", items: [expect.objectContaining({ file: "path/to/file.ts" })] },
     });
   });
 
@@ -225,6 +231,7 @@ describe("EvalsTab cases", () => {
     const box = (ph: string) => screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === ph);
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "n" } });
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.skeleton }));
     const save = () => screen.getByRole("button", { name: evalMessages.caseEditor.save });
     const preview = () => document.querySelector("[data-generated-diff]") as HTMLElement;
 
@@ -254,6 +261,32 @@ describe("EvalsTab cases", () => {
     expect(screen.getByRole("status")).toHaveTextContent(evalMessages.caseEditor.negativeBody);
   });
 
+  it("a must_find case with no items cannot be saved or run, and says why", () => {
+    const expectedBox = openNew();
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "n" } });
+    fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
+    fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "ok" } });
+    expect(screen.getByText(evalMessages.caseEditor.emptyMustFind)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.save })).toBeDisabled();
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.runCase })).toBeDisabled();
+
+    fireEvent.change(expectedBox, { target: { value: "[]" } });
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.save })).toBeEnabled();
+  });
+
+  it("Edit on a saved must_find case with no items explains why Save is blocked, and [] unblocks it", () => {
+    cases = [mkCase("c1", { input_diff: "@@ diff" })];
+    render(tree());
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.editCase.replace("{name}", "case-c1") }));
+    expect(screen.getByText(evalMessages.caseEditor.emptyMustFind)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.save })).toBeDisabled();
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.runCase })).toBeDisabled();
+
+    const expectedBox = screen.getAllByRole("textbox").find((el) => (el as HTMLTextAreaElement).value.includes("must_find")) as HTMLTextAreaElement;
+    fireEvent.change(expectedBox, { target: { value: "[]" } });
+    expect(screen.getByRole("button", { name: evalMessages.caseEditor.save })).toBeEnabled();
+  });
+
   it("typing [] as the expected output saves a must_not_flag case with no items and shows the banner", () => {
     const expectedBox = openNew();
     fireEvent.change(expectedBox, { target: { value: "[]" } });
@@ -267,6 +300,7 @@ describe("EvalsTab cases", () => {
 
   it("a successful create closes the modal, and reopening starts empty", () => {
     openNew();
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.skeleton }));
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.namePlaceholder), { target: { value: "x" } });
     fireEvent.change(screen.getByPlaceholderText(evalMessages.caseEditor.filePathPlaceholder), { target: { value: "a.ts" } });
     fireEvent.change(screen.getByPlaceholderText((_c, el) => el?.getAttribute("placeholder") === evalMessages.caseEditor.afterPlaceholder), { target: { value: "x" } });
@@ -279,7 +313,7 @@ describe("EvalsTab cases", () => {
   });
 
   it("editing a multi-file case keeps every file in input_files", () => {
-    cases = [mkCase("c1", { input_diff: "@@ diff", input_files: ["a.ts", "b.ts"] })];
+    cases = [mkCase("c1", { input_diff: "@@ diff", input_files: ["a.ts", "b.ts"], expected_output: WITH_ITEM })];
     render(tree());
     fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.editCase.replace("{name}", "case-c1") }));
     fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.save }));
