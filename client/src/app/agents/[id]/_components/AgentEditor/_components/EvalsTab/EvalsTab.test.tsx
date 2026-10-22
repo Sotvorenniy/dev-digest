@@ -12,6 +12,7 @@ const startMutate = vi.fn();
 const deleteMutate = vi.fn();
 const updateMutate = vi.fn();
 const runCaseMutate = vi.fn();
+const refetchCases = vi.fn();
 let runCaseState: { data?: unknown; isPending: boolean; isError: boolean } = { isPending: false, isError: false };
 let cases: EvalCase[] = [];
 let runs: EvalSetRun[] = [];
@@ -21,7 +22,7 @@ let startState: { isPending: boolean; isError: boolean; error: unknown } = {
   error: null,
 };
 vi.mock("@/lib/hooks", () => ({
-  useEvalCases: () => ({ data: cases, isLoading: false, isError: false, refetch: vi.fn() }),
+  useEvalCases: () => ({ data: cases, isLoading: false, isError: false, refetch: refetchCases }),
   useEvalRuns: () => ({ data: runs }),
   useStartEvalRun: () => ({ mutate: startMutate, ...startState }),
   useDeleteEvalCase: () => ({ mutate: deleteMutate, isPending: false }),
@@ -175,6 +176,24 @@ describe("EvalsTab cases", () => {
     fireEvent.click(screen.getByRole("button", { name: evalMessages.caseEditor.cancel }));
     expect(screen.queryByText(evalMessages.caseEditor.editTitle)).not.toBeInTheDocument();
     expect(updateMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("while a set run is running every row shows Running…, and the cases reload when it finishes", () => {
+    runs = [mkRun("r1", { status: "running", finished_at: null })];
+    const view = render(tree());
+    expect(screen.getAllByText(evalMessages.evalsTab.running)).toHaveLength(cases.length);
+    expect(refetchCases).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: evalMessages.evalsTab.runCase.replace("{name}", "case-c1") }));
+    expect(runCaseMutate).not.toHaveBeenCalled();
+    runs = [mkRun("r1", { status: "done" })];
+    view.rerender(tree());
+    expect(refetchCases).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload the cases on a first mount with only finished runs", () => {
+    runs = [mkRun("r1")];
+    render(tree());
+    expect(refetchCases).not.toHaveBeenCalled();
   });
 
   it("empty state points to 'Turn into eval case' and Run all is disabled with 0 cases", () => {

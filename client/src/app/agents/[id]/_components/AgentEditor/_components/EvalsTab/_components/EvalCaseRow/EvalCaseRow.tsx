@@ -13,11 +13,14 @@ import { s } from "../../styles";
 export function EvalCaseRow({
   evalCase,
   agentId,
+  setRunning,
   onEdit,
   onDelete,
 }: {
   evalCase: EvalCase;
   agentId: string;
+  /** A whole-set run is in progress: every case is being run, not just one. */
+  setRunning: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -32,7 +35,7 @@ export function EvalCaseRow({
   }, [reset, evalCase.name, evalCase.input_diff, evalCase.input_meta, evalCase.expected_output]);
 
   const doRun = () => {
-    if (run.isPending) return;
+    if (run.isPending || setRunning) return;
     run.mutate({
       name: evalCase.name,
       input_diff: evalCase.input_diff,
@@ -53,7 +56,7 @@ export function EvalCaseRow({
       </span>
       {evalCase.decision_changed && <span style={s.badge}>{t("evalsTab.decisionChanged")}</span>}
       <span aria-live="polite" data-eval-row-run style={s.caseRunNote}>
-        {run.isPending && t("evalsTab.running")}
+        {(run.isPending || setRunning) && t("evalsTab.running")}
         {run.isError && t("evalsTab.runCaseFailed")}
         {outcome && t(`evalsTab.rowRun.${outcome}`)}
       </span>

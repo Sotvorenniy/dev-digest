@@ -36,6 +36,15 @@ export function EvalsTab({ agent }: { agent: Agent }) {
   const errorKey = start.isError ? startErrorKey(start.error) : null;
   const runDisabled = running || start.isPending || caseList.length === 0;
 
+  // Case statuses come from finished runs: reload them when a set run finishes, or the rows keep
+  // showing the status from before the run until the page is reloaded.
+  const wasRunning = React.useRef(false);
+  const { refetch: refetchCases } = cases;
+  React.useEffect(() => {
+    if (wasRunning.current && !running) void refetchCases();
+    wasRunning.current = running;
+  }, [running, refetchCases]);
+
   let list: React.ReactNode;
   if (cases.isLoading) {
     list = <Skeleton height={120} />;
@@ -51,6 +60,7 @@ export function EvalsTab({ agent }: { agent: Agent }) {
             key={c.id}
             evalCase={c}
             agentId={agent.id}
+            setRunning={running || start.isPending}
             onEdit={() => {
               update.reset();
               setEditing(c);
