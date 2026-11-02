@@ -225,6 +225,14 @@ in `QueryClientProvider` and load the new messages namespace (`eval`). Expect
 this for any existing test of a parent that starts rendering a hook-using child.
 Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/FindingCard.test.tsx`
 
+### `@codemirror/view` and `@codemirror/state` are not installed — tsc and 3 test files fail
+`2026-10-23` — `client/package.json` declares only `@codemirror/lang-markdown`
+and `@uiw/react-codemirror`, so under pnpm the other two packages are not
+resolvable. `tsc --noEmit` fails with TS2307 and `SkillEditor.test.tsx`,
+`ConventionsView.test.tsx` and `CreateSkillModal.test.tsx` fail to load. It is
+independent of your change: filter with `tsc --noEmit | grep -v codemirror`.
+Evidence: `client/src/components/skill-body-editor/SkillBodyEditor/constants.ts:3`
+
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->
 
