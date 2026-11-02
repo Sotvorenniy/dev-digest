@@ -1,0 +1,16 @@
+{
+  "slug": "export-to-ci",
+  "created_at": "2026-10-23T00:00:00Z",
+  "updated_at": "2026-10-23T00:00:00Z",
+  "stage": "build",
+  "stage_status": "running",
+  "plan": { "path": ".claude/plans/export-to-ci.md", "sha256": "c9b84b581b2158255f462aa49ea6a81ea12fc04bd4d50455b61be67126933256", "mode": "multi-agent", "phases_done": [] },
+  "base_sha": "3b6f16a3db094a9ae94c73e9248097dc7e1acd7f",
+  "push_ready": true,
+  "spec": { "path": "specs/2026-10-23-export-to-ci.md", "id": "SPEC-09" },
+  "options": { "with_tests": false, "docs": false, "max_review_rounds": 2, "max_agents": 5, "max_fix_subagents": 2 },
+  "gates": { "G1": [], "G2": null },
+  "verify": { "code_rounds": 0, "code_verdict": null, "final_verdict": null },
+  "review": { "round": 0, "open_critical_high": [] },
+  "reports": []
+}
