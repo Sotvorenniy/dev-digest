@@ -12,7 +12,7 @@ export { reduceReviews, sliceDiff } from '@devdigest/reviewer-core';
 
 /** Names of the skills that make it into the prompt (same filter/order as buildSkillTexts). */
 export function buildSkillNames(links: { skill: { name: string; enabled: boolean } }[]): string[] {
-  return links.filter((l) => l.skill.enabled).map((l) => l.skill.name);
+  return [...new Set(links.filter((l) => l.skill.enabled).map((l) => l.skill.name))];
 }
 
 /**
