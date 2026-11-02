@@ -233,6 +233,13 @@ says "one LLM call" (onboarding tour) must use `container.llmSingleShot`
 provider retries the same error, so the test can fail.
 Evidence: `server/src/platform/container.ts:375-406`
 
+### drizzle-orm 0.38 `onConflictDoUpdate({ where })` filters the conflict target
+`2026-10-23` — To make the `DO UPDATE` conditional (update only when the
+existing row belongs to the same agent) use `setWhere`, not `where`. `where`
+narrows the conflict target index, so it silently changes which rows conflict.
+Evidence: `server/src/modules/ci/repository.ts` (`upsertInstallation`),
+`drizzle-orm` `insert.d.ts` (`setWhere`)
+
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
 

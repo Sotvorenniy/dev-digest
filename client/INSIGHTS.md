@@ -244,6 +244,14 @@ key the messages like the contract.
 Evidence: `client/src/app/multi-agent/[prId]/_components/MultiAgentResultsView/_components/ConflictsSection/ConflictsSection.tsx:57`,
 `client/messages/en/runs.json:130`
 
+### `@codemirror/view` and `@codemirror/state` are not installed — tsc and 3 test files fail
+`2026-10-23` — `client/package.json` declares only `@codemirror/lang-markdown`
+and `@uiw/react-codemirror`, so under pnpm the other two packages are not
+resolvable. `tsc --noEmit` fails with TS2307 and `SkillEditor.test.tsx`,
+`ConventionsView.test.tsx` and `CreateSkillModal.test.tsx` fail to load. It is
+independent of your change: filter with `tsc --noEmit | grep -v codemirror`.
+Evidence: `client/src/components/skill-body-editor/SkillBodyEditor/constants.ts:3`
+
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->
 
