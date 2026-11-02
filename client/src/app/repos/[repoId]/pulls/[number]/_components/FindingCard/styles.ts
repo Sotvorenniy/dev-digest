@@ -4,13 +4,17 @@ import type { CSSProperties } from "react";
 export const s = {
   card: (focused: boolean, sevColor: string, muted: boolean): CSSProperties => ({
     borderRadius: 8,
-    // All-longhand (never mix `border` shorthand with `borderLeft` — React warns
-    // about updating shorthand + non-shorthand on the same rerender).
+    // Per-side longhands only: React warns when `borderColor` / `borderWidth` shorthands are
+    // updated on a rerender while `borderLeft*` is also set.
     borderStyle: "solid",
-    borderColor: focused ? sevColor : "var(--border)",
-    borderWidth: 1,
-    borderLeftWidth: 3,
+    borderTopColor: focused ? sevColor : "var(--border)",
+    borderRightColor: focused ? sevColor : "var(--border)",
+    borderBottomColor: focused ? sevColor : "var(--border)",
     borderLeftColor: sevColor,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 3,
     background: "var(--bg-elevated)",
     overflow: "hidden",
     opacity: muted ? 0.6 : 1,
@@ -79,6 +83,18 @@ export const s = {
     marginTop: 14,
     flexWrap: "wrap",
   } satisfies CSSProperties,
+  evalAction: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  } satisfies CSSProperties,
+  evalNote: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  evalCreated: { fontSize: 12, fontWeight: 600, color: "var(--ok)" } satisfies CSSProperties,
+  evalError: { fontSize: 12, fontWeight: 600, color: "var(--danger, var(--text-primary))" } satisfies CSSProperties,
+  picker: { display: "flex", flexDirection: "column", gap: 10, padding: "18px 24px" } satisfies CSSProperties,
+  pickerLabel: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  pickerFooter: { display: "flex", justifyContent: "flex-end" } satisfies CSSProperties,
   composer: {
     marginTop: 12,
     display: "flex",

@@ -1,8 +1,12 @@
 # Onion Architecture Skill
 
-**Version 1.0.0** · first-party · created 2026-09-28
+**Version 1.1.0** · first-party · created 2026-09-28
 
 ## Changelog
+
+**1.1.0** — Facade laundering: a cross-module import is judged by the file that declares
+the symbol, not by its path. Checklist item (HIGH), `layers.md` subsection, example 8, and a
+`check.sh` grep for facade files that re-export module internals.
 
 **1.0.0** — Initial release: rules, examples, module templates, dependency-cruiser gate with
 a 53-violation baseline, CI step in `server-unit.yml`.
@@ -40,6 +44,9 @@ encodes the rings, and a baseline freezes existing debt so only **new** violatio
 | `references/sources.md` | Articles and docs the rules come from |
 | `templates/module/*.tmpl` | New-module skeleton (`__name__`, `__Entity__`, `__table__` placeholders) |
 | `scripts/check.sh` | The gate: depcruise `--ignore-known` + `container.db` grep. Used by CI |
+| `evals/eval.md` | Review eval: task prompts, output contract, grading (recall ≥ 0.9, no false positives) |
+| `evals/expected-findings.json` | Answer key: 9 planted violations (3 cases × 3) with file, lines, rule, severity |
+| `evals/fixtures/` | Code under review, one folder per case, paths mirror `server/src`. No hint comments |
 
 ## Enforcement outside the skill
 

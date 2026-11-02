@@ -3,6 +3,8 @@
 #   1. dependency-cruiser with the frozen baseline (--ignore-known)
 #   2. a grep for `container.db` outside repositories/composition root, which
 #      dependency-cruiser cannot see (it is property access, not an import)
+#   3. a grep for facade files (domain/ports/types.ts) that re-export module internals,
+#      which lets another module pass no-cross-module-internals by path alone
 # Usage: .claude/skills/onion-architecture/scripts/check.sh   (from anywhere)
 set -uo pipefail
 
@@ -53,6 +55,15 @@ if (( ${#new_hits[@]} )); then
   done
 else
   echo "✔ no new container.db access"
+fi
+
+echo "── facade re-exports of module internals"
+facade_hits="$(grep -nE "^export .* from '\./(service|repository|helpers|constants|routes)(\.js)?'|^export .* from '\./repository/" src/modules/*/{domain,ports,types}.ts 2>/dev/null || true)"
+if [[ -n "$facade_hits" ]]; then
+  status=1
+  echo "$facade_hits" | sed "s|^|  error facade-reexports-internal: |"
+else
+  echo "✔ no facade re-exports module internals"
 fi
 
 exit $status

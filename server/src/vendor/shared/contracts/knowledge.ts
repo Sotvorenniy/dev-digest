@@ -158,19 +158,6 @@ export type EvalRun = z.infer<typeof EvalRun>;
 export const EvalOwnerKind = z.enum(['skill', 'agent']);
 export type EvalOwnerKind = z.infer<typeof EvalOwnerKind>;
 
-export const EvalCase = z.object({
-  id: z.string(),
-  owner_kind: EvalOwnerKind,
-  owner_id: z.string(),
-  name: z.string(),
-  input_diff: z.string(),
-  input_files: z.unknown(),
-  input_meta: z.unknown(),
-  expected_output: z.unknown(),
-  notes: z.string().nullish(),
-});
-export type EvalCase = z.infer<typeof EvalCase>;
-
 // ---- Memory ----
 export const MemoryScope = z.enum(['repo', 'global', 'team']);
 export type MemoryScope = z.infer<typeof MemoryScope>;

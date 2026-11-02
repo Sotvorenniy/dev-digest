@@ -1,0 +1,204 @@
+{
+  "skill": "onion-architecture",
+  "match": {
+    "file": "exact, repo-relative (server/src/...)",
+    "line_tolerance": 3,
+    "rule": "not required; reported for diagnostics"
+  },
+  "findings": [
+    {
+      "id": "FD-1",
+      "case": "finding-digest",
+      "file": "server/src/modules/finding-digest/routes.ts",
+      "locations": [
+        3,
+        4,
+        25
+      ],
+      "rule": "routes-no-data-access",
+      "severity": "CRITICAL",
+      "summary": "The /digest/accepted handler imports drizzle-orm and db/schema and queries container.db."
+    },
+    {
+      "id": "FD-2",
+      "case": "finding-digest",
+      "file": "server/src/modules/finding-digest/ports.ts",
+      "locations": [
+        1,
+        3
+      ],
+      "rule": "core-no-infrastructure",
+      "severity": "CRITICAL",
+      "summary": "The port exposes the Drizzle row type typeof t.findings.$inferSelect."
+    },
+    {
+      "id": "FD-3",
+      "case": "finding-digest",
+      "file": "server/src/modules/finding-digest/service.ts",
+      "locations": [
+        2
+      ],
+      "rule": "no-cross-module-internals",
+      "severity": "HIGH",
+      "summary": "The service imports PREVIEW_RATIONALE_CHARS from another module's constants.ts."
+    },
+    {
+      "id": "RH-1",
+      "case": "repo-health",
+      "file": "server/src/modules/repo-health/domain.ts",
+      "locations": [
+        1,
+        28
+      ],
+      "rule": "core-zod-type-only",
+      "severity": "HIGH",
+      "summary": "domain.ts runs zod at runtime (HealthThresholds.parse)."
+    },
+    {
+      "id": "RH-2",
+      "case": "repo-health",
+      "file": "server/src/modules/repo-health/service.ts",
+      "locations": [
+        3,
+        28
+      ],
+      "rule": "application-no-infrastructure",
+      "severity": "CRITICAL",
+      "summary": "The service imports and constructs the concrete OctokitGitHubClient instead of depending on a GitHubClient port."
+    },
+    {
+      "id": "RH-3",
+      "case": "repo-health",
+      "file": "server/src/modules/repo-health/service.ts",
+      "locations": [
+        1,
+        17,
+        22
+      ],
+      "rule": "application-no-infrastructure",
+      "severity": "HIGH",
+      "summary": "The service takes FastifyReply and writes the 409 response itself."
+    },
+    {
+      "id": "FE-1",
+      "case": "finding-export",
+      "file": "server/src/adapters/exporter/csv.ts",
+      "locations": [
+        2
+      ],
+      "rule": "adapters-not-inward-of-modules",
+      "severity": "HIGH",
+      "summary": "The CSV adapter imports constants from modules/finding-export."
+    },
+    {
+      "id": "FE-2",
+      "case": "finding-export",
+      "file": "server/src/modules/finding-export/service.ts",
+      "locations": [
+        2,
+        16,
+        30
+      ],
+      "also_at": [
+        {
+          "file": "server/src/modules/finding-export/ports.ts",
+          "locations": [
+            1,
+            5,
+            6
+          ]
+        }
+      ],
+      "rule": "application-no-infrastructure",
+      "severity": "CRITICAL",
+      "summary": "The service holds a Drizzle Db and runs db.transaction; the port passes tx: Db."
+    },
+    {
+      "id": "FE-3",
+      "case": "finding-export",
+      "file": "server/src/modules/finding-export/service.ts",
+      "locations": [
+        1,
+        9,
+        25
+      ],
+      "rule": "service-no-reparse",
+      "severity": "HIGH",
+      "summary": "The service validates again with zod (ExportRequest.safeParse) input that routes.ts already parsed."
+    },
+    {
+      "id": "PT-1",
+      "case": "pr-triage",
+      "file": "server/src/modules/pr-triage/routes.ts",
+      "locations": [
+        3,
+        4,
+        27
+      ],
+      "rule": "routes-no-data-access",
+      "severity": "CRITICAL",
+      "summary": "GET /repos/:id/triage/count imports drizzle-orm and db/schema and queries container.db."
+    },
+    {
+      "id": "PT-2",
+      "case": "pr-triage",
+      "file": "server/src/modules/pr-triage/ports.ts",
+      "locations": [
+        1,
+        3,
+        6
+      ],
+      "rule": "core-no-infrastructure",
+      "severity": "CRITICAL",
+      "summary": "The port returns the Drizzle row type typeof t.pullRequests.$inferSelect."
+    },
+    {
+      "id": "PT-3",
+      "case": "pr-triage",
+      "file": "server/src/modules/intent/types.ts",
+      "locations": [
+        7,
+        8
+      ],
+      "rule": "facade-laundering",
+      "severity": "HIGH",
+      "summary": "The intent facade re-exports IntentService from service.ts and INTENT_TIMEOUT_MS from constants.ts."
+    },
+    {
+      "id": "PT-4",
+      "case": "pr-triage",
+      "file": "server/src/modules/pr-triage/service.ts",
+      "locations": [
+        2,
+        10
+      ],
+      "rule": "facade-laundering",
+      "severity": "HIGH",
+      "summary": "The triage service depends on intent's concrete IntentService, reached through intent/types.ts."
+    },
+    {
+      "id": "PT-5",
+      "case": "pr-triage",
+      "file": "server/src/modules/pr-triage/helpers.ts",
+      "locations": [
+        1,
+        4
+      ],
+      "rule": "facade-laundering",
+      "severity": "HIGH",
+      "summary": "helpers.ts imports intent's internal constant INTENT_TIMEOUT_MS through intent/types.ts."
+    }
+  ],
+  "clean_files": [
+    "server/src/modules/finding-digest/repository.ts",
+    "server/src/modules/finding-digest/domain.ts",
+    "server/src/modules/repo-health/routes.ts",
+    "server/src/modules/repo-health/repository.ts",
+    "server/src/ports/csv-exporter.ts",
+    "server/src/modules/finding-export/routes.ts",
+    "server/src/modules/finding-export/domain.ts",
+    "server/src/modules/pr-triage/domain.ts",
+    "server/src/modules/pr-triage/constants.ts",
+    "server/src/modules/pr-triage/repository.ts"
+  ]
+}

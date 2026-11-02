@@ -10,7 +10,15 @@ const keysOf = (section: string) => NAV.find((g) => g.section === section)?.item
 describe("sidebar grouping", () => {
   it("puts Agents, Skills and Conventions in SKILLS LAB, not in WORKSPACE", () => {
     expect(keysOf("WORKSPACE")).toEqual(["pulls", "context", "onboarding-tour"]);
-    expect(keysOf("SKILLS LAB")).toEqual(["agents", "skills", "conventions"]);
+    expect(keysOf("SKILLS LAB")).toEqual(["agents", "skills", "conventions", "eval"]);
+  });
+
+  it("renders Eval Dashboard under SKILLS LAB, marked current on /eval (SPEC-07 AC1)", () => {
+    render(<Sidebar ctx={{ activeKey: "eval" }} />);
+    const lab = screen.getByText("SKILLS LAB").parentElement!;
+    const label = within(lab).getByText(shell.nav.eval);
+    expect(label.closest("a")).toHaveAttribute("href", "/eval");
+    expect(label.closest("[aria-current]")).toHaveAttribute("aria-current", "page");
   });
 
   it("renders the Agents link under the SKILLS LAB heading", () => {

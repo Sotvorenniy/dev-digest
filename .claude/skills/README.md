@@ -24,6 +24,9 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [ux-review](ux-review/SKILL.md) | Frontend | UI state matrix, Nielsen heuristics, WCAG 2.2 AA checklist, wording and i18n; outputs proposals, not code (first-party, v1.0.0) |
 | [run-plan](run-plan/SKILL.md) | Project | `/run-plan <slug>`: executes an approved plan to a PR-ready state — implementer per phase, verification, parallel reviews with a bounded fix loop, docs, PR gate; resumable (first-party, v1.0.0) |
 | [workflow-retro](workflow-retro/SKILL.md) | Project | `/workflow-retro [--deep]`: manual-only retrospective of a multi-agent run — tokens, agents, launch order, per-agent hard/easy/duplicated/missed, proposals; ledger in `docs/retro/ledger/` (first-party, v1.0.0) |
+| [dependency-checker](dependency-checker/SKILL.md) | Project | `/dependency-checker`: audits deps of every root package — Mermaid flowchart, sizes (own + transitive), P0/P1/P2/Info findings (undeclared, unused, misplaced, drift, heavy, boundary crossings) and a summary; read-only (first-party, v1.2.0) |
+| [skill-eval](skill-eval/SKILL.md) | Project | `/skill-eval <skill>`: real-repo audit eval (`evals/skills/<skill>/audit/`) — N with-skill vs N baseline agents, separate graders, delta vs thresholds; complements the `evals/` package; manual only (first-party, v1.0.0) |
+| [instructions-eval](instructions-eval/SKILL.md) | Project | `/instructions-eval <name>`: nested vs root-only CLAUDE.md/AGENTS.md/INSIGHTS.md, several tasks per session, blind grading; manual only (first-party, v1.0.0) |
 
 Six of the skills above are vendored from GitHub and tracked in
 `skills-lock.json`: `drizzle-orm-patterns`, `fastify-best-practices`,
@@ -34,7 +37,7 @@ which are not currently checked out here.)
 The rest are **first-party — do not add them to the lock file**, or the next sync
 will treat them as drift and clobber them: `engineering-insights`, `pr-self-review`,
 `frontend-ui-architecture`, `onion-architecture`, `react-best-practices`, `react-testing-library`,
-`security`, `mermaid-diagram`, `spec-writing`, `ux-review`, `run-plan` and `workflow-retro`.
+`security`, `mermaid-diagram`, `spec-writing`, `ux-review`, `run-plan`, `workflow-retro`, `dependency-checker`, `skill-eval` and `instructions-eval`.
 
 ## Agent routing
 

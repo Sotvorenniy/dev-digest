@@ -11,6 +11,7 @@ import { ConfigTab } from "./_components/ConfigTab";
 import { SkillsTab } from "./_components/SkillsTab";
 import { ContextTab } from "./_components/ContextTab";
 import { StatsTab } from "./_components/StatsTab";
+import { EvalsTab } from "./_components/EvalsTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
 
@@ -18,6 +19,7 @@ import { s } from "./styles";
 const TAB_VIEWS: Record<string, React.ComponentType<{ agent: Agent }>> = {
   skills: SkillsTab,
   context: ContextTab,
+  evals: EvalsTab,
   stats: StatsTab,
 };
 

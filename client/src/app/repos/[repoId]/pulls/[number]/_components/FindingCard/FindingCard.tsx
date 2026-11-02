@@ -22,6 +22,7 @@ import { SEV_COLOR, SEV_COLOR_FALLBACK } from "./constants";
 import { lineLabel } from "./helpers";
 import { githubBlobUrl } from "../../../../../../../lib/github-urls";
 import { s } from "./styles";
+import { EvalCaseAction } from "./_components/EvalCaseAction";
 
 export function FindingCard({
   f,
@@ -31,6 +32,7 @@ export function FindingCard({
   pending,
   repoFullName,
   headSha,
+  reviewAgentId,
 }: {
   f: FindingRecord;
   focused?: boolean;
@@ -39,6 +41,8 @@ export function FindingCard({
   pending?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** The review's agent; null when the review predates agents (picker path). */
+  reviewAgentId?: string | null;
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
@@ -109,6 +113,7 @@ export function FindingCard({
             >
               {t("finding.dismiss")}
             </Button>
+            <EvalCaseAction finding={f} reviewAgentId={reviewAgentId} />
           </div>
         </div>
       )}

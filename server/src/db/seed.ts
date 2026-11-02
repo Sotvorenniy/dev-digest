@@ -11,6 +11,7 @@ import {
 } from './seed-prompts.js';
 import { seedSkills } from './seed-skills.js';
 import { SEED_PR_482_CONFIG_PATCH, seedBrief } from './seed-brief.js';
+import { seedEvalCases } from './seed-eval.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -246,6 +247,7 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
   ];
   let testQualityAgentId: string | undefined;
   let apiContractAgentId: string | undefined;
+  let securityAgentId: string | undefined;
   for (const a of seedAgents) {
     let [row] = await db
       .select()
@@ -254,7 +256,11 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     if (!row) [row] = await db.insert(t.agents).values(a).returning();
     if (a.name === 'Test Quality Reviewer') testQualityAgentId = row!.id;
     if (a.name === 'API Contract Reviewer') apiContractAgentId = row!.id;
+    if (a.name === 'Security Reviewer') securityAgentId = row!.id;
   }
+
+  // ---- eval cases for the Security Reviewer (outside `if (!pr)`: reaches existing DBs too) ----
+  await seedEvalCases(db, workspaceId, securityAgentId!);
 
   // ---- skills for the "before/after skills" demo agents ----
   await seedSkills(db, workspaceId, {

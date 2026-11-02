@@ -1,0 +1,245 @@
+# Harness evals — the .claude/** artifacts (skills, agents, CLAUDE.md) and the evals/ engine.
+# Uses pnpm (evals/pnpm-lock.yaml).
+#
+#   quality    static gate, zero tokens, always runs, blocking
+#   changes    maps changed files onto eval suites (evals/scripts/ci-detect.mjs)
+#   skills     content tier, one matrix leg per changed skill, blocking, no proxy
+#   agents     tool tier, one matrix leg per changed agent, blocking, via LiteLLM proxy
+#   workflow   tool tier, only when CLAUDE.md / an agent / the engine changed, NOT blocking
+#              (activation cases on non-Anthropic models are indicative — see evals/README.md)
+#
+# Models (OpenRouter): google/gemini-2.5-flash on every tier (cheapest that dispatches subagents
+# and passes the calibrated cases; Haiku was ~3x the price). Agents and workflow go through the
+# LiteLLM proxy. Model jobs run only with the `run-evals` PR label or by workflow_dispatch.
+# Model runs are a REPORT vs evals/baseline.json (job summary); a job fails only on a regression
+# (> REGRESSION_TOLERANCE below baseline) or an infra failure. Budget: timeout-minutes per job,
+# MAX_SUITES legs per tier (ci-detect), EVAL_TOKEN_BUDGET hard cap in the engine. Also set a credit limit on
+# the OpenRouter key itself.
+# No OPENROUTER_API_KEY (fork PRs): model jobs are skipped with a notice, quality still runs.
+# Artifacts without evals are logged as SKIP, never failed.
+#
+# The full `pnpm eval` never runs on CI. Secret: OPENROUTER_API_KEY (repo Actions secret).
+name: harness-evals
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - '.claude/**'
+      - 'evals/**'
+      - '**/CLAUDE.md'
+      - '**/AGENTS.md'
+      - '**/INSIGHTS.md'
+      - '.github/workflows/harness-evals.yml'
+  workflow_dispatch:
+    inputs:
+      skills_model:
+        description: OpenRouter slug for the skill evals (cheap)
+        default: google/gemini-2.5-flash
+      agents_model:
+        description: OpenRouter slug for the agent evals (non-anthropic slugs go through the LiteLLM proxy)
+        default: google/gemini-2.5-flash
+      workflow_model:
+        description: OpenRouter slug for the workflow evals (must dispatch subagents - Gemini)
+        default: google/gemini-2.5-flash
+      judge_model:
+        description: OpenRouter slug for the LLM judge
+        default: google/gemini-2.5-flash
+
+permissions:
+  contents: read
+
+# One run at a time across ALL branches/PRs: OpenRouter reserves credit per in-flight request, so
+# parallel runs trip 402. GitHub keeps one running + the newest pending run; older pending ones
+# are cancelled, which is what we want for superseded pushes.
+concurrency:
+  group: harness-evals
+  cancel-in-progress: false
+
+env:
+  EVAL_BACKEND: openrouter
+  # hard cap per vitest process (src/runtime/budget.ts stops further model calls); also the report budget
+  EVAL_TOKEN_BUDGET: '600000'
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'google/gemini-2.5-flash' }}
+
+defaults:
+  run:
+    working-directory: evals
+
+jobs:
+  quality:
+    name: quality (static)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm eval:quality
+
+  changes:
+    name: detect changed suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skills: ${{ steps.detect.outputs.skills }}
+      agents: ${{ steps.detect.outputs.agents }}
+      run_workflow: ${{ steps.detect.outputs.run_workflow }}
+      has_key: ${{ steps.key.outputs.has_key }}
+    steps:
+      # fork PRs get no secrets: skip the model jobs with a notice instead of going red
+      - id: key
+        working-directory: ${{ github.workspace }}   # runs before checkout: evals/ does not exist yet
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # Model jobs cost money: run them only on request (label `run-evals`) or by hand.
+          if [ -z "$KEY" ]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SKIP model evals::OPENROUTER_API_KEY not available (fork PR?)"
+          elif [ "$EVENT" != "workflow_dispatch" ] && [[ ",$LABELS," != *",run-evals,"* ]]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SKIP model evals::add the 'run-evals' label to this PR to run them (they cost money)"
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - id: detect
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            CHANGED_FILES="$(git diff --name-only "origin/$BASE_REF...HEAD")"
+          else
+            # workflow_dispatch: no base — run everything that has evals
+            # steps run in evals/ (defaults.run.working-directory): list from the repo root
+            CHANGED_FILES="$(git -C "$GITHUB_WORKSPACE" ls-files .claude CLAUDE.md AGENTS.md evals/src evals/workflow)"
+          fi
+          export CHANGED_FILES
+          node scripts/ci-detect.mjs
+      - if: always()
+        run: |
+          echo "skills=${{ steps.detect.outputs.skills }}"
+          echo "agents=${{ steps.detect.outputs.agents }}"
+          echo "run_workflow=${{ steps.detect.outputs.run_workflow }}"
+          [ -z "${{ steps.detect.outputs.skipped_skills }}" ] || echo "SKIP skills (no evals): ${{ steps.detect.outputs.skipped_skills }}"
+          [ -z "${{ steps.detect.outputs.skipped_agents }}" ] || echo "SKIP agents (no evals): ${{ steps.detect.outputs.skipped_agents }}"
+
+  skills:
+    name: skill evals (${{ matrix.skill }})
+    needs: changes
+    if: needs.changes.outputs.has_key == 'true' && needs.changes.outputs.skills != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 1   # OpenRouter throttles bursts
+      matrix:
+        skill: ${{ fromJSON(needs.changes.outputs.skills) }}
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      EVAL_MODEL: ${{ inputs.skills_model || 'google/gemini-2.5-flash' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # content tier calls OpenRouter directly — no proxy
+      - id: eval
+        continue-on-error: true
+        run: pnpm exec vitest run skills/${{ matrix.skill }}
+      - if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs skill:${{ matrix.skill }}
+
+  agents:
+    name: agent evals (${{ matrix.agent }})
+    # run after skills (not in parallel): OpenRouter reserves credit per in-flight request
+    needs: [changes, skills]
+    if: ${{ !cancelled() && needs.changes.outputs.has_key == 'true' && needs.changes.outputs.agents != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        agent: ${{ fromJSON(needs.changes.outputs.agents) }}
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_BASE_URL: http://localhost:4000
+      EVAL_MODEL: ${{ inputs.agents_model || 'google/gemini-2.5-flash' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Gemini is not an anthropic/* slug, so the Agent SDK needs the LiteLLM translating proxy.
+      - run: docker compose -f proxy/docker-compose.yml up -d
+      - run: pnpm proxy:wait
+      - id: eval
+        continue-on-error: true
+        run: pnpm exec vitest run agents/${{ matrix.agent }}
+      - if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs agent:${{ matrix.agent }}
+      - if: always()
+        run: docker compose -f proxy/docker-compose.yml down
+
+  workflow:
+    name: workflow evals (non-blocking)
+    needs: [changes, agents]
+    if: ${{ !cancelled() && needs.changes.outputs.has_key == 'true' && needs.changes.outputs.run_workflow == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_BASE_URL: http://localhost:4000
+      EVAL_MODEL: ${{ inputs.workflow_model || 'google/gemini-2.5-flash' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose -f proxy/docker-compose.yml up -d
+      - run: pnpm proxy:wait
+      - id: eval
+        continue-on-error: true
+        run: pnpm eval:workflow
+      - if: always()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: node scripts/ci-report.mjs workflow
+      - if: failure()
+        run: docker compose -f proxy/docker-compose.yml logs --tail 100
+      - if: always()
+        run: docker compose -f proxy/docker-compose.yml down
