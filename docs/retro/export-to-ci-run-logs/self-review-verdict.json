@@ -1,0 +1,156 @@
+{
+  "verdict": "PASS",
+  "counts": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 4
+  },
+  "base": "3b6f16a3db094a9ae94c73e9248097dc7e1acd7f",
+  "base_ref": "3b6f16a3db094a9ae94c73e9248097dc7e1acd7f",
+  "head": "3b6f16a3db094a9ae94c73e9248097dc7e1acd7f",
+  "dirty": true,
+  "diff_hash": "14da550da45b4735325fa05c5ac9969b1ce2b8b919907c5b65432a81656d4f7f",
+  "findings": [
+    {
+      "severity": "LOW",
+      "file": "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/WizardDialog.tsx",
+      "line": 29,
+      "rule": "a11y: focus",
+      "summary": "Focus is restored only on step change; after successful install the focused Install button becomes disabled. Deferred.",
+      "failure_scenario": "Forward Tab may leave the dialog after install.",
+      "fix": "Refocus on install success."
+    },
+    {
+      "severity": "LOW",
+      "file": "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/CiTab.tsx",
+      "line": 28,
+      "rule": "react: surface mutation errors",
+      "summary": "Failed ci_fail_on save is silent. Deferred.",
+      "failure_scenario": "PATCH fails, no message.",
+      "fix": "Render update.isError alert."
+    },
+    {
+      "severity": "LOW",
+      "file": "client/src/app/agents/[id]/_components/AgentEditor/_components/ExportWizard/ExportWizard.tsx",
+      "line": 58,
+      "rule": "react: derived state",
+      "summary": "Preview files are generated at step 1 with default postAs/triggers and not regenerated after Configure; installed PR may differ from the preview. Deferred (accepted).",
+      "failure_scenario": "User changes triggers after Preview, installs; PR differs from previewed workflow.",
+      "fix": "Regenerate preview after Configure."
+    },
+    {
+      "severity": "LOW",
+      "file": "server/src/modules/ci/routes.ts",
+      "line": 10,
+      "rule": "zod: contract narrowing",
+      "summary": "ExportBody narrows CiExportInput in the route, not in the shared contract. Deferred.",
+      "failure_scenario": "Contract looser than server input.",
+      "fix": "Move rules into the contract in both copies."
+    }
+  ],
+  "errors": [],
+  "skills_run": {
+    "frontend-ui-architecture": [
+      "client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/CiTab.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ConfigureStep/ConfigureStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ConfigureStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ExportWizard/ExportWizard.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ExportWizard/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/InstallStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/PreviewStep/PreviewStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/PreviewStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/TargetStep/TargetStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/TargetStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/WizardDialog.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/constants.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/helpers.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/styles.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/constants.ts",
+      "client/src/lib/hooks/ci.ts",
+      "client/src/lib/hooks/index.ts"
+    ],
+    "react-best-practices": [
+      "client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/CiTab.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ConfigureStep/ConfigureStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ExportWizard/ExportWizard.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/InstallStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/PreviewStep/PreviewStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/TargetStep/TargetStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/WizardDialog.tsx"
+    ],
+    "next-best-practices": [
+      "client/src/app/agents/[id]/_components/AgentEditor/AgentEditor.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/CiTab.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ConfigureStep/ConfigureStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ConfigureStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ExportWizard/ExportWizard.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/ExportWizard/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/InstallStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/PreviewStep/PreviewStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/PreviewStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/TargetStep/TargetStep.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/TargetStep/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/WizardDialog.tsx",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/WizardDialog/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/constants.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/helpers.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/index.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/styles.ts",
+      "client/src/app/agents/[id]/_components/AgentEditor/constants.ts"
+    ],
+    "security": [
+      "client/src/app/agents/[id]/_components/AgentEditor/_components/CiTab/_components/InstallStep/InstallStep.tsx",
+      "server/src/adapters/runner-bundle/local.ts",
+      "server/src/modules/ci/constants.ts",
+      "server/src/modules/ci/ports.ts",
+      "server/src/modules/ci/routes.ts",
+      "server/src/modules/ci/service.ts"
+    ],
+    "onion-architecture": [
+      "server/src/adapters/runner-bundle/local.ts",
+      "server/src/modules/ci/constants.ts",
+      "server/src/modules/ci/domain.ts",
+      "server/src/modules/ci/manifest.ts",
+      "server/src/modules/ci/ports.ts",
+      "server/src/modules/ci/repository.ts",
+      "server/src/modules/ci/routes.ts",
+      "server/src/modules/ci/service.ts",
+      "server/src/modules/ci/workflow.ts",
+      "server/src/modules/index.ts",
+      "server/src/platform/container.ts"
+    ],
+    "postgresql-table-design": [
+      "server/src/db/migrations/0017_sudden_professor_monster.sql",
+      "server/src/db/schema/ci.ts"
+    ],
+    "drizzle-orm-patterns": [
+      "server/src/db/schema/ci.ts",
+      "server/src/modules/ci/repository.ts"
+    ],
+    "fastify-best-practices": [
+      "server/src/modules/ci/routes.ts",
+      "server/src/platform/container.ts"
+    ],
+    "zod": [
+      "server/src/modules/ci/routes.ts"
+    ]
+  },
+  "not_covered": [
+    "INSIGHTS.md",
+    "client/INSIGHTS.md",
+    "client/messages/en/ci.json",
+    "server/INSIGHTS.md",
+    "server/src/db/migrations/meta/0017_snapshot.json",
+    "server/src/db/migrations/meta/_journal.json",
+    "specs/2026-10-23-export-to-ci.md",
+    "specs/README.md"
+  ],
+  "ts": "2026-11-02T13:24:55.332Z"
+}
