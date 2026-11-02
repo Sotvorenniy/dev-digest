@@ -2,7 +2,8 @@
    screen_trace.jsx. Tabs: Trace (Configuration / Stats / Prompt assembly /
    Tool calls / Raw output) and Live log (SSE via useRunEvents → LiveLogStream,
    which has client-side Filter-input search). Default export so the PR-detail
-   page (A2) can mount it from the run-status area. */
+   page (A2) can mount it from the run-status area. Shared by the PR page and
+   /multi-agent. */
 "use client";
 
 import React from "react";

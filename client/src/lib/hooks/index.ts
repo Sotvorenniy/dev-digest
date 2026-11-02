@@ -14,5 +14,6 @@ export * from "./blast";
 export * from "./context";
 export * from "./agent-performance";
 export * from "./agent-stats";
+export * from "./multi-agent";
 export * from "./eval";
 export * from "./ci";

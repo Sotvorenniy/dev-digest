@@ -129,18 +129,26 @@ export interface RunReviewInput {
   prId: string;
   agentId?: string;
   all?: boolean;
+  /** Ordered subset: the body is exactly `{ agent_ids }`. */
+  agentIds?: string[];
 }
 
 export function useRunReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prId, agentId, all }: RunReviewInput) =>
-      api.post<ReviewRunResponse>(`/pulls/${prId}/review`, {
-        ...(agentId ? { agentId } : {}),
-        ...(all ? { all } : {}),
-      }),
+    mutationFn: ({ prId, agentId, all, agentIds }: RunReviewInput) =>
+      api.post<ReviewRunResponse>(
+        `/pulls/${prId}/review`,
+        agentIds
+          ? { agent_ids: agentIds }
+          : {
+              ...(agentId ? { agentId } : {}),
+              ...(all ? { all } : {}),
+            },
+      ),
     onSuccess: (_d, { prId }) => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: ["multi-agent", prId] });
     },
   });
 }
@@ -165,7 +173,10 @@ export function useFindingAction() {
         reply ? { reply } : undefined,
       ),
     onSuccess: (_d, { prId }) => {
-      if (prId) qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      if (prId) {
+        qc.invalidateQueries({ queryKey: ["reviews", prId] });
+        qc.invalidateQueries({ queryKey: ["multi-agent", prId] });
+      }
     },
   });
 }

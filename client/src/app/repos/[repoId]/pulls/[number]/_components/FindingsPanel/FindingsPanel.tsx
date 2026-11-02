@@ -6,7 +6,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Toggle, EmptyState, SeverityBadge, Chip, SEV, type Severity } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
-import { FindingCard } from "../FindingCard";
+import { FindingCard } from "@/components/finding-card";
 import { useFindingAction } from "@/lib/hooks";
 import { countBySeverity } from "@/components/severity-chips";
 import { KEY_TO_ACTION, SEVERITY_FILTERS } from "./constants";

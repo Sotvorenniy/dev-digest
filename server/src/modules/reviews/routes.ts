@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { RunRequest } from '@devdigest/shared';
 import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
@@ -9,7 +10,8 @@ import { ReviewService } from './service.js';
 
 /**
  * reviews module.
- *   POST   /pulls/:id/review  {agentId} | {all:true}  → run review(s); returns runs
+ *   POST   /pulls/:id/review  {agentId} | {all:true} | {agent_ids}  → run review(s); returns runs
+ *   GET    /pulls/:id/multi-agent?agents=a,b           → latest-run columns + conflict groups
  *   GET    /runs/:id/events                            → SSE stream of RunEvent (replay-first)
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
@@ -33,6 +35,7 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     const targets = await service.resolveTargets(workspaceId, {
       ...(body.agentId !== undefined ? { agentId: body.agentId } : {}),
       ...(body.all !== undefined ? { all: body.all } : {}),
+      ...(body.agent_ids !== undefined ? { agent_ids: body.agent_ids } : {}),
     });
     const { runs, reviews } = await service.runReview(
       workspaceId,
@@ -131,6 +134,26 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     const { workspaceId } = await getContext(container, req);
     return service.reviewsForPull(workspaceId, req.params.id);
   });
+
+  // `agents` stays a permissive string: format errors answer 400 from the service, not 422.
+  app.get(
+    '/pulls/:id/multi-agent',
+    {
+      schema: {
+        params: IdParams,
+        querystring: z.object({ agents: z.union([z.string(), z.array(z.string())]).nullish() }),
+      },
+    },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      const raw = req.query.agents ?? '';
+      const agentIds = (Array.isArray(raw) ? raw.join(',') : raw)
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s !== '');
+      return service.multiAgentRun(workspaceId, req.params.id, agentIds);
+    },
+  );
 
   // ---- Delete a whole review run (one agent's pass) + its findings --------
   app.delete('/reviews/:id', { schema: { params: IdParams } }, async (req) => {

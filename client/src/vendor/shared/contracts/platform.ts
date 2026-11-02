@@ -335,6 +335,7 @@ export type ContextAttachmentsSaved = z.infer<typeof ContextAttachmentsSaved>;
 export const RunRequest = z.object({
   agentId: z.string().optional(),
   all: z.boolean().optional(),
+  agent_ids: z.array(z.string()).optional(),
 });
 export type RunRequest = z.infer<typeof RunRequest>;
 

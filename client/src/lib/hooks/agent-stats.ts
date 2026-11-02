@@ -2,7 +2,7 @@
    GET /agents/:id/stats aggregates stored runs and findings; it never calls a model. */
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AgentStats } from "../types";
 
@@ -17,6 +17,17 @@ export function agentStatsKey(agentId: string, period: AgentStatsPeriod) {
 
 export function agentStatsPath(agentId: string, period: AgentStatsPeriod): string {
   return `/agents/${encodeURIComponent(agentId)}/stats?${new URLSearchParams({ from: period.from, to: period.to })}`;
+}
+
+/** One request per agent; shares the cache with `useAgentStats`. */
+export function useAgentsStats(agentIds: string[], period: AgentStatsPeriod) {
+  return useQueries({
+    queries: agentIds.map((agentId) => ({
+      queryKey: agentStatsKey(agentId, period),
+      queryFn: () => api.get<AgentStats>(agentStatsPath(agentId, period)),
+      retry: false,
+    })),
+  });
 }
 
 /** No placeholderData: a new period must never show the previous period's numbers. */

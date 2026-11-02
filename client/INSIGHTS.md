@@ -215,6 +215,15 @@ whose content is a labelled `<button>`. Query the button by name and assert
 `aria-sort` on `button.closest("th")`.
 Evidence: `client/src/app/agent-performance/_components/AgentPerformanceView/AgentPerformanceView.test.tsx:301`
 
+### A checkbox popover cannot use the kit Dropdown, and its Checkbox is a label
+`2026-10-23` — The kit `Dropdown` closes on every item click, so a menu of
+checkboxes (pick several agents, then run) has to be a local popover. The kit
+`Checkbox` is a `label` wrapping a `role="checkbox"` button, so in tests call
+`fireEvent.click` on the button, not on the label text. The `FindingCard` body
+(Accept, Dismiss) is collapsed by default: click its title before asserting
+the actions.
+Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunReviewDropdown/RunReviewDropdown.tsx`
+
 ## Recurring Errors & Fixes
 <!-- Errors seen more than once, each with the fix that worked. -->
 
@@ -224,6 +233,16 @@ Evidence: `client/src/app/agent-performance/_components/AgentPerformanceView/Age
 in `QueryClientProvider` and load the new messages namespace (`eval`). Expect
 this for any existing test of a parent that starts rendering a hook-using child.
 Evidence: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/FindingCard.test.tsx`
+
+### An i18n key built from a wire enum must match the enum's casing
+`2026-10-23` — `ConflictsSection` looked up `t(`severity.${take.verdict}`)`
+with the uppercase wire value (`CRITICAL`, `WARNING`, `SUGGESTION`), but
+`runs.severity.*` has only lowercase keys, so next-intl raised
+`MISSING_MESSAGE runs.severity.CRITICAL` and the label never rendered. A
+mocked-`t` test would not catch it. Lowercase the value at the lookup, or
+key the messages like the contract.
+Evidence: `client/src/app/multi-agent/[prId]/_components/MultiAgentResultsView/_components/ConflictsSection/ConflictsSection.tsx:57`,
+`client/messages/en/runs.json:130`
 
 ### `@codemirror/view` and `@codemirror/state` are not installed — tsc and 3 test files fail
 `2026-10-23` — `client/package.json` declares only `@codemirror/lang-markdown`

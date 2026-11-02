@@ -42,6 +42,7 @@ export type { Risk, RiskSeverity, BriefReviewFocusItem, BriefMissingInput } from
 export type { PrBrief, SmartDiff, BlastRadius, DownstreamImpact, BlastCaller, ChangedSymbol } from "@devdigest/shared";
 export type { PrIntentRecord, IntentSource, IntentChangeType, IntentBasis } from "@devdigest/shared";
 export type { AgentPerf, AgentPerfRow, PerfCostSegment, PerfCostSegmentKind, PerfPeriod, PerfMostActive, PerfSeriesPoint, AgentStats } from "@devdigest/shared";
+export type { MultiAgentRun, AgentColumn, Conflict, ConflictTake, AgreedBy } from "@devdigest/shared";
 
 export type { EvalCase, EvalCaseStatus, EvalCaseResult, EvalExpectationType, EvalSetRun, EvalSetRunStatus, EvalSetRunDetail } from "@devdigest/shared";
 export type { EvalAgentSummary, EvalRecentRun, EvalWorkspaceDashboard, EvalMetricPoint, EvalAgentDashboard } from "@devdigest/shared";
