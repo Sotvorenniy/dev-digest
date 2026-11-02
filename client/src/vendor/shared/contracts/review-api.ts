@@ -18,10 +18,22 @@ import {
  * state and the `review_id` it belongs to.
  */
 
+/** Another agent's finding that overlaps this one (same file, overlapping lines). */
+export const AgreedBy = z.object({
+  agent_id: z.string(),
+  agent_name: z.string().nullable(),
+  finding_id: z.string(),
+});
+export type AgreedBy = z.infer<typeof AgreedBy>;
+
 export const FindingRecord = Finding.extend({
   review_id: z.string(),
   accepted_at: z.string().nullable(),
   dismissed_at: z.string().nullable(),
+  agent_id: z.string().nullable(),
+  agent_name: z.string().nullable(),
+  group_key: z.string().nullable(),
+  agreed_by: z.array(AgreedBy),
 });
 export type FindingRecord = z.infer<typeof FindingRecord>;
 

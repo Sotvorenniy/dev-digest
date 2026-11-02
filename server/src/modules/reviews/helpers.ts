@@ -37,6 +37,10 @@ export interface ReviewDtoFinding extends Finding {
   review_id: string;
   accepted_at: string | null;
   dismissed_at: string | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  group_key: string | null;
+  agreed_by: { agent_id: string; agent_name: string | null; finding_id: string }[];
 }
 
 export interface ReviewDto {
@@ -73,6 +77,11 @@ export function findingRowToDto(row: FindingRow): ReviewDtoFinding {
     review_id: row.reviewId,
     accepted_at: row.acceptedAt?.toISOString() ?? null,
     dismissed_at: row.dismissedAt?.toISOString() ?? null,
+    // Neutral defaults; `attributeFindings` fills these for the PR-wide reads.
+    agent_id: null,
+    agent_name: null,
+    group_key: null,
+    agreed_by: [],
   };
 }
 

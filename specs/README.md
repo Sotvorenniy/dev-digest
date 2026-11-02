@@ -32,3 +32,4 @@ the `implementation-planner` takes a spec as input.
 - [SPEC-05 — Agent editor Stats tab](2026-10-18-agent-stats-tab.md) — implemented
 - [SPEC-06 — Eval Pipeline](2026-10-22-eval-pipeline.md) — implemented
 - [SPEC-07 — Eval Dashboard](2026-10-22-eval-dashboard.md) — implemented
+- [SPEC-08 — Multi-Agent Review](multi-agent-review.md) — implemented

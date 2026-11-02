@@ -35,6 +35,11 @@
   },
   "runReview": {
     "runAll": "Run all enabled agents",
+    "runMulti": "Run multi-agent review ({count})",
+    "clear": "Clear",
+    "pickAgents": "Pick agents to run",
+    "rateLimited": "Too many reviews started. Wait a moment and try again.",
+    "noEnabled": "No enabled agents.",
     "configureAgents": "Configure agents…",
     "running": "Running…",
     "runReview": "Run Review",

@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { Severity } from './findings.js';
+import { FindingRecord } from './review-api.js';
 
 /**
  * A5 — Observability / Multi-agent contracts (L07).
  *
  * These are NEW contracts (A5 owns this file; the barrel re-exports it). They
  * sit alongside A2's `review-api.ts`:
- *   - MultiAgentRun        the response of POST /pulls/:id/multi-agent-run
+ *   - MultiAgentRun        the response of GET /pulls/:id/multi-agent
  *   - AgentColumn          one agent's column in the multi-agent view
  *   - Conflict / ConflictTake  where agents disagree on the same file:line
  *   - AgentStats           per-agent quality aggregates (GET /agents/:id/stats)
@@ -33,18 +34,19 @@ export type AgentColumnFinding = z.infer<typeof AgentColumnFinding>;
 
 /** One agent's result column in the multi-agent review. */
 export const AgentColumn = z.object({
-  run_id: z.string(),
+  run_id: z.string().nullable(),
   agent_id: z.string(),
   agent_name: z.string(),
   provider: z.string().nullable(),
   model: z.string().nullable(),
-  status: z.enum(['done', 'failed', 'running']),
+  status: z.enum(['done', 'failed', 'cancelled', 'running', 'none']),
+  error: z.string().nullable(),
   verdict: z.string().nullable(),
   score: z.number().int().nullable(),
   summary: z.string().nullable(),
   duration_ms: z.number().int().nullable(),
   cost_usd: z.number().nullable(),
-  findings: z.array(AgentColumnFinding),
+  findings: z.array(FindingRecord),
 });
 export type AgentColumn = z.infer<typeof AgentColumn>;
 
@@ -66,17 +68,20 @@ export type ConflictTake = z.infer<typeof ConflictTake>;
 export const Conflict = z.object({
   file: z.string(),
   line: z.number().int(),
+  end_line: z.number().int(),
+  group_key: z.string(),
+  is_conflict: z.boolean(),
   title: z.string(),
   takes: z.array(ConflictTake),
 });
 export type Conflict = z.infer<typeof Conflict>;
 
-/** Response of POST /pulls/:id/multi-agent-run and GET /pulls/:id/multi-agent. */
+/** Response of GET /pulls/:id/multi-agent. */
 export const MultiAgentRun = z.object({
-  id: z.string(),
+  id: z.string().nullable(),
   pr_id: z.string(),
   pr_number: z.number().int().nullish(),
-  ran_at: z.string(),
+  ran_at: z.string().nullable(),
   agent_count: z.number().int(),
   total_duration_ms: z.number().int(),
   total_cost_usd: z.number().nullable(),

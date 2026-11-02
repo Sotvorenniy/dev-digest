@@ -4,6 +4,17 @@
     "trifecta": "trifecta"
   },
   "column": {
+    "status": {
+      "done": "done",
+      "running": "running",
+      "failed": "failed",
+      "cancelled": "cancelled",
+      "none": "not run"
+    },
+    "score": "Score {score} of 100",
+    "noScore": "—",
+    "duration": "Duration",
+    "cost": "Cost",
     "noFindings": "No findings.",
     "findingsCount": "{count, plural, one {# finding} other {# findings}}"
   },
@@ -123,19 +134,29 @@
   },
   "page": {
     "title": "Multi-Agent Review",
-    "subtitle": "this PR through every enabled agent in parallel",
+    "subtitle": "this PR through the agents you pick, one after another",
     "selectPr": "Select PR",
     "prItem": "#{number} · {title}",
     "view": {
+      "label": "Results view",
       "columns": "columns",
       "tabs": "tabs"
     },
+    "configure": {
+      "prLabel": "Pull request",
+      "agentsLabel": "Agents",
+      "noEstimate": "no estimate yet",
+      "estimate": "≈ {duration} · {cost}",
+      "footer": "≈ {duration} · {cost} · sequential",
+      "run": "Run multi-agent review ({count})",
+      "rateLimited": "Too many reviews started. Wait a moment and try again."
+    },
     "runAll": "Run all agents",
     "running": "Running…",
-    "meta": "{count} agents · fan-out via p-queue · {duration}s total · {cost}",
+    "meta": "{count} agents · sequential · {duration} total · {cost}",
     "noAgents": {
       "title": "Enable agents to run reviews",
-      "body": "Multi-agent review runs the PR through every enabled agent in parallel. You have no agents enabled yet.",
+      "body": "Multi-agent review runs the PR through the agents you pick. You have no agents enabled yet.",
       "cta": "Go to Agents"
     },
     "noRun": {

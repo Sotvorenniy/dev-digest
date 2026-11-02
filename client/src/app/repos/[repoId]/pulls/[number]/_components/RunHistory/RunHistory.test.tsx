@@ -60,6 +60,10 @@ function finding(o: Partial<FindingRecord> & { id: string }): FindingRecord {
     review_id: "r1",
     accepted_at: null,
     dismissed_at: null,
+    agent_id: null,
+    agent_name: null,
+    group_key: null,
+    agreed_by: [],
     ...o,
   };
 }

@@ -1,9 +1,10 @@
 import type { Container } from '../../platform/container.js';
-import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
+import type { AgentColumn, FindingActionKind, MultiAgentRun, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import { resolveRunCost, type CostEstimator } from '../../platform/run-cost.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
+import { assertAgentIdList, attributeFindings, buildConflicts, isAgentIdShape } from './domain.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
@@ -46,8 +47,21 @@ export class ReviewService {
    */
   async resolveTargets(
     workspaceId: string,
-    opts: { agentId?: string; all?: boolean },
+    opts: { agentId?: string; all?: boolean; agent_ids?: string[] },
   ): Promise<AgentRow[]> {
+    if (opts.agent_ids !== undefined) {
+      if (opts.agentId !== undefined || opts.all !== undefined) {
+        throw new AppError('invalid_run_request', 'agent_ids cannot be combined with agentId or all', 400);
+      }
+      assertAgentIdList(opts.agent_ids);
+      const targets: AgentRow[] = [];
+      for (const id of opts.agent_ids) {
+        const agent = isAgentIdShape(id) ? await this.agents.getById(workspaceId, id) : undefined;
+        if (!agent || !agent.enabled) throw new NotFoundError('Agent not found');
+        targets.push(agent);
+      }
+      return targets;
+    }
     if (opts.all) return this.agents.listEnabled(workspaceId);
     if (opts.agentId) {
       const agent = await this.agents.getById(workspaceId, opts.agentId);
@@ -170,9 +184,77 @@ export class ReviewService {
         if (a) names.set(review.agentId, a.name);
       }
     }
-    return rows.map(({ review, findings }) =>
-      reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
+    return attributeFindings<ReviewDtoFinding, ReviewDto>(
+      rows.map(({ review, findings }) =>
+        reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
+      ),
     );
+  }
+
+  /**
+   * Latest-run column per requested agent, plus server-computed conflict groups.
+   * Order follows `agentIds`; a disabled agent is allowed (it may have old runs).
+   */
+  async multiAgentRun(workspaceId: string, prId: string, agentIds: string[]): Promise<MultiAgentRun> {
+    assertAgentIdList(agentIds);
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const agents: AgentRow[] = [];
+    for (const id of agentIds) {
+      const agent = isAgentIdShape(id) ? await this.agents.getById(workspaceId, id) : undefined;
+      if (!agent) throw new NotFoundError('Agent not found');
+      agents.push(agent);
+    }
+
+    const runs = await this.repo.listRunsForPull(workspaceId, prId, this.estimateCost);
+    const reviews = await this.reviewsForPull(workspaceId, prId);
+
+    const columns: AgentColumn[] = agents.map((agent) => {
+      const run = runs.find((r) => r.agent_id === agent.id);
+      if (!run) {
+        return {
+          run_id: null, agent_id: agent.id, agent_name: agent.name, provider: null, model: null,
+          status: 'none', error: null, verdict: null, score: null, summary: null,
+          duration_ms: null, cost_usd: null, findings: [],
+        };
+      }
+      const review = reviews.find((rv) => rv.run_id === run.run_id);
+      return {
+        run_id: run.run_id,
+        agent_id: agent.id,
+        agent_name: agent.name,
+        provider: run.provider,
+        model: run.model,
+        status: run.status as AgentColumn['status'],
+        error: run.error,
+        verdict: review?.verdict ?? null,
+        score: run.score,
+        summary: review?.summary ?? null,
+        duration_ms: run.duration_ms,
+        cost_usd: run.cost_usd,
+        findings: review?.findings ?? [],
+      };
+    });
+
+    const durations = columns.flatMap((c) => (c.duration_ms != null ? [c.duration_ms] : []));
+    const costs = columns.flatMap((c) => (c.cost_usd != null ? [c.cost_usd] : []));
+    const ranAt = columns
+      .map((c) => runs.find((r) => r.run_id === c.run_id)?.ran_at ?? null)
+      .filter((x): x is string => x !== null)
+      .sort()
+      .pop() ?? null;
+
+    return {
+      id: null,
+      pr_id: prId,
+      pr_number: pull.number,
+      ran_at: ranAt,
+      agent_count: columns.length,
+      total_duration_ms: durations.reduce((a, b) => a + b, 0),
+      total_cost_usd: costs.length > 0 ? costs.reduce((a, b) => a + b, 0) : null,
+      columns,
+      conflicts: buildConflicts(columns),
+    };
   }
 
   /**

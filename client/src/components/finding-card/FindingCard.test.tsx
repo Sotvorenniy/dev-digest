@@ -2,8 +2,8 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
-import messages from "../../../../../../../../messages/en/prReview.json";
-import evalMessages from "../../../../../../../../messages/en/eval.json";
+import messages from "../../../messages/en/prReview.json";
+import evalMessages from "../../../messages/en/eval.json";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FindingCard } from "./FindingCard";
 
@@ -44,6 +44,10 @@ const FINDING: FindingRecord = {
   review_id: "r1",
   accepted_at: null,
   dismissed_at: null,
+  agent_id: null,
+  agent_name: null,
+  group_key: null,
+  agreed_by: [],
 };
 
 function renderWithIntl(ui: React.ReactElement) {

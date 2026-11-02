@@ -1,0 +1,38 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  root: { display: "flex", flexDirection: "column", gap: 20 } satisfies CSSProperties,
+  field: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+  label: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)" } satisfies CSSProperties,
+  select: {
+    padding: "8px 10px",
+    background: "var(--bg-surface)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-strong)",
+    borderRadius: 8,
+    fontSize: 14,
+    maxWidth: 520,
+  } satisfies CSSProperties,
+  cards: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: 14,
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+    cursor: "pointer",
+    outlineOffset: 2,
+  } satisfies CSSProperties,
+  cardSelected: { border: "1px solid var(--accent)" } satisfies CSSProperties,
+  cardHead: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" } satisfies CSSProperties,
+  cardName: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)" } satisfies CSSProperties,
+  cardMeta: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  cardSummary: { fontSize: 13, color: "var(--text-secondary)", overflowWrap: "anywhere" } satisfies CSSProperties,
+  footer: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" } satisfies CSSProperties,
+  footerText: { fontSize: 13, color: "var(--text-secondary)" } satisfies CSSProperties,
+  error: { fontSize: 13, color: "var(--danger)" } satisfies CSSProperties,
+  empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12 } satisfies CSSProperties,
+  link: { color: "var(--accent)", fontSize: 14 } satisfies CSSProperties,
+};
