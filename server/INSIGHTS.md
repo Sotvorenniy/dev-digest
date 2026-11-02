@@ -194,6 +194,33 @@ transaction. A new eval owner kind needs the same line, or it leaves orphans.
 Evidence: `server/src/modules/agents/repository.ts` (`deleteById`),
 `server/src/db/schema/eval.ts`
 
+### Eval metrics react to a system-prompt edit — two run pairs on the same case set
+`2026-11-02` — Security Reviewer, `eval_set_runs`, same `case_set` inside each
+pair, only `system_prompt` differs (full ~5.3 KB prompt → 25-char stub
+"you are security reviewer"). Each run is one sample, so read the direction,
+not the size.
+
+| pair | prompt | cases passed | recall | precision |
+|---|---|---|---|---|
+| 1 (4 cases) | A: v2, 5274 chars | 2/4 | 1.000 | 0.375 |
+| 1 (4 cases) | B: v3, 25 chars | 1/4 | 0.500 | 0.111 |
+| 2 (3 cases) | A: v4, 5437 chars | 2/3 | 1.000 | 0.333 |
+| 2 (3 cases) | B: v5, 25 chars | 0/3 | 0.000 | 0.000 |
+
+Both pairs drop on both metrics when the prompt shrinks to the stub. A 16-char
+edit does not move them: same 3 cases, v6 (5437 chars) → v7 (5421 chars, stray
+duplicated line `was thorough.` removed) both gave 1/3 passed, recall 1.000,
+precision 0.250. A mid-size edit does move them: v6 → v9 (5556 chars, appended a
+"# Reporting threshold" block: report only CRITICAL, omit WARNING/SUGGESTION)
+went 1/3 → 2/3 passed, recall 1.000 → 1.000, precision 0.250 → 0.333. So the
+metrics follow substantive prompt changes, not cosmetic ones.
+Runs of the
+same prompt vary too (v6 twice: identical; v2 at 21:39 vs 21:43 on different
+case sets: recall 0.333 vs 1.000), so compare only runs with equal `case_set`.
+Evidence: `eval_set_runs` rows of agent `08c77435-…` started
+`2026-10-22` 21:43, 21:49, 22:09, 22:11; metric definitions in
+`server/docs/eval-pipeline.md` (lines 74-75)
+
 ## Tool & Library Notes
 <!-- Quirks of Fastify, Drizzle, Postgres/pgvector, tsx, vitest. -->
 
