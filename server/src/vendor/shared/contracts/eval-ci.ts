@@ -191,6 +191,7 @@ export const CiInstallation = z.object({
   repo: z.string(),
   target_type: CiTarget,
   installed_at: z.string(),
+  pr_url: z.string().nullish(),
 });
 export type CiInstallation = z.infer<typeof CiInstallation>;
 

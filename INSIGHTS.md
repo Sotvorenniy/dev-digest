@@ -92,6 +92,17 @@ double-load it. Verified by headless probe — facts from root and from
 `client/AGENTS.md` both resolve.
 Evidence: `CLAUDE.md:1`, `client/CLAUDE.md:1`, `AGENTS.md:75`
 
+### Export to CI runs PR-branch runner code with the API key; one agent per repo
+`2026-10-23` — The generated workflow runs `node .devdigest/runner/index.js`
+from the PR branch with `OPENROUTER_API_KEY` in env, so anyone with write
+access can change the runner in a same-repo PR and read the key. Fork PRs are
+skipped with `head.repo.full_name == github.repository`. The runner needs
+exactly one `.devdigest/agents/*.yaml`, so export is one agent per repo.
+`agent-runner/dist/` is git-ignored: the server needs a pre-built
+`agent-runner/dist/index.js` or export returns `config_error`.
+Evidence: `server/src/modules/ci/workflow.ts:25`,
+`agent-runner/src/manifest.ts:40-44`
+
 ## Tool & Library Notes
 <!-- Dependency quirks: Drizzle, Fastify, Next, pgvector, OpenRouter. -->
 
@@ -129,6 +140,14 @@ Per-environment workaround, not a repo fix — full writeup in
 `client/INSIGHTS.md` and `server/INSIGHTS.md`.
 Evidence: `client/INSIGHTS.md` ("pnpm is broken" entry), `server/INSIGHTS.md`
 (same)
+
+`2026-10-23` — Correction: on Node v22.23.3 the stock `pnpm` 12.14 works, so
+the corepack failure above is specific to Node 20. `pnpm install
+--frozen-lockfile` in `server/` and `client/` and `npm ci` in `reviewer-core/`
+all passed. A fresh worktree has no `node_modules`, so `check-changed.sh` and
+`drizzle-kit generate` fail until those installs run.
+Evidence: `.claude/scripts/check-changed.sh server client` ("node_modules
+missing")
 
 ## Session Notes
 <!-- Dated summaries. Two lines each — this is not a chat replay. -->
