@@ -55,6 +55,9 @@ import { AgentPerformanceRepository } from '../modules/agent-performance/reposit
 import { AgentPerformanceService } from '../modules/agent-performance/service.js';
 import { EvalRepository, parseCaseDiff } from '../modules/eval/repository.js';
 import { EvalService } from '../modules/eval/service.js';
+import { CiRepository } from '../modules/ci/repository.js';
+import { CiService } from '../modules/ci/service.js';
+import { readLocalRunnerBundle } from '../adapters/runner-bundle/local.js';
 import { SECRET_KEY_BY_PROVIDER } from '../modules/settings/constants.js';
 import { LLM_TIMEOUT_MS, ONBOARDING_JOB_KIND } from '../modules/onboarding/constants.js';
 import { loadPromptTemplate } from './prompts.js';
@@ -133,6 +136,7 @@ export class Container {
   private _briefService?: BriefService;
   private _agentPerformanceService?: AgentPerformanceService;
   private _evalService?: EvalService;
+  private _ciService?: CiService;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -344,6 +348,15 @@ export class Container {
       providerConfigured: async (provider) =>
         !!this.overrides.llm?.[provider] || !!(await this.secrets.get(SECRET_KEY_BY_PROVIDER[provider])),
       parseDiff: parseCaseDiff,
+    }));
+  }
+
+  /** Export to CI: manifest/workflow generation + install PR. */
+  get ciService(): CiService {
+    return (this._ciService ??= new CiService({
+      repo: new CiRepository(this.db),
+      github: () => this.github(),
+      readRunnerBundle: readLocalRunnerBundle,
     }));
   }
 

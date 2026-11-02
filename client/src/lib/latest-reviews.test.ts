@@ -34,6 +34,10 @@ function review(id: string, agentId: string | null, findings = 1): ReviewRecord 
       review_id: id,
       accepted_at: null,
       dismissed_at: null,
+      agent_id: null,
+      agent_name: null,
+      group_key: null,
+      agreed_by: [],
     })),
   };
 }

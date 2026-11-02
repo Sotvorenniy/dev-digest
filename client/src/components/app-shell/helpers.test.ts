@@ -24,3 +24,10 @@ describe("activeKeyFor agent performance", () => {
     expect(activeKeyFor("/agents/a1")).toBe("agents");
   });
 });
+
+describe("activeKeyFor multi-agent review", () => {
+  it("marks the configure and results routes as multi-agent (SPEC-08 AC18)", () => {
+    expect(activeKeyFor("/multi-agent")).toBe("multi-agent");
+    expect(activeKeyFor("/multi-agent/abc")).toBe("multi-agent");
+  });
+});

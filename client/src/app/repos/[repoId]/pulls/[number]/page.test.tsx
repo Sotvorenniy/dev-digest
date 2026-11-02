@@ -41,7 +41,7 @@ vi.mock("../../../../../lib/hooks/reviews", () => ({
 vi.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }));
 vi.mock("./_components/PrDetailHeader", () => ({ PrDetailHeader: () => null }));
 vi.mock("./_components/FindingsTab", () => ({ FindingsTab: () => null }));
-vi.mock("./_components/RunTraceDrawer", () => ({ default: () => null }));
+vi.mock("@/components/run-trace-drawer", () => ({ default: () => null }));
 vi.mock("./_components/OverviewTab", () => ({
   OverviewTab: (p: Record<string, unknown>) => {
     overviewProps(p);

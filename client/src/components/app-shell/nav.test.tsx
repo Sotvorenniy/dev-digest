@@ -32,18 +32,23 @@ describe("sidebar grouping", () => {
     expect(within(workspace).queryByText("Skills")).not.toBeInTheDocument();
   });
 
-  it("puts only Agent Performance in GLOBAL (SPEC-04 AC1)", () => {
-    expect(keysOf("GLOBAL")).toEqual(["agent-performance"]);
-    const item = NAV.find((g) => g.section === "GLOBAL")!.items[0]!;
-    expect(item.href).toBe("/agent-performance");
-    expect(item.label).toBe(shell.nav["agent-performance"]);
+  it("puts Multi-Agent Review before Agent Performance in GLOBAL (SPEC-08 AC18)", () => {
+    expect(keysOf("GLOBAL")).toEqual(["multi-agent", "agent-performance"]);
+    const items = NAV.find((g) => g.section === "GLOBAL")!.items;
+    expect(items[0]!.href).toBe("/multi-agent");
+    expect(items[0]!.label).toBe(shell.nav["multi-agent"]);
+    expect(items[1]!.href).toBe("/agent-performance");
+    expect(items[1]!.label).toBe(shell.nav["agent-performance"]);
   });
 
-  it("renders the Agent Performance link under the GLOBAL heading, and no other GLOBAL entry", () => {
-    render(<Sidebar ctx={{ activeKey: "agent-performance" }} />);
+  it("renders the Multi-Agent Review link as current on its route, and no other GLOBAL entry (SPEC-08 AC18)", () => {
+    render(<Sidebar ctx={{ activeKey: "multi-agent" }} />);
     const global = screen.getByText("GLOBAL").parentElement!;
+    const link = within(global).getByText("Multi-Agent Review").closest("a")!;
+    expect(link).toHaveAttribute("href", "/multi-agent");
+    expect(link.querySelector('[aria-current="page"]')).not.toBeNull();
     expect(within(global).getByText("Agent Performance").closest("a")).toHaveAttribute("href", "/agent-performance");
-    for (const label of [shell.nav.memory, shell.nav["multi-agent"], shell.nav["ci-runs"]]) {
+    for (const label of [shell.nav.memory, shell.nav["ci-runs"]]) {
       expect(within(global).queryByText(label)).not.toBeInTheDocument();
     }
   });

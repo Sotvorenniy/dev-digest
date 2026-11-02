@@ -102,5 +102,82 @@
   },
   "page": {
     "crumb": "CI Runs"
+  },
+  "tab": {
+    "title": "Continuous Integration",
+    "activeIn": "Active in {count} repos",
+    "empty": {
+      "title": "Not in CI yet",
+      "body": "Add this agent to CI to review every pull request automatically."
+    },
+    "addToCi": "Add to CI",
+    "ghaChip": "GitHub Actions",
+    "prOpened": "PR opened",
+    "failOn": {
+      "label": "Fail CI on",
+      "critical": "Critical",
+      "warning": "Warning",
+      "never": "Never"
+    },
+    "loadError": "Could not load CI installations."
+  },
+  "wizard": {
+    "title": "Add to CI",
+    "close": "Close",
+    "back": "Back",
+    "continue": "Continue",
+    "install": "Install",
+    "installing": "Installing…",
+    "currentStep": "Current step: {step}",
+    "steps": {
+      "target": "Target",
+      "preview": "Preview",
+      "configure": "Configure",
+      "install": "Install"
+    },
+    "target": {
+      "gha": "GitHub Actions",
+      "circle": "CircleCI",
+      "jenkins": "Jenkins",
+      "cli": "Generic CLI",
+      "comingSoon": "Coming soon",
+      "repoLabel": "Target repository",
+      "repoPlaceholder": "Select a repository",
+      "repoTaken": "This repository is already wired to another agent ({agent}).",
+      "providerUnsupported": "Only agents that use OpenRouter can be exported to CI."
+    },
+    "preview": {
+      "publicWarning": "These files will be committed to the repository. Anyone with access to it can read them, so make sure they contain nothing private.",
+      "bundleSize": "Bundled runner, {size}",
+      "copy": "Copy",
+      "copied": "Copied",
+      "loading": "Generating…"
+    },
+    "configure": {
+      "triggersLabel": "Run on pull request",
+      "triggers": {
+        "opened": "Opened",
+        "synchronize": "Updated",
+        "reopened": "Reopened"
+      },
+      "postAsLabel": "Post results as",
+      "postAs": {
+        "githubReview": "GitHub review",
+        "prComment": "PR comment",
+        "none": "None (exit code only)"
+      }
+    },
+    "install": {
+      "cardTitle": "Open a PR with these files",
+      "cardBody": "DevDigest opens a pull request in {repo} that adds the workflow and the agent config.",
+      "secretHint": "Add OPENROUTER_API_KEY to the repository's Actions secrets before the workflow runs.",
+      "prLink": "View pull request",
+      "error": {
+        "config": "The export could not be generated for this agent. Check its configuration.",
+        "external": "GitHub rejected the request. Check the repository access and try again.",
+        "rateLimited": "Too many requests. Wait a moment and try again.",
+        "generic": "Something went wrong. Try again."
+      }
+    }
   }
 }

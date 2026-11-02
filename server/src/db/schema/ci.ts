@@ -1,15 +1,34 @@
-import { pgTable, uuid, text, integer, timestamp, doublePrecision } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  timestamp,
+  doublePrecision,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import { workspaces } from './core';
 import { agents } from './agents';
 
-export const ciInstallations = pgTable('ci_installations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  agentId: uuid('agent_id')
-    .notNull()
-    .references(() => agents.id, { onDelete: 'cascade' }),
-  repo: text('repo').notNull(),
-  targetType: text('target_type', { enum: ['gha', 'circle', 'jenkins', 'cli'] }).notNull(),
-  installedAt: timestamp('installed_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const ciInstallations = pgTable(
+  'ci_installations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    repo: text('repo').notNull(),
+    targetType: text('target_type', { enum: ['gha', 'circle', 'jenkins', 'cli'] }).notNull(),
+    installedAt: timestamp('installed_at', { withTimezone: true }).defaultNow().notNull(),
+    prUrl: text('pr_url'),
+  },
+  (t) => ({
+    workspaceRepoUq: uniqueIndex('ci_installations_workspace_repo_uq').on(t.workspaceId, t.repo),
+  }),
+);
 
 export const ciRuns = pgTable('ci_runs', {
   id: uuid('id').primaryKey().defaultRandom(),
